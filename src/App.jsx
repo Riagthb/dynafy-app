@@ -6159,14 +6159,15 @@ export default function App() {
               </button>
             </>
           ) : (
-            /* Collapsed: logo IS de toggle knop */
+            /* Collapsed: logo + klein pijltje = toggle knop */
             <button
               onClick={() => setSidebarOpen(true)}
               title="Uitklappen"
-              style={{ background: "none", border: "none", cursor: "pointer", padding: 0, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", transition: "transform 0.15s, filter 0.15s" }}
-              onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.08)"; e.currentTarget.style.filter = "brightness(1.15) drop-shadow(0 0 6px rgba(99,102,241,0.5))"; }}
+              style={{ background: "none", border: "none", cursor: "pointer", padding: 0, borderRadius: 10, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, transition: "transform 0.15s, filter 0.15s" }}
+              onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.06)"; e.currentTarget.style.filter = "brightness(1.12) drop-shadow(0 0 6px rgba(99,102,241,0.5))"; }}
               onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.filter = "none"; }}>
-              <DynafyLogo size={34} bg={theme === "light" ? "#d97706" : isCloud ? "#4361ee" : undefined} />
+              <DynafyLogo size={32} bg={theme === "light" ? "#d97706" : isCloud ? "#4361ee" : undefined} />
+              <ChevronRight size={11} style={{ color: "#475569", transform: "rotate(0deg)" }} />
             </button>
           )}
         </div>
