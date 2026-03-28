@@ -2209,7 +2209,7 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
   const [formMode, setFormMode] = useState("choose"); // "choose" | "transaction" | "manual"
   const [txSearch, setTxSearch] = useState("");
   const [selectedTx, setSelectedTx] = useState(null);
-  const [form, setForm] = useState({ name: "", type: "crypto", invested: "", currentValue: "", ticker: "", units: "", savingsCurrency: "EUR", linkedGoalId: "" });
+  const [form, setForm] = useState({ name: "", type: "crypto", invested: "", currentValue: "", ticker: "", units: "", savingsCurrency: "EUR", linkedGoalId: "", address: "", wozValue: "", mortgage: "" });
   const [prices, setPrices] = useState({});
   const [globalLoading, setGlobalLoading] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(null);
@@ -2219,7 +2219,7 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
     setFormMode("choose");
     setTxSearch("");
     setSelectedTx(null);
-    setForm({ name: "", type: "crypto", invested: "", currentValue: "", ticker: "", units: "", savingsCurrency: "EUR", linkedGoalId: "" });
+    setForm({ name: "", type: "crypto", invested: "", currentValue: "", ticker: "", units: "", savingsCurrency: "EUR", linkedGoalId: "", address: "", wozValue: "", mortgage: "" });
   };
 
   // Transactions with category "investments" for the fetch-from-tx flow
@@ -2554,13 +2554,23 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
     const invested = isSavings ? parseFloat((savingsAmount * rate).toFixed(2)) : savingsAmount;
     const currentValue = form.currentValue ? parseFloat(form.currentValue) : invested;
     const units = form.units ? parseFloat(form.units) : null;
+    const isRealEstate = form.type === "real_estate";
+    // Real estate: currentValue = WOZ - mortgage
+    let finalCurrentValue = currentValue;
+    if (isRealEstate && form.wozValue) {
+      const woz = parseFloat(form.wozValue) || 0;
+      const mort = parseFloat(form.mortgage) || 0;
+      finalCurrentValue = parseFloat((woz - mort).toFixed(2));
+    }
     const invId = Date.now();
     setInvs(prev => [...prev, {
       id: invId, name: form.name, type: form.type,
-      invested, currentValue,
-      ticker: form.ticker, units,
+      invested, currentValue: finalCurrentValue,
+      ticker: isRealEstate ? undefined : form.ticker,
+      units: (isSavings || isRealEstate) ? null : units,
       ...(isSavings && cur !== "EUR" ? { savingsCurrency: cur, savingsAmount } : {}),
-      ...(form.linkedGoalId ? { linkedGoalId: parseInt(form.linkedGoalId) } : {})
+      ...(form.linkedGoalId ? { linkedGoalId: parseInt(form.linkedGoalId) } : {}),
+      ...(isRealEstate ? { address: form.address, wozValue: parseFloat(form.wozValue) || 0, mortgage: parseFloat(form.mortgage) || 0 } : {})
     }]);
     // Update linked goal's current amount
     if (form.linkedGoalId && setGoals) {
@@ -2710,14 +2720,14 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
                 ))}
               </div>
 
-              {/* Name + Ticker (ticker hidden for savings) */}
-              <div style={{ display: "grid", gridTemplateColumns: form.type === "savings" ? "1fr" : "1fr 1fr", gap: 12 }}>
+              {/* Name + Ticker/Address row */}
+              <div style={{ display: "grid", gridTemplateColumns: (form.type === "savings" || form.type === "real_estate") ? "1fr" : "1fr 1fr", gap: 12 }}>
                 <div>
                   <label style={labelStyle}>{lang === "nl" ? "Naam" : "Name"}</label>
                   <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
-                    placeholder={form.type === "crypto" ? "Bitcoin" : form.type === "stocks" ? "Apple" : form.type === "metals" ? "Goud" : form.type === "savings" ? "ING Spaarrekening" : "Naam"} style={inputStyle} />
+                    placeholder={form.type === "crypto" ? "Bitcoin" : form.type === "stocks" ? "Apple" : form.type === "metals" ? "Goud" : form.type === "savings" ? "ING Spaarrekening" : form.type === "real_estate" ? "Woning Amsterdam" : "Naam"} style={inputStyle} />
                 </div>
-                {form.type !== "savings" && (
+                {form.type !== "savings" && form.type !== "real_estate" && (
                   <div>
                     <label style={labelStyle}>Ticker {form.type === "crypto" ? "(CoinGecko ID)" : form.type === "metals" ? "(metaalnaam)" : "(beurssymbool)"}</label>
                     <input value={form.ticker} onChange={e => setForm(p => ({ ...p, ticker: e.target.value }))}
@@ -2726,6 +2736,14 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
                   </div>
                 )}
               </div>
+              {/* Real Estate: Address field */}
+              {form.type === "real_estate" && (
+                <div>
+                  <label style={labelStyle}>{lang === "nl" ? "Adres" : "Address"}</label>
+                  <input value={form.address} onChange={e => setForm(p => ({ ...p, address: e.target.value }))}
+                    placeholder="Keizersgracht 123, Amsterdam" style={inputStyle} />
+                </div>
+              )}
 
               {/* Invested + Units */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -2758,13 +2776,35 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
                     </>
                   ) : (
                     <>
-                      <label style={labelStyle}>{lang === "nl" ? "Geïnvesteerd (€)" : "Invested (€)"}</label>
+                      <label style={labelStyle}>
+                        {form.type === "real_estate"
+                          ? (lang === "nl" ? "Aankoopprijs (€)" : "Purchase price (€)")
+                          : (lang === "nl" ? "Geïnvesteerd (€)" : "Invested (€)")}
+                      </label>
                       <input type="number" value={form.invested} onChange={e => setForm(p => ({ ...p, invested: e.target.value }))}
                         placeholder="0,00" style={inputStyle} />
                     </>
                   )}
                 </div>
-                {form.type !== "savings" && (
+                {form.type === "real_estate" ? (
+                  <>
+                    <div>
+                      <label style={labelStyle}>{lang === "nl" ? "WOZ-waarde (€)" : "WOZ Value (€)"}</label>
+                      <input type="number" value={form.wozValue} onChange={e => setForm(p => ({ ...p, wozValue: e.target.value }))}
+                        placeholder="bijv. 350000" style={inputStyle} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>{lang === "nl" ? "Hypotheek (€)" : "Mortgage (€)"}</label>
+                      <input type="number" value={form.mortgage} onChange={e => setForm(p => ({ ...p, mortgage: e.target.value }))}
+                        placeholder="bijv. 200000" style={inputStyle} />
+                      {form.wozValue && (
+                        <div style={{ fontSize: 11, color: "#22c55e", marginTop: 4 }}>
+                          {lang === "nl" ? "Overwaarde" : "Equity"}: {fmt((parseFloat(form.wozValue) || 0) - (parseFloat(form.mortgage) || 0))}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : form.type !== "savings" && (
                   <div>
                     <label style={labelStyle}>
                       {lang === "nl" ? "Aantal" : "Amount"} {form.type === "metals" ? "gram" : form.type === "crypto" ? "coins" : "aandelen"}
@@ -2815,6 +2855,15 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
                       </div>
                     )}
                   </>
+                ) : form.type === "real_estate" ? (
+                  <>
+                    <label style={labelStyle}>{lang === "nl" ? "Huidige waarde (€)" : "Current value (€)"} <span style={{ fontWeight: 400, opacity: 0.6, textTransform: "none" }}>— {lang === "nl" ? "automatisch berekend" : "auto-calculated"}</span></label>
+                    <div style={{ ...inputStyle, background: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)", color: isDark ? "#94a3b8" : "#64748b", cursor: "default", display: "flex", alignItems: "center" }}>
+                      {form.wozValue
+                        ? `${fmt((parseFloat(form.wozValue) || 0) - (parseFloat(form.mortgage) || 0))} (WOZ − hypotheek)`
+                        : (lang === "nl" ? "Vul WOZ-waarde in" : "Enter WOZ value above")}
+                    </div>
+                  </>
                 ) : (
                   <>
                     <label style={labelStyle}>{lang === "nl" ? "Huidige waarde (€)" : "Current value (€)"} <span style={{ fontWeight: 400, opacity: 0.6, textTransform: "none" }}>— {lang === "nl" ? "laat leeg voor automatisch" : "leave empty for auto"}</span></label>
@@ -2826,8 +2875,9 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
 
               <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
                 <button onClick={closeForm} style={{ ...pillBtnGhost(isDark), flex: 1 }}>{lang === "nl" ? "Annuleren" : "Cancel"}</button>
-                <button onClick={addInvestment} disabled={!form.name || !form.invested}
-                  style={{ ...pillBtn(), flex: 2, opacity: form.name && form.invested ? 1 : 0.45 }}>
+                <button onClick={addInvestment}
+                  disabled={!form.name || (form.type === "real_estate" ? !form.wozValue : !form.invested)}
+                  style={{ ...pillBtn(), flex: 2, opacity: (form.name && (form.type === "real_estate" ? form.wozValue : form.invested)) ? 1 : 0.45 }}>
                   <Plus size={15} /> {lang === "nl" ? "Toevoegen" : "Add"}
                 </button>
               </div>
@@ -3003,8 +3053,17 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 600, color: isDark ? "#f1f5f9" : "#0f172a" }}>{inv.name}</div>
                         <div style={{ fontSize: 11, color: isDark ? "#64748b" : "#64748b" }}>
-                          {inv.ticker && <span style={{ fontFamily: "monospace", color: "#475569" }}>{inv.ticker.toUpperCase()} · </span>}
+                          {inv.type === "real_estate" ? (
+                            inv.address && <span style={{ color: "#94a3b8" }}>{inv.address} · </span>
+                          ) : (
+                            inv.ticker && <span style={{ fontFamily: "monospace", color: "#475569" }}>{inv.ticker.toUpperCase()} · </span>
+                          )}
                           {t.investments.types[inv.type]}{inv.units && inv.type === 'metals' ? ` · ${inv.units} gram` : ''}
+                          {inv.type === "real_estate" && inv.wozValue > 0 && (
+                            <span style={{ marginLeft: 6, padding: "1px 6px", background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 6, color: "#818cf8", fontSize: 10, fontWeight: 700 }}>
+                              WOZ {fmt(inv.wozValue)}{inv.mortgage > 0 ? ` − hyp. ${fmt(inv.mortgage)}` : ""}
+                            </span>
+                          )}
                           {inv.savingsCurrency && inv.savingsCurrency !== "EUR" && (
                             <span style={{ marginLeft: 6, padding: "1px 6px", background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.2)", borderRadius: 6, color: "#22c55e", fontSize: 10, fontWeight: 700 }}>
                               {inv.savingsAmount?.toLocaleString()} {inv.savingsCurrency} · {fxRates[inv.savingsCurrency] ? `1=${fmt(fxRates[inv.savingsCurrency])}` : "koers laden..."}
