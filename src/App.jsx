@@ -481,7 +481,8 @@ const card = (isDark) => ({
   border: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid #e2e6ed",
   borderRadius: 16,
   padding: "20px 24px",
-  boxShadow: isDark ? "none" : "0 1px 8px rgba(15,23,42,0.06)",
+  boxShadow: isDark ? "0 2px 12px rgba(0,0,0,0.25)" : "0 1px 8px rgba(15,23,42,0.06)",
+  transition: "transform 0.18s ease, box-shadow 0.18s ease",
 });
 
 
@@ -632,9 +633,9 @@ function TransactionDrawer({ title, subtitle, transactions, allTransactions, isD
   const CATS = Object.keys(CATEGORY_COLORS);
 
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 9999, display: "flex", justifyContent: "flex-end" }}>
+    <div onClick={onClose} className="glass-modal" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 9999, display: "flex", justifyContent: "flex-end" }}>
       <div onClick={e => e.stopPropagation()}
-        style={{ width: "min(520px, 100vw)", height: "100%", background: C.bg, borderLeft: `1px solid ${C.border}`, display: "flex", flexDirection: "column", animation: "slideIn 0.22s ease" }}>
+        style={{ width: "min(520px, 100vw)", height: "100%", background: isDark ? "rgba(8,13,24,0.92)" : C.bg, borderLeft: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : C.border}`, display: "flex", flexDirection: "column", animation: "slideIn 0.22s ease", backdropFilter: "blur(2px)" }}>
         <style>{`@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         .cat-pill:hover { filter: brightness(1.15); transform: scale(1.04); }
         .group-row:hover { background: ${isDark ? "rgba(255,255,255,0.05)" : "#f1f5f9"} !important; }`}</style>
@@ -830,33 +831,80 @@ function TransactionDrawer({ title, subtitle, transactions, allTransactions, isD
   );
 }
 
+// ─── COUNT-UP HOOK ──────────────────────────────────────────────
+function useCountUp(target, duration = 900) {
+  const [current, setCurrent] = useState(0);
+  const startRef = useRef(0);
+  const rafRef   = useRef(null);
+  useEffect(() => {
+    if (target == null || isNaN(target)) return;
+    const from = startRef.current;
+    const diff = target - from;
+    if (Math.abs(diff) < 0.001) { setCurrent(target); return; }
+    const t0 = performance.now();
+    const step = (now) => {
+      const p = Math.min((now - t0) / duration, 1);
+      const eased = 1 - Math.pow(1 - p, 3);          // ease-out cubic
+      setCurrent(from + diff * eased);
+      if (p < 1) rafRef.current = requestAnimationFrame(step);
+      else { startRef.current = target; setCurrent(target); }
+    };
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(step);
+    return () => rafRef.current && cancelAnimationFrame(rafRef.current);
+  }, [target, duration]);
+  return current;
+}
+
 // ─── STAT CARD ─────────────────────────────────────────────────
-function StatCard({ label, value, sub, color = "#4f8ef7", icon: Icon, trend, isDark = true, onClick }) {
+function StatCard({ label, value, rawValue, formatter, sub, color = "#4f8ef7", icon: Icon, trend, isDark = true, onClick }) {
+  const animated     = useCountUp(rawValue ?? null);
+  const displayValue = rawValue != null && formatter ? formatter(animated) : value;
   const topBorderColor = isDark ? "transparent" : color;
   return (
     <div
       onClick={onClick}
-      style={{ ...card(isDark), flex: 1, minWidth: 180, position: "relative", overflow: "hidden", borderTop: isDark ? undefined : `2.5px solid ${topBorderColor}`, cursor: onClick ? "pointer" : "default", transition: "transform 0.12s, box-shadow 0.12s" }}
-      onMouseEnter={e => { if (onClick) { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = isDark ? `0 8px 24px ${color}25` : `0 8px 24px ${color}20`; }}}
-      onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = ""; }}>
-      <div style={{ position: "absolute", top: 0, right: 0, width: 80, height: 80,
-        background: `radial-gradient(circle at 80% 20%, ${color}20, transparent 70%)`,
-        borderRadius: "0 16px 0 0" }} />
+      style={{ ...card(isDark), flex: 1, minWidth: 180, position: "relative", overflow: "hidden",
+        borderTop: isDark ? `1px solid ${color}30` : `2.5px solid ${topBorderColor}`,
+        cursor: onClick ? "pointer" : "default" }}
+      onMouseEnter={e => {
+        e.currentTarget.style.transform = "translateY(-4px) scale(1.01)";
+        e.currentTarget.style.boxShadow = isDark
+          ? `0 20px 40px rgba(0,0,0,0.4), 0 0 0 1px ${color}25`
+          : `0 16px 36px ${color}22, 0 2px 8px rgba(0,0,0,0.08)`;
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.transform = "none";
+        e.currentTarget.style.boxShadow = isDark ? "0 2px 12px rgba(0,0,0,0.25)" : "0 1px 8px rgba(15,23,42,0.06)";
+      }}>
+      {/* Accent glow top-right */}
+      <div style={{ position: "absolute", top: 0, right: 0, width: 100, height: 100,
+        background: `radial-gradient(circle at 80% 10%, ${color}28, transparent 65%)`,
+        borderRadius: "0 16px 0 0", pointerEvents: "none" }} />
+      {/* Bottom accent line */}
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 1,
+        background: `linear-gradient(90deg, transparent, ${color}20, transparent)`, pointerEvents: "none" }} />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div>
-          <div style={{ fontSize: 12, color: isDark ? "#64748b" : "#64748b", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 8 }}>{label}</div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: isDark ? "#f1f5f9" : "#0f172a", fontFamily: "'DM Mono', monospace", letterSpacing: "-0.02em" }}>{value}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 10, color: isDark ? "#475569" : "#94a3b8", fontWeight: 700,
+            letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>{label}</div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: isDark ? "#f8fafc" : "#0f172a",
+            fontFamily: "'DM Mono', monospace", letterSpacing: "-0.03em", lineHeight: 1.1,
+            animation: "statReveal 0.5s ease forwards" }}>{displayValue}</div>
           {sub && <div style={{ fontSize: 12, color: isDark ? "#64748b" : "#64748b", marginTop: 4 }}>{sub}</div>}
           {trend !== undefined && (
-            <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6, fontSize: 12, color: trend >= 0 ? "#22c55e" : "#f43f5e", fontWeight: 600 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 8, fontSize: 12,
+              color: trend >= 0 ? "#22c55e" : "#f43f5e", fontWeight: 700 }}>
               {trend >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
               {Math.abs(trend)}%
             </div>
           )}
           {onClick && <div style={{ fontSize: 11, color: color, marginTop: 6, fontWeight: 600, opacity: 0.7 }}>Klik voor detail →</div>}
         </div>
-        <div style={{ width: 36, height: 36, borderRadius: 10, background: `${color}20`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <Icon size={18} color={color} />
+        <div style={{ width: 40, height: 40, borderRadius: 12, background: `${color}18`,
+          border: `1px solid ${color}25`,
+          display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <Icon size={19} color={color} />
         </div>
       </div>
     </div>
@@ -1786,13 +1834,13 @@ function Overzicht({ transactions, t, accounts, selectedAccount, setSelectedAcco
         />
       )}
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-        <StatCard label={t.dashboard.netWorth} value={fmt(allIncome - allExpenses)} sub={lang === "nl" ? lang === "nl" ? "Gecumuleerd saldo" : "Cumulative balance" : "Cumulative balance"} color="#4f8ef7" icon={Wallet} isDark={isDark}
+        <StatCard label={t.dashboard.netWorth} rawValue={allIncome - allExpenses} formatter={fmt} sub={lang === "nl" ? "Gecumuleerd saldo" : "Cumulative balance"} color="#4f8ef7" icon={Wallet} isDark={isDark}
           onClick={() => setDrawer({ title: lang === "nl" ? "Alle transacties" : "All transactions", subtitle: `${filtered.length} ${t.overzicht.transactions} · ${t.dashboard.allTime}`, transactions: filtered })} />
-        <StatCard label={t.dashboard.totalIncome} value={fmt(income)} sub={monthLabel} color="#22c55e" icon={ArrowUpRight} trend={calcTrend(income, prevIncome)} isDark={isDark}
+        <StatCard label={t.dashboard.totalIncome} rawValue={income} formatter={fmt} sub={monthLabel} color="#22c55e" icon={ArrowUpRight} trend={calcTrend(income, prevIncome)} isDark={isDark}
           onClick={() => setDrawer({ title: t.general.income, subtitle: `${monthLabel} · ${thisMonthTxs.filter(tx => tx.amount > 0).length} transacties`, transactions: thisMonthTxs.filter(tx => tx.amount > 0) })} />
-        <StatCard label={t.dashboard.totalExpenses} value={fmt(expenses)} sub={monthLabel} color="#f43f5e" icon={ArrowDownRight} trend={calcTrend(expenses, prevExpenses)} isDark={isDark}
+        <StatCard label={t.dashboard.totalExpenses} rawValue={expenses} formatter={fmt} sub={monthLabel} color="#f43f5e" icon={ArrowDownRight} trend={calcTrend(expenses, prevExpenses)} isDark={isDark}
           onClick={() => setDrawer({ title: t.general.expenses, subtitle: `${monthLabel} · ${thisMonthTxs.filter(tx => tx.amount < 0).length} transacties`, transactions: thisMonthTxs.filter(tx => tx.amount < 0) })} />
-        <StatCard label={t.dashboard.monthlyBalance} value={fmt(income - expenses)} sub={monthLabel} color="#a855f7" icon={Activity} trend={calcTrend(income - expenses, prevIncome - prevExpenses)} isDark={isDark}
+        <StatCard label={t.dashboard.monthlyBalance} rawValue={income - expenses} formatter={fmt} sub={monthLabel} color="#a855f7" icon={Activity} trend={calcTrend(income - expenses, prevIncome - prevExpenses)} isDark={isDark}
           onClick={() => setDrawer({ title: lang === "nl" ? "Maandoverzicht" : "Monthly overview", subtitle: monthLabel, transactions: thisMonthTxs })} />
       </div>
 
@@ -2712,10 +2760,10 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
         {hiddenInvs.size > 0 && <span style={{ fontSize: 11, color: "#f59e0b", marginLeft: 4 }}>{hiddenInvs.size} positie{hiddenInvs.size > 1 ? "s" : ""} verborgen</span>}
       </div>
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 20 }}>
-        <StatCard label={t.investments.portfolio} value={fmt(totalCurrent)} color="#4f8ef7" icon={TrendingUp} trend={parseFloat(roi)} isDark={isDark} />
-        <StatCard label={invPeriod === "Max" ? t.investments.totalInvested : `Waarde ${invPeriod} geleden`} value={fmt(totalInvested)} color="#a855f7" icon={PiggyBank} isDark={isDark} />
-        <StatCard label={invPeriod === "Max" ? t.investments.totalProfit : `Winst/verlies ${invPeriod}`} value={fmt(totalProfit)} color={totalProfit >= 0 ? "#22c55e" : "#f43f5e"} icon={Target} trend={parseFloat(roi)} isDark={isDark} />
-        <StatCard label={`ROI ${invPeriod}`} value={`${roi}%`} color="#f59e0b" icon={BarChart2} isDark={isDark} />
+        <StatCard label={t.investments.portfolio} rawValue={totalCurrent} formatter={fmt} color="#4f8ef7" icon={TrendingUp} trend={parseFloat(roi)} isDark={isDark} />
+        <StatCard label={invPeriod === "Max" ? t.investments.totalInvested : `Waarde ${invPeriod} geleden`} rawValue={totalInvested} formatter={fmt} color="#a855f7" icon={PiggyBank} isDark={isDark} />
+        <StatCard label={invPeriod === "Max" ? t.investments.totalProfit : `Winst/verlies ${invPeriod}`} rawValue={totalProfit} formatter={fmt} color={totalProfit >= 0 ? "#22c55e" : "#f43f5e"} icon={Target} trend={parseFloat(roi)} isDark={isDark} />
+        <StatCard label={`ROI ${invPeriod}`} rawValue={parseFloat(roi)} formatter={v => v.toFixed(1) + "%"} color="#f59e0b" icon={BarChart2} isDark={isDark} />
       </div>
 
       {/* Positions + Allocation */}
@@ -5638,7 +5686,7 @@ export default function App() {
   const accent     = isDark ? "#4f8ef7" : isCloud ? "#4361ee" : "#d97706";
   const accentBg   = isDark ? "rgba(79,142,247,0.12)" : isCloud ? "#eef1ff" : "#fef3c7";
   const accentBorder = isDark ? "rgba(79,142,247,0.5)" : isCloud ? "rgba(67,97,238,0.5)" : "rgba(217,119,6,0.5)";
-  const pageBg     = isDark ? "#080d18" : isCloud ? "#f0f4ff" : "#f5f4f0";
+  const pageBg     = isDark ? "linear-gradient(145deg,#070c17 0%,#080d18 55%,#09101f 100%)" : isCloud ? "linear-gradient(145deg,#eef2ff 0%,#f0f4ff 60%,#e8eeff 100%)" : "linear-gradient(145deg,#f7f5f2 0%,#f5f4f0 60%,#f2f0ec 100%)";
   const cardBorder = isDark ? "rgba(255,255,255,0.08)" : isCloud ? "#dde3f5" : theme === "light" ? "#e8e4de" : "#e2e6ed";
   const t = T[lang];
 
@@ -5734,6 +5782,29 @@ export default function App() {
         [data-theme="dark"] input::placeholder { color: #334155; }
         button[style*="border-radius: 50px"]:hover, button[style*="border-radius: 50"]:not([disabled]):hover { filter: brightness(1.12) saturate(1.1); transform: translateY(-1px); }
         button[style*="border-radius: 50px"]:active, button[style*="border-radius: 50"]:active { transform: translateY(0); filter: brightness(0.96); }
+
+        @keyframes statReveal {
+          from { opacity: 0; transform: translateY(8px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .premium-card {
+          transition: transform 0.18s ease, box-shadow 0.18s ease !important;
+        }
+        .premium-card:hover {
+          transform: translateY(-4px) scale(1.008) !important;
+        }
+        [data-theme="dark"] .premium-card:hover {
+          box-shadow: 0 20px 48px rgba(0,0,0,0.45), 0 0 0 1px rgba(79,142,247,0.15) !important;
+        }
+        [data-theme="light"] .premium-card:hover, [data-theme="cloud"] .premium-card:hover {
+          box-shadow: 0 16px 40px rgba(0,0,0,0.12) !important;
+        }
+
+        .glass-modal {
+          backdrop-filter: blur(12px) saturate(1.4);
+          -webkit-backdrop-filter: blur(12px) saturate(1.4);
+        }
       `}</style>
 
       {/* Background glow */}
