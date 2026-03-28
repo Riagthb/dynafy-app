@@ -2235,6 +2235,7 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
   const [invPeriod, setInvPeriod] = useState("Max");
   const [periodBaselines, setPeriodBaselines] = useState({});
   const [periodLoading, setPeriodLoading] = useState(false);
+  const [fxRates, setFxRates] = useState({});
 
   const TICKER_ASSETS = [
     { id: "bitcoin",  label: "Bitcoin",  emoji: "₿",  type: "crypto", color: "#f59e0b" },
@@ -2509,12 +2510,52 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
 
   useEffect(() => { fetchPeriodBaselines(invPeriod); }, [invPeriod]);
 
+  // Live FX rates via Frankfurter (EUR base → target currencies)
+  const fetchFxRates = async () => {
+    try {
+      const currencies = "USD,GBP,CHF,JPY,CAD,AUD,GHS,AED,MAD";
+      const res = await fetch(`https://api.frankfurter.app/latest?from=EUR&to=${currencies}`, { signal: AbortSignal.timeout(8000) });
+      if (res.ok) {
+        const data = await res.json();
+        // rates = { USD: 1.08, GBP: 0.86, ... } meaning 1 EUR = X foreign
+        // We want: 1 foreign = Y EUR, so invert
+        const inverted = {};
+        Object.entries(data.rates).forEach(([cur, rate]) => { inverted[cur] = 1 / rate; });
+        inverted["EUR"] = 1;
+        setFxRates(inverted);
+      }
+    } catch (e) { console.warn("FX rates:", e.message); }
+  };
+  useEffect(() => { fetchFxRates(); }, []);
+
+  // Auto-update EUR value of savings positions when fxRates refresh
+  useEffect(() => {
+    if (Object.keys(fxRates).length === 0) return;
+    setInvs(prev => prev.map(inv => {
+      if (inv.type !== "savings" || !inv.savingsCurrency || inv.savingsCurrency === "EUR") return inv;
+      const rate = fxRates[inv.savingsCurrency];
+      if (!rate) return inv;
+      const newEur = parseFloat((inv.savingsAmount * rate).toFixed(2));
+      return { ...inv, currentValue: newEur, liveValue: newEur };
+    }));
+  }, [fxRates]);
+
   const addInvestment = () => {
     if (!form.name || !form.invested) return;
-    const invested = parseFloat(form.invested);
-    const currentValue = parseFloat(form.currentValue) || invested;
+    const savingsAmount = parseFloat(form.invested);
+    const isSavings = form.type === "savings";
+    const cur = isSavings ? (form.savingsCurrency || "EUR") : "EUR";
+    const rate = fxRates[cur] || 1;
+    // invested = original amount in original currency (for savings); in EUR for others
+    const invested = isSavings ? parseFloat((savingsAmount * rate).toFixed(2)) : savingsAmount;
+    const currentValue = form.currentValue ? parseFloat(form.currentValue) : invested;
     const units = form.units ? parseFloat(form.units) : null;
-    setInvs(prev => [...prev, { id: Date.now(), name: form.name, type: form.type, invested, currentValue, ticker: form.ticker, units }]);
+    setInvs(prev => [...prev, {
+      id: Date.now(), name: form.name, type: form.type,
+      invested, currentValue,
+      ticker: form.ticker, units,
+      ...(isSavings && cur !== "EUR" ? { savingsCurrency: cur, savingsAmount } : {})
+    }]);
     closeForm();
   };
 
@@ -2678,11 +2719,25 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
                     <>
                       <label style={labelStyle}>{lang === "nl" ? "Gespaard" : "Saved"}</label>
                       <div style={{ display: "flex", gap: 6 }}>
-                        <select value={form.savingsCurrency} onChange={e => setForm(p => ({ ...p, savingsCurrency: e.target.value }))}
+                        <select value={form.savingsCurrency} onChange={e => {
+                            const cur = e.target.value;
+                            setForm(p => {
+                              const rate = fxRates[cur] || null;
+                              const eurVal = (rate && p.invested) ? (parseFloat(p.invested) * rate).toFixed(2) : p.currentValue;
+                              return { ...p, savingsCurrency: cur, currentValue: cur === "EUR" ? p.invested : (eurVal || "") };
+                            });
+                          }}
                           style={{ ...inputStyle, width: "auto", minWidth: 80, paddingLeft: 10, paddingRight: 10, cursor: "pointer" }}>
-                          {["EUR","USD","GBP","CHF","JPY","CAD","AUD"].map(c => <option key={c} value={c}>{c}</option>)}
+                          {["EUR","USD","GBP","CHF","JPY","CAD","AUD","GHS","AED","MAD"].map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
-                        <input type="number" value={form.invested} onChange={e => setForm(p => ({ ...p, invested: e.target.value }))}
+                        <input type="number" value={form.invested} onChange={e => {
+                            const val = e.target.value;
+                            setForm(p => {
+                              const rate = fxRates[p.savingsCurrency] || null;
+                              const eurVal = (rate && val && p.savingsCurrency !== "EUR") ? (parseFloat(val) * rate).toFixed(2) : val;
+                              return { ...p, invested: val, currentValue: eurVal || "" };
+                            });
+                          }}
                           placeholder="0,00" style={inputStyle} />
                       </div>
                     </>
@@ -2719,8 +2774,10 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
                     <input type="number" value={form.currentValue} onChange={e => setForm(p => ({ ...p, currentValue: e.target.value }))}
                       placeholder={form.savingsCurrency === "EUR" && form.invested ? form.invested : lang === "nl" ? "Voer saldo in euro in" : "Enter balance in euros"} style={inputStyle} />
                     {form.savingsCurrency !== "EUR" && form.invested && (
-                      <div style={{ fontSize: 11, color: isDark ? "#475569" : "#94a3b8", marginTop: 4 }}>
-                        {lang === "nl" ? "Vul de eurowaarde in van je" : "Enter the euro value of your"} {form.savingsCurrency} {lang === "nl" ? "saldo" : "balance"}
+                      <div style={{ fontSize: 11, color: "#22c55e", marginTop: 4 }}>
+                        {fxRates[form.savingsCurrency]
+                          ? `1 ${form.savingsCurrency} = ${fmt(fxRates[form.savingsCurrency])} · ${lang === "nl" ? "automatisch omgezet" : "auto-converted"}`
+                          : (lang === "nl" ? "Koers laden..." : "Loading rate...")}
                       </div>
                     )}
                   </>
@@ -2796,7 +2853,7 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
                     <div style={{ fontSize: 11, color: "#f43f5e" }}>—</div>
                   ) : (
                     <>
-                      <div style={{ fontSize: 15, fontWeight: 800, color: isDark ? "#f1f5f9" : "#0f172a", fontFamily: "'DM Mono', monospace" }}>{tickerCurrency === "USD" ? (d?.priceUsd ? `$ ${d.priceUsd.toLocaleString("en-US", {minimumFractionDigits:2,maximumFractionDigits:2})}` : "···") : (d?.priceEur ? `€ ${fmt(d.priceEur)}` : "···")}</div>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: isDark ? "#f1f5f9" : "#0f172a", fontFamily: "'DM Mono', monospace" }}>{tickerCurrency === "USD" ? (d?.priceUsd ? `$ ${d.priceUsd.toLocaleString("en-US", {minimumFractionDigits:2,maximumFractionDigits:2})}` : "···") : (d?.priceEur ? fmt(d.priceEur) : "···")}</div>
                       {change !== null && (
                         <div style={{ fontSize: 11, fontWeight: 700, color: isPos ? "#22c55e" : "#f43f5e", marginTop: 2 }}>
                           {isPos ? "▲" : "▼"} {Math.abs(change).toFixed(2)}%
@@ -2833,7 +2890,7 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
                     <div style={{ fontSize: 11, color: "#f43f5e" }}>—</div>
                   ) : (
                     <>
-                      <div style={{ fontSize: 15, fontWeight: 800, color: isDark ? "#f1f5f9" : "#0f172a", fontFamily: "'DM Mono', monospace" }}>{tickerCurrency === "USD" ? (d?.priceUsd ? `$ ${d.priceUsd.toLocaleString("en-US", {minimumFractionDigits:2,maximumFractionDigits:2})}` : "···") : (d?.priceEur ? `€ ${fmt(d.priceEur)}` : "···")}</div>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: isDark ? "#f1f5f9" : "#0f172a", fontFamily: "'DM Mono', monospace" }}>{tickerCurrency === "USD" ? (d?.priceUsd ? `$ ${d.priceUsd.toLocaleString("en-US", {minimumFractionDigits:2,maximumFractionDigits:2})}` : "···") : (d?.priceEur ? fmt(d.priceEur) : "···")}</div>
                       {change !== null && (
                         <div style={{ fontSize: 11, fontWeight: 700, color: isPos ? "#22c55e" : "#f43f5e", marginTop: 2 }}>
                           {isPos ? "▲" : "▼"} {Math.abs(change).toFixed(2)}%
@@ -2914,6 +2971,11 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
                         <div style={{ fontSize: 11, color: isDark ? "#64748b" : "#64748b" }}>
                           {inv.ticker && <span style={{ fontFamily: "monospace", color: "#475569" }}>{inv.ticker.toUpperCase()} · </span>}
                           {t.investments.types[inv.type]}{inv.units && inv.type === 'metals' ? ` · ${inv.units} gram` : ''}
+                          {inv.savingsCurrency && inv.savingsCurrency !== "EUR" && (
+                            <span style={{ marginLeft: 6, padding: "1px 6px", background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.2)", borderRadius: 6, color: "#22c55e", fontSize: 10, fontWeight: 700 }}>
+                              {inv.savingsAmount?.toLocaleString()} {inv.savingsCurrency} · {fxRates[inv.savingsCurrency] ? `1=${fmt(fxRates[inv.savingsCurrency])}` : "koers laden..."}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
