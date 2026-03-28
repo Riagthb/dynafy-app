@@ -822,7 +822,7 @@ function TransactionDrawer({ title, subtitle, transactions, allTransactions, isD
             // ── LIST VIEW ────────────────────────────────────
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               {[...transactions].sort((a, b) => b.date.localeCompare(a.date)).map((tx, i) => (
-                <div key={tx.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: 10, background: i % 2 === 0 ? C.rowBg : "transparent", border: `1px solid ${i % 2 === 0 ? C.border : "transparent"}` }}>
+                <div key={tx.id} className="fade-up" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: 10, background: i % 2 === 0 ? C.rowBg : "transparent", border: `1px solid ${i % 2 === 0 ? C.border : "transparent"}`, animationDelay: `${Math.min(i, 15) * 25}ms` }}>
                   <div style={{ display: "flex", gap: 10, alignItems: "center", minWidth: 0 }}>
                     <div style={{ width: 30, height: 30, borderRadius: 8, background: `${CATEGORY_COLORS[tx.category] || "#64748b"}18`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                       <div style={{ width: 8, height: 8, borderRadius: 2, background: CATEGORY_COLORS[tx.category] || "#64748b" }} />
@@ -836,7 +836,7 @@ function TransactionDrawer({ title, subtitle, transactions, allTransactions, isD
                       </div>
                     </div>
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: tx.amount >= 0 ? "#22c55e" : "#f43f5e", fontFamily: "'DM Mono', monospace", flexShrink: 0, marginLeft: 8 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: tx.amount >= 0 ? "#22c55e" : "#f43f5e", fontVariantNumeric: "tabular-nums", flexShrink: 0, marginLeft: 8 }}>
                     {tx.amount >= 0 ? "+" : "−"}{fmt(Math.abs(tx.amount))}
                   </div>
                 </div>
@@ -916,6 +916,41 @@ function DynafyLogo({ size = 32, bg }) {
   );
 }
 
+// ─── SKELETON ──────────────────────────────────────────────────
+function Skeleton({ width = "100%", height = 14, radius = 6, style: s = {} }) {
+  return <div className="skeleton" style={{ width, height, borderRadius: radius, flexShrink: 0, ...s }} />;
+}
+
+function SkeletonCard({ isDark }) {
+  return (
+    <div style={{ ...card(isDark), flex: 1, minWidth: 180, display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
+          <Skeleton width={80} height={10} radius={4}/>
+          <Skeleton width="70%" height={28} radius={6}/>
+          <Skeleton width={60} height={10} radius={4}/>
+        </div>
+        <Skeleton width={40} height={40} radius={12} style={{ flexShrink: 0 }}/>
+      </div>
+    </div>
+  );
+}
+
+function SkeletonRow({ isDark }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: 10, gap: 10 }}>
+      <div style={{ display: "flex", gap: 10, alignItems: "center", flex: 1 }}>
+        <Skeleton width={30} height={30} radius={8} style={{ flexShrink: 0 }}/>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
+          <Skeleton width="55%" height={11} radius={4}/>
+          <Skeleton width="35%" height={9} radius={4}/>
+        </div>
+      </div>
+      <Skeleton width={70} height={13} radius={4} style={{ flexShrink: 0 }}/>
+    </div>
+  );
+}
+
 // ─── STAT CARD ─────────────────────────────────────────────────
 function StatCard({ label, value, rawValue, formatter, sub, color = "#4f8ef7", icon: Icon, trend, isDark = true, onClick }) {
   const animated     = useCountUp(rawValue ?? null);
@@ -923,6 +958,7 @@ function StatCard({ label, value, rawValue, formatter, sub, color = "#4f8ef7", i
   const topBorderColor = isDark ? "transparent" : color;
   return (
     <div
+      className="card-enter"
       onClick={onClick}
       style={{ ...card(isDark), flex: 1, minWidth: 180, position: "relative", overflow: "hidden",
         borderTop: isDark ? `1px solid ${color}30` : `2.5px solid ${topBorderColor}`,
@@ -949,8 +985,9 @@ function StatCard({ label, value, rawValue, formatter, sub, color = "#4f8ef7", i
           <div style={{ fontSize: 10, color: isDark ? "#475569" : "#94a3b8", fontWeight: 700,
             letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>{label}</div>
           <div style={{ fontSize: 28, fontWeight: 800, color: isDark ? "#f8fafc" : "#0f172a",
-            fontFamily: "'DM Mono', monospace", letterSpacing: "-0.03em", lineHeight: 1.1,
-            animation: "statReveal 0.5s ease forwards" }}>{displayValue}</div>
+            fontVariantNumeric: "tabular-nums", fontFeatureSettings: '"tnum","ss01"',
+            letterSpacing: "-0.03em", lineHeight: 1.1,
+            animation: "statReveal 0.45s cubic-bezier(0.4,0,0.2,1) both" }}>{displayValue}</div>
           {sub && <div style={{ fontSize: 12, color: isDark ? "#64748b" : "#64748b", marginTop: 4 }}>{sub}</div>}
           {trend !== undefined && (
             <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 8, fontSize: 12,
@@ -1894,14 +1931,20 @@ function Overzicht({ transactions, t, accounts, selectedAccount, setSelectedAcco
         />
       )}
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-        <StatCard label={t.dashboard.netWorth} rawValue={allIncome - allExpenses} formatter={fmt} sub={lang === "nl" ? "Gecumuleerd saldo" : "Cumulative balance"} color="#4f8ef7" icon={Wallet} isDark={isDark}
-          onClick={() => setDrawer({ title: lang === "nl" ? "Alle transacties" : "All transactions", subtitle: `${filtered.length} ${t.overzicht.transactions} · ${t.dashboard.allTime}`, transactions: filtered })} />
-        <StatCard label={t.dashboard.totalIncome} rawValue={income} formatter={fmt} sub={monthLabel} color="#22c55e" icon={ArrowUpRight} trend={calcTrend(income, prevIncome)} isDark={isDark}
-          onClick={() => setDrawer({ title: t.general.income, subtitle: `${monthLabel} · ${thisMonthTxs.filter(tx => tx.amount > 0).length} transacties`, transactions: thisMonthTxs.filter(tx => tx.amount > 0) })} />
-        <StatCard label={t.dashboard.totalExpenses} rawValue={expenses} formatter={fmt} sub={monthLabel} color="#f43f5e" icon={ArrowDownRight} trend={calcTrend(expenses, prevExpenses)} isDark={isDark}
-          onClick={() => setDrawer({ title: t.general.expenses, subtitle: `${monthLabel} · ${thisMonthTxs.filter(tx => tx.amount < 0).length} transacties`, transactions: thisMonthTxs.filter(tx => tx.amount < 0) })} />
-        <StatCard label={t.dashboard.monthlyBalance} rawValue={income - expenses} formatter={fmt} sub={monthLabel} color="#a855f7" icon={Activity} trend={calcTrend(income - expenses, prevIncome - prevExpenses)} isDark={isDark}
-          onClick={() => setDrawer({ title: lang === "nl" ? "Maandoverzicht" : "Monthly overview", subtitle: monthLabel, transactions: thisMonthTxs })} />
+        {filtered.length === 0 ? (
+          [0,1,2,3].map(i => <SkeletonCard key={i} isDark={isDark} />)
+        ) : (
+          <>
+            <StatCard label={t.dashboard.netWorth} rawValue={allIncome - allExpenses} formatter={fmt} sub={lang === "nl" ? "Gecumuleerd saldo" : "Cumulative balance"} color="#4f8ef7" icon={Wallet} isDark={isDark}
+              onClick={() => setDrawer({ title: lang === "nl" ? "Alle transacties" : "All transactions", subtitle: `${filtered.length} ${t.overzicht.transactions} · ${t.dashboard.allTime}`, transactions: filtered })} />
+            <StatCard label={t.dashboard.totalIncome} rawValue={income} formatter={fmt} sub={monthLabel} color="#22c55e" icon={ArrowUpRight} trend={calcTrend(income, prevIncome)} isDark={isDark}
+              onClick={() => setDrawer({ title: t.general.income, subtitle: `${monthLabel} · ${thisMonthTxs.filter(tx => tx.amount > 0).length} transacties`, transactions: thisMonthTxs.filter(tx => tx.amount > 0) })} />
+            <StatCard label={t.dashboard.totalExpenses} rawValue={expenses} formatter={fmt} sub={monthLabel} color="#f43f5e" icon={ArrowDownRight} trend={calcTrend(expenses, prevExpenses)} isDark={isDark}
+              onClick={() => setDrawer({ title: t.general.expenses, subtitle: `${monthLabel} · ${thisMonthTxs.filter(tx => tx.amount < 0).length} transacties`, transactions: thisMonthTxs.filter(tx => tx.amount < 0) })} />
+            <StatCard label={t.dashboard.monthlyBalance} rawValue={income - expenses} formatter={fmt} sub={monthLabel} color="#a855f7" icon={Activity} trend={calcTrend(income - expenses, prevIncome - prevExpenses)} isDark={isDark}
+              onClick={() => setDrawer({ title: lang === "nl" ? "Maandoverzicht" : "Monthly overview", subtitle: monthLabel, transactions: thisMonthTxs })} />
+          </>
+        )}
       </div>
 
       {/* ── Charts row ── */}
@@ -6241,12 +6284,61 @@ export default function App() {
         button[style*="border-radius: 50px"]:hover, button[style*="border-radius: 50"]:not([disabled]):hover { filter: brightness(1.12) saturate(1.1); transform: translateY(-1px); }
         button[style*="border-radius: 50px"]:active, button[style*="border-radius: 50"]:active { transform: translateY(0); filter: brightness(0.96); }
 
+        /* ── Animations ───────────────────────────── */
         @keyframes statReveal {
           from { opacity: 0; transform: translateY(10px); }
           to   { opacity: 1; transform: translateY(0); }
         }
+        @keyframes pageEnter {
+          from { opacity: 0; transform: translateY(16px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes cardEnter {
+          from { opacity: 0; transform: translateY(22px) scale(0.97); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(7px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes shimmer {
+          0%   { background-position: -200% 0; }
+          100% { background-position:  200% 0; }
+        }
         @keyframes fadeIn {
           from { opacity: 0; } to { opacity: 1; }
+        }
+        @keyframes popIn {
+          0%   { opacity: 0; transform: scale(0.88); }
+          70%  { transform: scale(1.04); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+
+        /* Page transition */
+        .page-view { animation: pageEnter 0.28s cubic-bezier(0.4,0,0.2,1) both; }
+
+        /* Card stagger entrance */
+        .card-enter { animation: cardEnter 0.38s cubic-bezier(0.34,1.2,0.64,1) both; }
+        .card-enter:nth-child(1) { animation-delay: 0ms; }
+        .card-enter:nth-child(2) { animation-delay: 55ms; }
+        .card-enter:nth-child(3) { animation-delay: 110ms; }
+        .card-enter:nth-child(4) { animation-delay: 165ms; }
+        .card-enter:nth-child(5) { animation-delay: 220ms; }
+        .card-enter:nth-child(6) { animation-delay: 275ms; }
+
+        /* List row fade-up */
+        .fade-up { animation: fadeUp 0.22s cubic-bezier(0.4,0,0.2,1) both; }
+
+        /* Skeleton shimmer */
+        [data-theme="dark"] .skeleton {
+          background: linear-gradient(90deg, #0b1628 25%, #142440 50%, #0b1628 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.6s ease-in-out infinite;
+        }
+        [data-theme="light"] .skeleton, [data-theme="cloud"] .skeleton {
+          background: linear-gradient(90deg, #e8ecf2 25%, #d0d8e4 50%, #e8ecf2 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.6s ease-in-out infinite;
         }
 
         .premium-card { transition: transform 0.2s cubic-bezier(0.4,0,0.2,1), box-shadow 0.2s cubic-bezier(0.4,0,0.2,1) !important; }
@@ -6560,6 +6652,7 @@ export default function App() {
               </div>
             </div>
           )}
+          <div key={view} className="page-view">
           {view === "dashboard" && <WidgetDashboard transactions={transactions} t={t} isDark={isDark} accent={accent} accounts={accounts} investments={appInvestments} goals={appGoals} lang={lang} />}
           {view === "overzicht" && <Overzicht transactions={transactions} t={t} accounts={accounts} selectedAccount={selectedAccount} setSelectedAccount={setSelectedAccount} isDark={isDark} accent={accent} accentBg={accentBg} setTransactions={setTransactions} onUploadClick={() => setShowGlobalUpload(true)} lang={lang} />}
           {view === "transactions" && <Transactions transactions={transactions} setTransactions={setTransactions} t={t} accounts={accounts} setAccounts={setAccounts} isDark={isDark} lang={lang} onImportDone={(txs, importedAccounts) => {
@@ -6599,10 +6692,11 @@ export default function App() {
             }
             if (all) {
               setRecurringItems([]);
-              setResetKey(k => k + 1); // signal debt/budget tabs to reset
+              setResetKey(k => k + 1);
               setView("dashboard");
             }
           }} />}
+          </div>{/* /page-view */}
         </div>
       </div>
     </div>
