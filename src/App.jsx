@@ -709,7 +709,10 @@ function TransactionDrawer({ title, subtitle, transactions, allTransactions, isD
         {/* Content */}
         <div style={{ flex: 1, overflowY: "auto", padding: "10px 14px" }}>
           {transactions.length === 0 && (
-            <div style={{ textAlign: "center", padding: "48px 0", color: C.muted, fontSize: 13 }}>Geen transacties</div>
+            <EmptyState type="transactions" isDark={isDark}
+              title={lang === "nl" ? "Nog geen transacties" : "No transactions yet"}
+              subtitle={lang === "nl" ? "Upload een CSV-bestand van je bank om je uitgaven en inkomsten te analyseren." : "Upload a CSV file from your bank to start analyzing your finances."}
+              action={() => setShowUpload(true)} actionLabel={lang === "nl" ? "CSV importeren" : "Import CSV"} />
           )}
 
           {viewMode === "grouped" ? (
@@ -913,6 +916,91 @@ function DynafyLogo({ size = 32, bg }) {
         </defs>
       )}
     </svg>
+  );
+}
+
+// ─── EMPTY STATE ───────────────────────────────────────────────
+const EMPTY_ILLUSTRATIONS = {
+  transactions: (isDark) => (
+    <svg width="88" height="88" viewBox="0 0 88 88" fill="none">
+      <rect x="14" y="8" width="44" height="56" rx="7" fill={isDark ? "#0f1e36" : "#e8ecf4"} stroke={isDark ? "#1e3454" : "#c8d4e8"} strokeWidth="1.5"/>
+      <rect x="22" y="22" width="28" height="3" rx="1.5" fill={isDark ? "#1e3454" : "#b8c8de"}/>
+      <rect x="22" y="31" width="20" height="3" rx="1.5" fill={isDark ? "#1e3454" : "#b8c8de"}/>
+      <rect x="22" y="40" width="24" height="3" rx="1.5" fill={isDark ? "#1e3454" : "#b8c8de"}/>
+      <circle cx="62" cy="62" r="18" fill="url(#txGrad)"/>
+      <path d="M62 70v-16M55 61l7-7 7 7" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <defs>
+        <linearGradient id="txGrad" x1="44" y1="44" x2="80" y2="80" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#4f8ef7"/><stop offset="1" stopColor="#6366f1"/>
+        </linearGradient>
+      </defs>
+    </svg>
+  ),
+  goals: (isDark) => (
+    <svg width="88" height="88" viewBox="0 0 88 88" fill="none">
+      <circle cx="44" cy="44" r="34" fill={isDark ? "#0f1e36" : "#e8ecf4"} stroke={isDark ? "#1e3454" : "#c8d4e8"} strokeWidth="1.5"/>
+      <circle cx="44" cy="44" r="24" fill="none" stroke={isDark ? "#1e3454" : "#c8d4e8"} strokeWidth="1.5"/>
+      <circle cx="44" cy="44" r="13" fill="none" stroke="url(#goalGrad)" strokeWidth="2"/>
+      <circle cx="44" cy="44" r="5" fill="url(#goalGrad)"/>
+      <path d="M68 20L46 42" stroke="url(#arrowGrad)" strokeWidth="3" strokeLinecap="round"/>
+      <path d="M68 20L60 21.5M68 20L66.5 28" stroke="url(#arrowGrad)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <defs>
+        <linearGradient id="goalGrad" x1="31" y1="31" x2="57" y2="57" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#22c55e"/><stop offset="1" stopColor="#16a34a"/>
+        </linearGradient>
+        <linearGradient id="arrowGrad" x1="68" y1="20" x2="46" y2="42" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#f59e0b"/><stop offset="1" stopColor="#d97706"/>
+        </linearGradient>
+      </defs>
+    </svg>
+  ),
+  investments: (isDark) => (
+    <svg width="88" height="88" viewBox="0 0 88 88" fill="none">
+      <rect x="10" y="72" width="68" height="2.5" rx="1.25" fill={isDark ? "#1e3454" : "#c8d4e8"}/>
+      <rect x="16" y="52" width="14" height="20" rx="4" fill={isDark ? "#1e3454" : "#d8e2f0"}/>
+      <rect x="37" y="38" width="14" height="34" rx="4" fill={isDark ? "#1e3454" : "#d8e2f0"}/>
+      <rect x="58" y="24" width="14" height="48" rx="4" fill="url(#invBarGrad)"/>
+      <path d="M23 56L44 42L65 28" stroke="url(#invTrendGrad)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <circle cx="65" cy="26" r="7" fill="url(#invTrendGrad)"/>
+      <path d="M65 29.5v-7M62 25.5l3-3 3 3" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+      <defs>
+        <linearGradient id="invBarGrad" x1="58" y1="24" x2="72" y2="72" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#4f8ef7"/><stop offset="1" stopColor="#6366f1"/>
+        </linearGradient>
+        <linearGradient id="invTrendGrad" x1="23" y1="56" x2="72" y2="19" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#22c55e"/><stop offset="1" stopColor="#4f8ef7"/>
+        </linearGradient>
+      </defs>
+    </svg>
+  ),
+  default: (isDark) => (
+    <svg width="88" height="88" viewBox="0 0 88 88" fill="none">
+      <circle cx="44" cy="44" r="36" fill={isDark ? "#0f1e36" : "#e8ecf4"} stroke={isDark ? "#1e3454" : "#c8d4e8"} strokeWidth="1.5"/>
+      <path d="M44 30v16M44 54v4" stroke="url(#defGrad)" strokeWidth="3.5" strokeLinecap="round"/>
+      <defs>
+        <linearGradient id="defGrad" x1="44" y1="28" x2="44" y2="60" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#4f8ef7"/><stop offset="1" stopColor="#6366f1"/>
+        </linearGradient>
+      </defs>
+    </svg>
+  ),
+};
+
+function EmptyState({ type = "default", title, subtitle, action, actionLabel, isDark }) {
+  const illus = EMPTY_ILLUSTRATIONS[type] || EMPTY_ILLUSTRATIONS.default;
+  return (
+    <div className="fade-up" style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "56px 24px 48px", gap: 0 }}>
+      <div style={{ marginBottom: 20, opacity: 0.85, animation: "popIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both" }}>
+        {illus(isDark)}
+      </div>
+      <div style={{ fontSize: 16, fontWeight: 700, color: isDark ? "#e2e8f0" : "#0f172a", marginBottom: 8 }}>{title}</div>
+      <div style={{ fontSize: 13, color: isDark ? "#475569" : "#64748b", maxWidth: 300, lineHeight: 1.65, marginBottom: action ? 24 : 0 }}>{subtitle}</div>
+      {action && (
+        <button onClick={action} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 22px", borderRadius: 99, background: "linear-gradient(135deg,#4f8ef7,#6366f1)", border: "none", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 16px rgba(79,142,247,0.35)" }}>
+          <Plus size={14}/> {actionLabel}
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -3134,7 +3222,13 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
       {/* Positions + Allocation */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
         <div style={{ ...card(isDark) }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: isDark ? "#f1f5f9" : "#0f172a", marginBottom: 16 }}>Posities</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: isDark ? "#f1f5f9" : "#0f172a", marginBottom: enriched.length === 0 ? 0 : 16 }}>Posities</div>
+          {enriched.length === 0 && (
+            <EmptyState type="investments" isDark={isDark}
+              title={lang === "nl" ? "Nog geen posities" : "No positions yet"}
+              subtitle={lang === "nl" ? "Voeg je crypto, aandelen, spaargeld of vastgoed toe om je portfolio te volgen." : "Add your crypto, stocks, savings or real estate to track your portfolio."}
+              action={() => setFormMode("choose")} actionLabel={lang === "nl" ? "Investering toevoegen" : "Add investment"} />
+          )}
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {enriched.map(inv => {
               const profit = inv.liveValue - inv.invested;
@@ -5068,6 +5162,12 @@ function GoalsView({ transactions, isDark, useMockData = true, goals: appGoals, 
           </div>
         )}
 
+        {goals.length === 0 && (
+          <EmptyState type="goals" isDark={isDark}
+            title={lang === "nl" ? "Nog geen spaardoelen" : "No savings goals yet"}
+            subtitle={lang === "nl" ? "Stel een doel in — een vakantie, noodfonds of nieuwe auto — en volg je voortgang automatisch." : "Set a goal — a holiday, emergency fund or new car — and track your progress automatically."}
+            action={() => setShowAdd(true)} actionLabel={lang === "nl" ? "Doel toevoegen" : "Add goal"} />
+        )}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
           {goals.map(goal => {
             const pct = Math.min(100, Math.round((goal.current / goal.target) * 100));
@@ -6135,6 +6235,7 @@ export default function App() {
   const [userName, setUserName] = useState("");
   const [uncatAlert, setUncatAlert] = useState(null);
   const [showGlobalUpload, setShowGlobalUpload] = useState(false);
+  const [showAvatarMenu, setShowAvatarMenu] = useState(false);
 
   const runAiCategorization = (txs) => {
     const uncatCount = txs.filter(tx => !tx.category || tx.category === "other").length;
@@ -6593,7 +6694,7 @@ export default function App() {
             <div style={{ fontSize: 12, color: isDark ? "#334155" : "#94a3b8", marginTop: 2 }}>{t.tagline}</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ fontSize: 12, color: isDark ? "#334155" : "#94a3b8", fontFamily: "'DM Mono', monospace" }}>
+            <div style={{ fontSize: 12, color: isDark ? "#334155" : "#94a3b8", fontVariantNumeric: "tabular-nums" }}>
               {(() => {
                 const latest = transactions.reduce((best, tx) => tx.date > best ? tx.date : best, "");
                 const locale = lang === "nl" ? "nl-NL" : "en-US";
@@ -6603,8 +6704,69 @@ export default function App() {
               })()}
             </div>
 
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(135deg, #4f8ef7, #6366f1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 800, color: "#fff" }}>
-              {userName ? userName[0].toUpperCase() : "F"}
+            {/* ── Avatar + dropdown ── */}
+            <div style={{ position: "relative" }}>
+              <button onClick={() => setShowAvatarMenu(p => !p)} style={{ width: 36, height: 36, borderRadius: 10, background: showAvatarMenu ? "linear-gradient(135deg,#3b7ef0,#5254e8)" : "linear-gradient(135deg,#4f8ef7,#6366f1)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 800, color: "#fff", boxShadow: showAvatarMenu ? "0 0 0 3px rgba(79,142,247,0.3)" : "none", transition: "all 0.15s" }}>
+                {userName ? userName[0].toUpperCase() : "D"}
+              </button>
+
+              {showAvatarMenu && (
+                <>
+                  {/* Backdrop */}
+                  <div onClick={() => setShowAvatarMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 998 }}/>
+                  {/* Menu */}
+                  <div style={{ position: "absolute", right: 0, top: "calc(100% + 10px)", width: 228, background: isDark ? DK.L2 : "#ffffff", border: `1px solid ${isDark ? DK.b2 : "#e8ecf1"}`, borderRadius: 16, overflow: "hidden", zIndex: 999, boxShadow: isDark ? "0 24px 56px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.06) inset" : "0 16px 40px rgba(15,23,42,0.14)", animation: "cardEnter 0.22s cubic-bezier(0.34,1.2,0.64,1) both" }}>
+
+                    {/* Profile */}
+                    <div style={{ padding: "14px 16px", borderBottom: `1px solid ${isDark ? DK.b1 : "#f1f5f9"}`, display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(135deg,#4f8ef7,#6366f1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 800, color: "#fff", flexShrink: 0 }}>
+                        {userName ? userName[0].toUpperCase() : "D"}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: isDark ? "#e2e8f0" : "#0f172a" }}>{userName || "Dynafy User"}</div>
+                        <div style={{ fontSize: 11, color: isDark ? "#4f8ef7" : "#6366f1", fontWeight: 600 }}>✦ Premium</div>
+                      </div>
+                    </div>
+
+                    {/* Theme */}
+                    <div style={{ padding: "12px 16px", borderBottom: `1px solid ${isDark ? DK.b1 : "#f1f5f9"}` }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: isDark ? "#334155" : "#94a3b8", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>
+                        {lang === "nl" ? "Thema" : "Theme"}
+                      </div>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        {[["dark", Moon, lang === "nl" ? "Donker" : "Dark"], ["light", Sun, lang === "nl" ? "Licht" : "Light"], ["cloud", Globe, "Cloud"]].map(([th, Ic, label]) => (
+                          <button key={th} onClick={() => setTheme(th)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "8px 4px", borderRadius: 10, border: `1px solid ${theme === th ? "#4f8ef7" : isDark ? DK.b1 : "#e8ecf1"}`, background: theme === th ? "rgba(79,142,247,0.12)" : "transparent", color: theme === th ? "#4f8ef7" : isDark ? "#64748b" : "#94a3b8", cursor: "pointer", fontSize: 10, fontWeight: 600, transition: "all 0.15s" }}>
+                            <Ic size={14}/>{label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Language */}
+                    <div style={{ padding: "12px 16px", borderBottom: `1px solid ${isDark ? DK.b1 : "#f1f5f9"}` }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: isDark ? "#334155" : "#94a3b8", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>
+                        {lang === "nl" ? "Taal" : "Language"}
+                      </div>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        {[["nl", "🇳🇱", "Nederlands"], ["en", "🇬🇧", "English"]].map(([l, flag, label]) => (
+                          <button key={l} onClick={() => setLang(l)} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "7px 8px", borderRadius: 9, border: `1px solid ${lang === l ? "#4f8ef7" : isDark ? DK.b1 : "#e8ecf1"}`, background: lang === l ? "rgba(79,142,247,0.12)" : "transparent", color: lang === l ? "#4f8ef7" : isDark ? "#64748b" : "#94a3b8", cursor: "pointer", fontSize: 11, fontWeight: 600, transition: "all 0.15s" }}>
+                            <span>{flag}</span>{label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Settings */}
+                    <div style={{ padding: "8px" }}>
+                      <button onClick={() => { setView("settings"); setShowAvatarMenu(false); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "9px 10px", borderRadius: 10, border: "none", background: "transparent", color: isDark ? "#94a3b8" : "#64748b", cursor: "pointer", fontSize: 13, fontWeight: 500, transition: "all 0.15s" }}
+                        onMouseEnter={e => { e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.05)" : "#f8fafc"; e.currentTarget.style.color = isDark ? "#e2e8f0" : "#0f172a"; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = isDark ? "#94a3b8" : "#64748b"; }}>
+                        <Settings size={14}/> {lang === "nl" ? "Instellingen" : "Settings"}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
