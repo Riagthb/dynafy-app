@@ -35,7 +35,7 @@ const T = {
       totalInvested: "Total Invested", totalProfit: "Total Profit", roi: "ROI",
       allocation: "Allocation", noInvestments: "No investments yet",
       form: { name: "Name", type: "Type", invested: "Invested (€)", currentValue: "Current Value (€)", add: "Add", cancel: "Cancel" },
-      types: { crypto: "Crypto", stocks: "Stocks", real_estate: "Real Estate", savings: "Savings", metals: "Precious Metals", other: "Other" },
+      types: { crypto: "Crypto", stocks: "Stocks", real_estate: "Real Estate", metals: "Precious Metals", savings: "Savings", other: "Other" },
     },
     insights: {
       title: "AI Insights", generatingInsights: "Generating insights...",
@@ -109,7 +109,7 @@ const T = {
       totalInvested: "Totaal Geïnvesteerd", totalProfit: "Totale Winst", roi: "ROI",
       allocation: "Verdeling", noInvestments: "Nog geen investeringen",
       form: { name: "Naam", type: "Type", invested: "Geïnvesteerd (€)", currentValue: "Huidige Waarde (€)", add: "Toevoegen", cancel: "Annuleren" },
-      types: { crypto: "Crypto", stocks: "Aandelen", real_estate: "Vastgoed", savings: "Spaargeld", metals: "Edelmetalen", other: "Overig" },
+      types: { crypto: "Crypto", stocks: "Aandelen", real_estate: "Vastgoed", metals: "Edelmetalen", savings: "Spaargeld", other: "Overig" },
     },
     insights: {
       title: "AI Inzichten", generatingInsights: "Inzichten genereren...",
@@ -2200,21 +2200,32 @@ function Transactions({ transactions, setTransactions, t, accounts, setAccounts,
 
 // ─── FINNHUB KEY (hardcoded) ──────────────────────────────────
 
-function Investments({ t, isDark, useMockData = true, investments, setInvestments, lang = "nl" }) {
+function Investments({ t, isDark, useMockData = true, investments, setInvestments, lang = "nl", allTransactions = [] }) {
   // Use passed-in state if available, otherwise fall back to local
   const [localInvestments, setLocalInvestments] = useState(useMockData ? MOCK_INVESTMENTS : []);
   const invs = investments !== undefined ? investments : localInvestments;
   const setInvs = setInvestments || setLocalInvestments;
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", type: "crypto", invested: "", currentValue: "", ticker: "", units: "" });
+  const [formMode, setFormMode] = useState("choose"); // "choose" | "transaction" | "manual"
+  const [txSearch, setTxSearch] = useState("");
+  const [selectedTx, setSelectedTx] = useState(null);
+  const [form, setForm] = useState({ name: "", type: "crypto", invested: "", currentValue: "", ticker: "", units: "", savingsCurrency: "EUR" });
   const [prices, setPrices] = useState({});
   const [globalLoading, setGlobalLoading] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(null);
 
   const closeForm = () => {
     setShowForm(false);
-    setForm({ name: "", type: "crypto", invested: "", currentValue: "", ticker: "", units: "" });
+    setFormMode("choose");
+    setTxSearch("");
+    setSelectedTx(null);
+    setForm({ name: "", type: "crypto", invested: "", currentValue: "", ticker: "", units: "", savingsCurrency: "EUR" });
   };
+
+  // Transactions with category "investments" for the fetch-from-tx flow
+  const investmentTxs = allTransactions.filter(tx =>
+    tx.category && tx.category.toLowerCase().includes("invest")
+  );
 
   const [ticker, setTicker] = useState({});
   const [tickerLoading, setTickerLoading] = useState(false);
@@ -2552,75 +2563,185 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
           <button onClick={closeForm} style={{ position: "absolute", top: 16, right: 16, width: 30, height: 30, borderRadius: 8, background: isDark ? "rgba(255,255,255,0.06)" : "#f1f5f9", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "#e2e6ed"}`, color: isDark ? "#64748b" : "#64748b", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <X size={14} />
           </button>
-
           <div style={{ fontSize: 17, fontWeight: 800, color: isDark ? "#f1f5f9" : "#0f172a", marginBottom: 4 }}>{t.investments.addInvestment}</div>
-          <div style={{ fontSize: 12, color: isDark ? "#334155" : "#94a3b8", marginBottom: 20 }}>Voeg een aandeel, crypto of andere investering toe</div>
+          <div style={{ fontSize: 12, color: isDark ? "#334155" : "#94a3b8", marginBottom: 20 }}>{lang === "nl" ? "Voeg een aandeel, crypto of andere investering toe" : "Add a stock, crypto or other investment"}</div>
 
-          {/* Type selector */}
-          <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
-            {Object.entries(t.investments.types).map(([k, v]) => (
-              <button key={k} onClick={() => setForm(p => ({ ...p, type: k }))}
-                style={{ padding: "8px 14px", borderRadius: 50, border: form.type === k ? `1.5px solid ${INVESTMENT_COLORS[k]}` : isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid #e2e6ed", background: form.type === k ? `${INVESTMENT_COLORS[k]}18` : isDark ? "rgba(255,255,255,0.03)" : "#f8fafc", color: form.type === k ? INVESTMENT_COLORS[k] : isDark ? "#475569" : "#64748b", cursor: "pointer", fontSize: 12, fontWeight: form.type === k ? 700 : 500, transition: "all 0.15s" }}>
-                {v}
+          {/* ── STEP 1: Choose method ── */}
+          {formMode === "choose" && (
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <button onClick={() => setFormMode("transaction")}
+                style={{ flex: 1, minWidth: 180, padding: "18px 16px", borderRadius: 14, border: isDark ? "1px solid rgba(79,142,247,0.25)" : "1px solid #93c5fd", background: isDark ? "rgba(79,142,247,0.07)" : "#eff6ff", cursor: "pointer", textAlign: "left", transition: "all 0.15s" }}
+                onMouseEnter={e => { e.currentTarget.style.background = isDark ? "rgba(79,142,247,0.14)" : "#dbeafe"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = isDark ? "rgba(79,142,247,0.07)" : "#eff6ff"; }}>
+                <div style={{ fontSize: 22, marginBottom: 6 }}>📄</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: isDark ? "#f1f5f9" : "#0f172a", marginBottom: 3 }}>{lang === "nl" ? "Haal op uit transacties" : "Import from transactions"}</div>
+                <div style={{ fontSize: 11, color: isDark ? "#475569" : "#64748b" }}>{lang === "nl" ? "Kies een transactie met categorie Investeringen" : "Pick a transaction with category Investments"}</div>
               </button>
-            ))}
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            {/* Name + Ticker */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <div>
-                <label style={labelStyle}>Naam</label>
-                <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
-                  placeholder={form.type === "crypto" ? "Bitcoin" : form.type === "stocks" ? "Apple" : form.type === "metals" ? "Goud" : "Naam"} style={inputStyle} />
-              </div>
-              <div>
-                <label style={labelStyle}>Ticker {form.type === "crypto" ? "(CoinGecko ID)" : form.type === "metals" ? "(metaalnaam)" : "(beurssymbool)"}</label>
-                <input value={form.ticker} onChange={e => setForm(p => ({ ...p, ticker: e.target.value }))}
-                  placeholder={form.type === "crypto" ? "bitcoin" : form.type === "metals" ? "goud / zilver" : form.type === "savings" ? "optioneel" : "AAPL"}
-                  style={{ ...inputStyle, fontFamily: "monospace", fontSize: 13 }} />
-              </div>
+              <button onClick={() => setFormMode("manual")}
+                style={{ flex: 1, minWidth: 180, padding: "18px 16px", borderRadius: 14, border: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid #e2e6ed", background: isDark ? "rgba(255,255,255,0.03)" : "#f8fafc", cursor: "pointer", textAlign: "left", transition: "all 0.15s" }}
+                onMouseEnter={e => { e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.07)" : "#f1f5f9"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.03)" : "#f8fafc"; }}>
+                <div style={{ fontSize: 22, marginBottom: 6 }}>✏️</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: isDark ? "#f1f5f9" : "#0f172a", marginBottom: 3 }}>{lang === "nl" ? "Handmatig invoeren" : "Enter manually"}</div>
+                <div style={{ fontSize: 11, color: isDark ? "#475569" : "#64748b" }}>{lang === "nl" ? "Vul zelf alle gegevens in" : "Fill in all details yourself"}</div>
+              </button>
             </div>
+          )}
 
-            {/* Invested + Units */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <div>
-                <label style={labelStyle}>Geïnvesteerd (€)</label>
-                <input type="number" value={form.invested} onChange={e => setForm(p => ({ ...p, invested: e.target.value }))}
-                  placeholder="0,00" style={inputStyle} />
+          {/* ── STEP 2a: Pick from transactions ── */}
+          {formMode === "transaction" && !selectedTx && (
+            <div>
+              <button onClick={() => setFormMode("choose")} style={{ background: "none", border: "none", color: isDark ? "#4f8ef7" : "#2563eb", cursor: "pointer", fontSize: 12, fontWeight: 600, marginBottom: 14, padding: 0 }}>← {lang === "nl" ? "Terug" : "Back"}</button>
+              <div style={{ position: "relative", marginBottom: 12 }}>
+                <Search size={14} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: isDark ? "#475569" : "#94a3b8" }} />
+                <input value={txSearch} onChange={e => setTxSearch(e.target.value)}
+                  placeholder={lang === "nl" ? "Zoek transactie..." : "Search transaction..."}
+                  style={{ ...inputStyle, paddingLeft: 36 }} />
               </div>
-              <div>
-                <label style={labelStyle}>
-                  Aantal {form.type === "metals" ? "troy oz" : form.type === "crypto" ? "coins" : form.type === "savings" ? "rekeningen" : "aandelen"}
-                  {(form.type === "crypto" || form.type === "metals" || form.type === "stocks") && <span style={{ color: "#f59e0b", fontWeight: 700, marginLeft: 6 }}>← voor live prijs</span>}
-                </label>
-                <input type="number" value={form.units} onChange={e => setForm(p => ({ ...p, units: e.target.value }))}
-                  placeholder={form.type === "crypto" ? "bijv. 0.05" : form.type === "metals" ? "bijv. 2.5" : "bijv. 10"} style={inputStyle} />
-                {form.units && form.invested && parseFloat(form.units) > 0 && (
-                  <div style={{ fontSize: 11, color: "#f59e0b", marginTop: 4 }}>
-                    Aankoopprijs: {fmt(parseFloat(form.invested) / parseFloat(form.units))} per {form.type === "metals" ? "oz" : form.type === "crypto" ? "coin" : "aandeel"}
+              {investmentTxs.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "24px 0", color: isDark ? "#475569" : "#94a3b8", fontSize: 13 }}>
+                  {lang === "nl" ? "Geen transacties gevonden met categorie 'Investeringen'" : "No transactions found with category 'Investments'"}
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 280, overflowY: "auto" }}>
+                  {investmentTxs
+                    .filter(tx => {
+                      const q = txSearch.toLowerCase();
+                      return !q || (tx.counterparty||"").toLowerCase().includes(q) || (tx.description||"").toLowerCase().includes(q);
+                    })
+                    .map(tx => (
+                      <button key={tx.id} onClick={() => {
+                        setSelectedTx(tx);
+                        setForm(p => ({ ...p, name: tx.counterparty || tx.description || "", invested: Math.abs(tx.amount).toFixed(2) }));
+                      }}
+                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: 10, background: isDark ? "rgba(255,255,255,0.03)" : "#f8fafc", border: isDark ? "1px solid rgba(255,255,255,0.06)" : "1px solid #e2e6ed", cursor: "pointer", textAlign: "left", transition: "all 0.12s" }}
+                        onMouseEnter={e => e.currentTarget.style.background = isDark ? "rgba(79,142,247,0.1)" : "#eff6ff"}
+                        onMouseLeave={e => e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.03)" : "#f8fafc"}>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: isDark ? "#f1f5f9" : "#0f172a" }}>{tx.counterparty || tx.description}</div>
+                          <div style={{ fontSize: 11, color: isDark ? "#475569" : "#94a3b8", marginTop: 2 }}>{tx.date}</div>
+                        </div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: tx.amount < 0 ? "#f43f5e" : "#22c55e", fontFamily: "monospace" }}>
+                          {tx.amount < 0 ? "-" : "+"}{fmt(Math.abs(tx.amount))}
+                        </div>
+                      </button>
+                    ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── STEP 2b: Fill form (manual OR after tx selected) ── */}
+          {(formMode === "manual" || (formMode === "transaction" && selectedTx)) && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {(formMode === "manual" || selectedTx) && (
+                <button onClick={() => { setFormMode(selectedTx ? "transaction" : "choose"); setSelectedTx(null); }}
+                  style={{ background: "none", border: "none", color: isDark ? "#4f8ef7" : "#2563eb", cursor: "pointer", fontSize: 12, fontWeight: 600, padding: 0, textAlign: "left" }}>← {lang === "nl" ? "Terug" : "Back"}</button>
+              )}
+              {selectedTx && (
+                <div style={{ padding: "8px 12px", background: isDark ? "rgba(34,197,94,0.08)" : "#f0fdf4", border: "1px solid rgba(34,197,94,0.2)", borderRadius: 10, fontSize: 12, color: isDark ? "#86efac" : "#16a34a" }}>
+                  📄 {lang === "nl" ? "Transactie" : "Transaction"}: {selectedTx.counterparty || selectedTx.description} · {selectedTx.date} · {fmt(Math.abs(selectedTx.amount))}
+                </div>
+              )}
+
+              {/* Type selector */}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {Object.entries(t.investments.types).map(([k, v]) => (
+                  <button key={k} onClick={() => setForm(p => ({ ...p, type: k }))}
+                    style={{ padding: "7px 13px", borderRadius: 50, border: form.type === k ? `1.5px solid ${INVESTMENT_COLORS[k]}` : isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid #e2e6ed", background: form.type === k ? `${INVESTMENT_COLORS[k]}18` : isDark ? "rgba(255,255,255,0.03)" : "#f8fafc", color: form.type === k ? INVESTMENT_COLORS[k] : isDark ? "#475569" : "#64748b", cursor: "pointer", fontSize: 12, fontWeight: form.type === k ? 700 : 500, transition: "all 0.15s" }}>
+                    {v}
+                  </button>
+                ))}
+              </div>
+
+              {/* Name + Ticker (ticker hidden for savings) */}
+              <div style={{ display: "grid", gridTemplateColumns: form.type === "savings" ? "1fr" : "1fr 1fr", gap: 12 }}>
+                <div>
+                  <label style={labelStyle}>{lang === "nl" ? "Naam" : "Name"}</label>
+                  <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+                    placeholder={form.type === "crypto" ? "Bitcoin" : form.type === "stocks" ? "Apple" : form.type === "metals" ? "Goud" : form.type === "savings" ? "ING Spaarrekening" : "Naam"} style={inputStyle} />
+                </div>
+                {form.type !== "savings" && (
+                  <div>
+                    <label style={labelStyle}>Ticker {form.type === "crypto" ? "(CoinGecko ID)" : form.type === "metals" ? "(metaalnaam)" : "(beurssymbool)"}</label>
+                    <input value={form.ticker} onChange={e => setForm(p => ({ ...p, ticker: e.target.value }))}
+                      placeholder={form.type === "crypto" ? "bitcoin" : form.type === "metals" ? "goud / zilver" : "AAPL"}
+                      style={{ ...inputStyle, fontFamily: "monospace", fontSize: 13 }} />
                   </div>
                 )}
               </div>
+
+              {/* Invested + Units */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  {form.type === "savings" ? (
+                    <>
+                      <label style={labelStyle}>{lang === "nl" ? "Gespaard" : "Saved"}</label>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <select value={form.savingsCurrency} onChange={e => setForm(p => ({ ...p, savingsCurrency: e.target.value }))}
+                          style={{ ...inputStyle, width: "auto", minWidth: 80, paddingLeft: 10, paddingRight: 10, cursor: "pointer" }}>
+                          {["EUR","USD","GBP","CHF","JPY","CAD","AUD"].map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                        <input type="number" value={form.invested} onChange={e => setForm(p => ({ ...p, invested: e.target.value }))}
+                          placeholder="0,00" style={inputStyle} />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <label style={labelStyle}>{lang === "nl" ? "Geïnvesteerd (€)" : "Invested (€)"}</label>
+                      <input type="number" value={form.invested} onChange={e => setForm(p => ({ ...p, invested: e.target.value }))}
+                        placeholder="0,00" style={inputStyle} />
+                    </>
+                  )}
+                </div>
+                {form.type !== "savings" && (
+                  <div>
+                    <label style={labelStyle}>
+                      {lang === "nl" ? "Aantal" : "Amount"} {form.type === "metals" ? "gram" : form.type === "crypto" ? "coins" : "aandelen"}
+                      {(form.type === "crypto" || form.type === "metals" || form.type === "stocks") && <span style={{ color: "#f59e0b", fontWeight: 700, marginLeft: 6 }}>← live prijs</span>}
+                    </label>
+                    <input type="number" value={form.units} onChange={e => setForm(p => ({ ...p, units: e.target.value }))}
+                      placeholder={form.type === "crypto" ? "bijv. 0.05" : form.type === "metals" ? "bijv. 10" : "bijv. 10"} style={inputStyle} />
+                    {form.units && form.invested && parseFloat(form.units) > 0 && (
+                      <div style={{ fontSize: 11, color: "#f59e0b", marginTop: 4 }}>
+                        Aankoopprijs: {fmt(parseFloat(form.invested) / parseFloat(form.units))} per {form.type === "metals" ? "gram" : form.type === "crypto" ? "coin" : "aandeel"}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Current value — savings shows EUR equivalent calculation */}
+              <div>
+                {form.type === "savings" ? (
+                  <>
+                    <label style={labelStyle}>{lang === "nl" ? "Huidige waarde (€)" : "Current value (€)"} <span style={{ fontWeight: 400, opacity: 0.6, textTransform: "none" }}>— {lang === "nl" ? "huidig saldo in euro" : "current balance in euros"}</span></label>
+                    <input type="number" value={form.currentValue} onChange={e => setForm(p => ({ ...p, currentValue: e.target.value }))}
+                      placeholder={form.savingsCurrency === "EUR" && form.invested ? form.invested : lang === "nl" ? "Voer saldo in euro in" : "Enter balance in euros"} style={inputStyle} />
+                    {form.savingsCurrency !== "EUR" && form.invested && (
+                      <div style={{ fontSize: 11, color: isDark ? "#475569" : "#94a3b8", marginTop: 4 }}>
+                        {lang === "nl" ? "Vul de eurowaarde in van je" : "Enter the euro value of your"} {form.savingsCurrency} {lang === "nl" ? "saldo" : "balance"}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <label style={labelStyle}>{lang === "nl" ? "Huidige waarde (€)" : "Current value (€)"} <span style={{ fontWeight: 400, opacity: 0.6, textTransform: "none" }}>— {lang === "nl" ? "laat leeg voor automatisch" : "leave empty for auto"}</span></label>
+                    <input type="number" value={form.currentValue} onChange={e => setForm(p => ({ ...p, currentValue: e.target.value }))}
+                      placeholder={lang === "nl" ? "Wordt automatisch ingevuld na prijsupdate" : "Auto-filled after price update"} style={inputStyle} />
+                  </>
+                )}
+              </div>
+
+              <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                <button onClick={closeForm} style={{ ...pillBtnGhost(isDark), flex: 1 }}>{lang === "nl" ? "Annuleren" : "Cancel"}</button>
+                <button onClick={addInvestment} disabled={!form.name || !form.invested}
+                  style={{ ...pillBtn(), flex: 2, opacity: form.name && form.invested ? 1 : 0.45 }}>
+                  <Plus size={15} /> {lang === "nl" ? "Toevoegen" : "Add"}
+                </button>
+              </div>
             </div>
-
-            {/* Current value */}
-            <div>
-              <label style={labelStyle}>Huidige waarde (€) {form.type === "savings" ? <span style={{ fontWeight: 400, opacity: 0.6 }}>— huidig saldo</span> : <span style={{ fontWeight: 400, opacity: 0.6 }}>— huidig saldo of laat leeg</span>}</label>
-              <input type="number" value={form.currentValue} onChange={e => setForm(p => ({ ...p, currentValue: e.target.value }))}
-                placeholder="Wordt automatisch ingevuld na prijsupdate" style={inputStyle} />
-            </div>
-
-
-
-            <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-              <button onClick={closeForm} style={{ ...pillBtnGhost(isDark), flex: 1 }}>{lang === "nl" ? "Annuleren" : "Cancel"}</button>
-              <button onClick={addInvestment} disabled={!form.name || !form.invested}
-                style={{ ...pillBtn(), flex: 2, opacity: form.name && form.invested ? 1 : 0.45 }}>
-                <Plus size={15} /> Toevoegen
-              </button>
-            </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -2635,12 +2756,12 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
             {/* EUR / USD toggle */}
             <div style={{ display: "flex", borderRadius: 20, border: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid #e2e6ed", overflow: "hidden" }}>
-              {["EUR","USD"].map(cur => (
+              {[["EUR","€"],["USD","$"]].map(([cur, sym]) => (
                 <button key={cur} onClick={() => setTickerCurrency(cur)}
                   style={{ padding: "4px 10px", border: "none", cursor: "pointer", fontSize: 11, fontWeight: 700,
                     background: tickerCurrency === cur ? (isDark ? "rgba(255,255,255,0.1)" : "#e2e6ed") : "transparent",
                     color: tickerCurrency === cur ? (isDark ? "#f1f5f9" : "#0f172a") : (isDark ? "#475569" : "#94a3b8") }}>
-                  {cur}
+                  {sym} {cur}
                 </button>
               ))}
             </div>
@@ -2792,7 +2913,7 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
                         <div style={{ fontSize: 13, fontWeight: 600, color: isDark ? "#f1f5f9" : "#0f172a" }}>{inv.name}</div>
                         <div style={{ fontSize: 11, color: isDark ? "#64748b" : "#64748b" }}>
                           {inv.ticker && <span style={{ fontFamily: "monospace", color: "#475569" }}>{inv.ticker.toUpperCase()} · </span>}
-                          {t.investments.types[inv.type]}{inv.units && inv.type === 'metals' ? ` · ${inv.units} troy oz` : ''}
+                          {t.investments.types[inv.type]}{inv.units && inv.type === 'metals' ? ` · ${inv.units} gram` : ''}
                         </div>
                       </div>
                     </div>
@@ -6078,7 +6199,7 @@ export default function App() {
                 if (uncat > 0) setUncatAlert(uncat);
               }} />}
           {view === "recurring" && <VasteLasten transactions={transactions} recurringItems={recurringItems} setRecurringItems={setRecurringItems} isDark={isDark} t={t} lang={lang} />}
-          {view === "investments" && <Investments key={resetKey} t={t} isDark={isDark} useMockData={useMockData} investments={appInvestments} setInvestments={setAppInvestments} lang={lang} />}
+          {view === "investments" && <Investments key={resetKey} t={t} isDark={isDark} useMockData={useMockData} investments={appInvestments} setInvestments={setAppInvestments} lang={lang} allTransactions={transactions} />}
           {view === "goals" && <GoalsView key={resetKey} transactions={transactions} isDark={isDark} useMockData={useMockData} goals={appGoals} setGoals={setAppGoals} t={t} lang={lang} />}
           {view === "insights" && <Insights transactions={transactions} t={t} isDark={isDark} recurringItems={recurringItems} lang={lang} />}
           {view === "calibrate" && <Calibrate transactions={transactions} setTransactions={setTransactions} t={t} isDark={isDark} lang={lang} />}
