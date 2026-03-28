@@ -2200,7 +2200,7 @@ function Transactions({ transactions, setTransactions, t, accounts, setAccounts,
 
 // ─── FINNHUB KEY (hardcoded) ──────────────────────────────────
 
-function Investments({ t, isDark, useMockData = true, investments, setInvestments, lang = "nl", allTransactions = [] }) {
+function Investments({ t, isDark, useMockData = true, investments, setInvestments, lang = "nl", allTransactions = [], goals = [], setGoals }) {
   // Use passed-in state if available, otherwise fall back to local
   const [localInvestments, setLocalInvestments] = useState(useMockData ? MOCK_INVESTMENTS : []);
   const invs = investments !== undefined ? investments : localInvestments;
@@ -2209,7 +2209,7 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
   const [formMode, setFormMode] = useState("choose"); // "choose" | "transaction" | "manual"
   const [txSearch, setTxSearch] = useState("");
   const [selectedTx, setSelectedTx] = useState(null);
-  const [form, setForm] = useState({ name: "", type: "crypto", invested: "", currentValue: "", ticker: "", units: "", savingsCurrency: "EUR" });
+  const [form, setForm] = useState({ name: "", type: "crypto", invested: "", currentValue: "", ticker: "", units: "", savingsCurrency: "EUR", linkedGoalId: "" });
   const [prices, setPrices] = useState({});
   const [globalLoading, setGlobalLoading] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(null);
@@ -2219,7 +2219,7 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
     setFormMode("choose");
     setTxSearch("");
     setSelectedTx(null);
-    setForm({ name: "", type: "crypto", invested: "", currentValue: "", ticker: "", units: "", savingsCurrency: "EUR" });
+    setForm({ name: "", type: "crypto", invested: "", currentValue: "", ticker: "", units: "", savingsCurrency: "EUR", linkedGoalId: "" });
   };
 
   // Transactions with category "investments" for the fetch-from-tx flow
@@ -2510,19 +2510,19 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
 
   useEffect(() => { fetchPeriodBaselines(invPeriod); }, [invPeriod]);
 
-  // Live FX rates via Frankfurter (EUR base → target currencies)
+  // Live FX rates via open.er-api.com (supports GHS, AED, MAD + all ECB currencies)
   const fetchFxRates = async () => {
     try {
-      const currencies = "USD,GBP,CHF,JPY,CAD,AUD,GHS,AED,MAD";
-      const res = await fetch(`https://api.frankfurter.app/latest?from=EUR&to=${currencies}`, { signal: AbortSignal.timeout(8000) });
+      const res = await fetch(`https://open.er-api.com/v6/latest/EUR`, { signal: AbortSignal.timeout(10000) });
       if (res.ok) {
         const data = await res.json();
-        // rates = { USD: 1.08, GBP: 0.86, ... } meaning 1 EUR = X foreign
-        // We want: 1 foreign = Y EUR, so invert
-        const inverted = {};
-        Object.entries(data.rates).forEach(([cur, rate]) => { inverted[cur] = 1 / rate; });
-        inverted["EUR"] = 1;
-        setFxRates(inverted);
+        if (data.result === "success" && data.rates) {
+          // data.rates = { USD: 1.08, GHS: 16.5, ... } = 1 EUR → X foreign
+          // Invert: 1 foreign = Y EUR
+          const inverted = { EUR: 1 };
+          Object.entries(data.rates).forEach(([cur, rate]) => { if (rate > 0) inverted[cur] = 1 / rate; });
+          setFxRates(inverted);
+        }
       }
     } catch (e) { console.warn("FX rates:", e.message); }
   };
@@ -2550,12 +2550,23 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
     const invested = isSavings ? parseFloat((savingsAmount * rate).toFixed(2)) : savingsAmount;
     const currentValue = form.currentValue ? parseFloat(form.currentValue) : invested;
     const units = form.units ? parseFloat(form.units) : null;
+    const invId = Date.now();
     setInvs(prev => [...prev, {
-      id: Date.now(), name: form.name, type: form.type,
+      id: invId, name: form.name, type: form.type,
       invested, currentValue,
       ticker: form.ticker, units,
-      ...(isSavings && cur !== "EUR" ? { savingsCurrency: cur, savingsAmount } : {})
+      ...(isSavings && cur !== "EUR" ? { savingsCurrency: cur, savingsAmount } : {}),
+      ...(form.linkedGoalId ? { linkedGoalId: parseInt(form.linkedGoalId) } : {})
     }]);
+    // Update linked goal's current amount
+    if (form.linkedGoalId && setGoals) {
+      const eurValue = parseFloat(form.currentValue) || invested;
+      setGoals(prev => prev.map(g =>
+        g.id === parseInt(form.linkedGoalId)
+          ? { ...g, current: parseFloat((g.current + eurValue).toFixed(2)) }
+          : g
+      ));
+    }
     closeForm();
   };
 
@@ -2768,7 +2779,26 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
 
               {/* Current value — savings shows EUR equivalent calculation */}
               <div>
-                {form.type === "savings" ? (
+                {form.type === "savings" && goals.length > 0 && (
+                <div>
+                  <label style={labelStyle}>{lang === "nl" ? "Koppel aan spaardoel" : "Link to savings goal"} <span style={{ fontWeight: 400, opacity: 0.6, textTransform: "none" }}>— {lang === "nl" ? "optioneel" : "optional"}</span></label>
+                  <select value={form.linkedGoalId} onChange={e => setForm(p => ({ ...p, linkedGoalId: e.target.value }))}
+                    style={{ ...inputStyle, cursor: "pointer" }}>
+                    <option value="">{lang === "nl" ? "— Geen koppeling —" : "— No link —"}</option>
+                    {goals.map(g => (
+                      <option key={g.id} value={g.id}>
+                        {g.name} — {lang === "nl" ? "huidig" : "current"}: {fmt(g.current)} / {fmt(g.target)}
+                      </option>
+                    ))}
+                  </select>
+                  {form.linkedGoalId && (
+                    <div style={{ fontSize: 11, color: "#22c55e", marginTop: 4 }}>
+                      ✓ {lang === "nl" ? "Saldo wordt opgeteld bij dit doel" : "Balance will be added to this goal"}
+                    </div>
+                  )}
+                </div>
+              )}
+              {form.type === "savings" ? (
                   <>
                     <label style={labelStyle}>{lang === "nl" ? "Huidige waarde (€)" : "Current value (€)"} <span style={{ fontWeight: 400, opacity: 0.6, textTransform: "none" }}>— {lang === "nl" ? "huidig saldo in euro" : "current balance in euros"}</span></label>
                     <input type="number" value={form.currentValue} onChange={e => setForm(p => ({ ...p, currentValue: e.target.value }))}
@@ -2976,6 +3006,11 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
                               {inv.savingsAmount?.toLocaleString()} {inv.savingsCurrency} · {fxRates[inv.savingsCurrency] ? `1=${fmt(fxRates[inv.savingsCurrency])}` : "koers laden..."}
                             </span>
                           )}
+                          {inv.linkedGoalId && (() => { const g = goals.find(g => g.id === inv.linkedGoalId); return g ? (
+                            <span style={{ marginLeft: 6, padding: "1px 6px", background: `${g.color}18`, border: `1px solid ${g.color}40`, borderRadius: 6, color: g.color, fontSize: 10, fontWeight: 700 }}>
+                              🎯 {g.name}
+                            </span>
+                          ) : null; })()}
                         </div>
                       </div>
                     </div>
@@ -6261,7 +6296,7 @@ export default function App() {
                 if (uncat > 0) setUncatAlert(uncat);
               }} />}
           {view === "recurring" && <VasteLasten transactions={transactions} recurringItems={recurringItems} setRecurringItems={setRecurringItems} isDark={isDark} t={t} lang={lang} />}
-          {view === "investments" && <Investments key={resetKey} t={t} isDark={isDark} useMockData={useMockData} investments={appInvestments} setInvestments={setAppInvestments} lang={lang} allTransactions={transactions} />}
+          {view === "investments" && <Investments key={resetKey} t={t} isDark={isDark} useMockData={useMockData} investments={appInvestments} setInvestments={setAppInvestments} lang={lang} allTransactions={transactions} goals={appGoals} setGoals={setAppGoals} />}
           {view === "goals" && <GoalsView key={resetKey} transactions={transactions} isDark={isDark} useMockData={useMockData} goals={appGoals} setGoals={setAppGoals} t={t} lang={lang} />}
           {view === "insights" && <Insights transactions={transactions} t={t} isDark={isDark} recurringItems={recurringItems} lang={lang} />}
           {view === "calibrate" && <Calibrate transactions={transactions} setTransactions={setTransactions} t={t} isDark={isDark} lang={lang} />}
