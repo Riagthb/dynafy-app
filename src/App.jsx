@@ -3341,82 +3341,150 @@ function Insights({ transactions, t, isDark, recurringItems = [], lang = "nl" })
     );
   }
 
+  const pCard = {
+    background: isDark ? "linear-gradient(145deg,rgba(255,255,255,0.05) 0%,rgba(255,255,255,0.02) 100%)" : "#ffffff",
+    borderRadius: 18,
+    border: `1px solid ${C.border}`,
+    padding: "20px",
+  };
+
   return (
-    <div>
-      <div style={{ fontSize: 20, fontWeight: 700, color: C.text, marginBottom: 4 }}>{t.insights.title}</div>
-      <div style={{ fontSize: 13, color: C.muted, marginBottom: 20 }}>{fmtMonth(currentMonth)} · analyse op basis van jouw transacties</div>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
       {/* ── Reminders ── */}
       {reminderAlerts.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {reminderAlerts.map(r => (
-            <div key={r.key} style={{ ...card(isDark), borderLeft: "3px solid #f59e0b", display: "flex", gap: 14, alignItems: "center", padding: "12px 18px" }}>
-              <span style={{ fontSize: 20 }}>🔔</span>
-              <div><div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{r.label}</div>
-              <div style={{ fontSize: 12, color: C.muted }}>{r.remindNote || "Datum bereikt."}</div></div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* ── Row 1: Health score + Month KPIs ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: 14, marginBottom: 14 }}>
-        {/* Health score donut */}
-        <div style={{ ...card(isDark), display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "20px 16px" }}>
-          <div style={{ position: "relative", width: 88, height: 88, marginBottom: 12 }}>
-            <svg width="88" height="88" style={{ transform: "rotate(-90deg)" }}>
-              <circle cx="44" cy="44" r="36" fill="none" stroke={isDark ? "rgba(255,255,255,0.06)" : "#e2e8f0"} strokeWidth="8"/>
-              <circle cx="44" cy="44" r="36" fill="none" stroke={healthColor} strokeWidth="8"
-                strokeDasharray={`${2 * Math.PI * 36 * healthScore / 100} ${2 * Math.PI * 36}`}
-                strokeLinecap="round" style={{ transition: "stroke-dasharray 0.8s ease" }}/>
-            </svg>
-            <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-              <span style={{ fontSize: 20, fontWeight: 800, color: healthColor, lineHeight: 1 }}>{healthScore}</span>
-              <span style={{ fontSize: 9, color: C.muted, fontWeight: 600, textTransform: "uppercase" }}>score</span>
-            </div>
-          </div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: healthColor }}>{healthLabel}</div>
-          <div style={{ fontSize: 11, color: C.muted, textAlign: "center", marginTop: 4 }}>{lang === "nl" ? "Financiële gezondheid" : "Financial health"}</div>
-        </div>
-
-        {/* KPI grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          {[
-            { label: t.general.income, value: fmt(income), sub: prevIncome ? `${income >= prevIncome ? "+" : ""}${Math.round((income-prevIncome)/prevIncome*100)}% ${t.general.vsLastMonth}` : "", color: "#22c55e" },
-            { label: t.general.expenses, value: fmt(expenses), sub: prevExpenses ? `${expenses >= prevExpenses ? "+" : ""}${Math.round((expenses-prevExpenses)/prevExpenses*100)}% ${t.general.vsLastMonth}` : "", color: "#f43f5e" },
-            { label: t.general.balance, value: fmt(Math.abs(balance)), sub: balance >= 0 ? lang === "nl" ? lang === "nl" ? "over deze maand" : "surplus" : "surplus" : lang === "nl" ? lang === "nl" ? "tekort deze maand" : "deficit" : "deficit", color: balance >= 0 ? "#4f8ef7" : "#f43f5e" },
-            { label: t.general.savings, value: `${savingsRate}%`, sub: savingsRate >= 20 ? lang === "nl" ? "✓ boven 20% doel" : "✓ above 20% goal" : `doel: 20% (${fmt(income*0.2)})`, color: savingsRate >= 20 ? "#22c55e" : "#f59e0b" },
-          ].map(k => (
-            <div key={k.label} style={{ ...card(isDark), padding: "12px 14px", borderTop: `2.5px solid ${k.color}` }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>{k.label}</div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: k.color, fontFamily: "'DM Mono', monospace" }}>{k.value}</div>
-              {k.sub && <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>{k.sub}</div>}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Alerts ── */}
-      {alerts.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
-          {alerts.map((a, i) => (
-            <div key={i} style={{ ...card(isDark), borderLeft: `3px solid ${a.color}`, display: "flex", gap: 14, alignItems: "flex-start", padding: "14px 18px" }}>
-              <span style={{ fontSize: 22, lineHeight: 1, flexShrink: 0 }}>{a.icon}</span>
+            <div key={r.key} style={{ ...pCard, display: "flex", gap: 14, alignItems: "center", padding: "14px 18px", borderLeft: "2px solid #f59e0b" }}>
+              <div style={{ width: 32, height: 32, borderRadius: 10, background: "rgba(245,158,11,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <Bell size={15} color="#f59e0b"/>
+              </div>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 3 }}>{a.title}</div>
-                <div style={{ fontSize: 12, color: C.sub, lineHeight: 1.6 }}>{a.body}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{r.label}</div>
+                <div style={{ fontSize: 12, color: C.muted }}>{r.remindNote || "Datum bereikt."}</div>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* ── Row 2: Category breakdown + Top counterparties ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+      {/* ── Row 1: Health score + KPIs ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "210px 1fr", gap: 16 }}>
+
+        {/* ── SCORE CARD ── */}
+        <div style={{ ...pCard, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "28px 20px", position: "relative", overflow: "hidden" }}>
+          {/* Background glow */}
+          <div style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at 50% 45%, ${healthColor}18 0%, transparent 68%)`, pointerEvents: "none" }}/>
+          {/* Donut */}
+          <div style={{ position: "relative", width: 120, height: 120, marginBottom: 18 }}>
+            <svg width="120" height="120" style={{ transform: "rotate(-90deg)" }}>
+              <defs>
+                <linearGradient id="insScoreGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor={healthColor} stopOpacity="0.5"/>
+                  <stop offset="100%" stopColor={healthColor}/>
+                </linearGradient>
+                <filter id="insGlow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="3" result="blur"/>
+                  <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                </filter>
+              </defs>
+              <circle cx="60" cy="60" r="50" fill="none" stroke={isDark ? "rgba(255,255,255,0.05)" : "#e2e8f0"} strokeWidth="9"/>
+              <circle cx="60" cy="60" r="50" fill="none" stroke="url(#insScoreGrad)" strokeWidth="9"
+                strokeDasharray={`${2 * Math.PI * 50 * healthScore / 100} ${2 * Math.PI * 50}`}
+                strokeLinecap="round" filter="url(#insGlow)"
+                style={{ transition: "stroke-dasharray 1s cubic-bezier(0.4,0,0.2,1)" }}/>
+            </svg>
+            <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ fontSize: 32, fontWeight: 900, color: C.text, lineHeight: 1, letterSpacing: "-1.5px" }}>{healthScore}</span>
+              <span style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: "1.5px", marginTop: 3 }}>score</span>
+            </div>
+          </div>
+          <div style={{ background: `${healthColor}20`, border: `1px solid ${healthColor}35`, borderRadius: 20, padding: "5px 16px", fontSize: 12, fontWeight: 700, color: healthColor, marginBottom: 8 }}>
+            {healthLabel}
+          </div>
+          <div style={{ fontSize: 11, color: C.muted, fontWeight: 500 }}>
+            {lang === "nl" ? "Financiële gezondheid" : "Financial health"}
+          </div>
+        </div>
+
+        {/* ── KPI GRID ── */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          {[
+            { label: t.general.income,   value: fmt(income),            Icon: TrendingUp,     color: "#4f8ef7",
+              pct: prevIncome   ? Math.round((income   - prevIncome)   / prevIncome   * 100) : null, invertBad: false,
+              sub: null },
+            { label: t.general.expenses, value: fmt(expenses),          Icon: ArrowDownRight, color: "#f43f5e",
+              pct: prevExpenses ? Math.round((expenses - prevExpenses) / prevExpenses * 100) : null, invertBad: true,
+              sub: null },
+            { label: t.general.balance,  value: fmt(Math.abs(balance)), Icon: Wallet,         color: balance >= 0 ? "#4f8ef7" : "#f43f5e",
+              pct: null, sub: balance >= 0 ? (lang === "nl" ? "overschot" : "surplus") : (lang === "nl" ? "tekort" : "deficit") },
+            { label: t.general.savings,  value: `${savingsRate}%`,      Icon: Target,         color: savingsRate >= 20 ? "#22c55e" : "#f59e0b",
+              pct: null, sub: savingsRate >= 20 ? (lang === "nl" ? "✓ doel gehaald" : "✓ goal reached") : `doel: 20%` },
+          ].map(({ label, value, Icon, color, pct, sub, invertBad }) => {
+            const trendGood = invertBad ? pct < 0 : pct > 0;
+            return (
+              <div key={label} style={{ ...pCard, padding: "18px 20px", position: "relative", overflow: "hidden" }}>
+                {/* Corner glow */}
+                <div style={{ position: "absolute", top: -24, right: -24, width: 80, height: 80, borderRadius: "50%", background: `${color}12`, pointerEvents: "none" }}/>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em" }}>{label}</span>
+                  <div style={{ width: 30, height: 30, borderRadius: 9, background: `${color}18`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <Icon size={14} color={color}/>
+                  </div>
+                </div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: C.text, letterSpacing: "-0.5px", fontVariantNumeric: "tabular-nums", marginBottom: 8, lineHeight: 1 }}>
+                  {value}
+                </div>
+                {pct !== null ? (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 20,
+                    background: trendGood ? "rgba(34,197,94,0.12)" : "rgba(244,63,94,0.12)",
+                    color: trendGood ? "#22c55e" : "#f43f5e" }}>
+                    {pct > 0 ? "▲" : "▼"} {Math.abs(pct)}% {t.general.vsLastMonth}
+                  </span>
+                ) : sub ? (
+                  <span style={{ fontSize: 11, color: C.muted, fontWeight: 500 }}>{sub}</span>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── ALERTS ── */}
+      {alerts.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {alerts.map((a, i) => {
+            const AlertIcon = a.type === "success" ? Zap : a.type === "warning" ? AlertCircle : Lightbulb;
+            return (
+              <div key={i} style={{ ...pCard, padding: "16px 20px",
+                background: isDark ? `linear-gradient(135deg,${a.color}0a,${a.color}04)` : `${a.color}08`,
+                border: `1px solid ${a.color}28`,
+                display: "flex", gap: 14, alignItems: "flex-start" }}>
+                <div style={{ width: 36, height: 36, borderRadius: 11, background: `${a.color}20`, border: `1px solid ${a.color}30`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <AlertIcon size={16} color={a.color}/>
+                </div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 4 }}>{a.title}</div>
+                  <div style={{ fontSize: 12, color: C.sub, lineHeight: 1.65 }}>{a.body}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── Row 2: Category breakdown + Biggest expenses ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+
         {/* Category breakdown */}
-        <div style={{ ...card(isDark) }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 14 }}>{lang === "nl" ? "📊 Uitgaven per categorie" : "📊 Expenses by category"}</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ ...pCard }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+            <div style={{ width: 30, height: 30, borderRadius: 9, background: "rgba(99,102,241,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <BarChart2 size={14} color="#6366f1"/>
+            </div>
+            <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{lang === "nl" ? "Uitgaven per categorie" : "Expenses by category"}</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {catBreakdown.map(([cat, amount]) => {
               const pct = expenses > 0 ? (amount / expenses * 100) : 0;
               const color = CATEGORY_COLORS[cat] || "#64748b";
@@ -3424,22 +3492,24 @@ function Insights({ transactions, t, isDark, recurringItems = [], lang = "nl" })
               const change = prevAmt > 0 ? Math.round((amount - prevAmt) / prevAmt * 100) : null;
               return (
                 <div key={cat}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                      <div style={{ width: 8, height: 8, borderRadius: 2, background: color, flexShrink: 0 }}/>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ width: 7, height: 7, borderRadius: "50%", background: color, flexShrink: 0, boxShadow: `0 0 5px ${color}99` }}/>
                       <span style={{ fontSize: 12, color: C.sub, fontWeight: 500 }}>{t.categories[cat] || cat}</span>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       {change !== null && (
-                        <span style={{ fontSize: 10, color: change > 10 ? "#f43f5e" : change < -10 ? "#22c55e" : C.muted, fontWeight: 600 }}>
+                        <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 6px", borderRadius: 20,
+                          background: change > 10 ? "rgba(244,63,94,0.1)" : change < -10 ? "rgba(34,197,94,0.1)" : "transparent",
+                          color: change > 10 ? "#f43f5e" : change < -10 ? "#22c55e" : C.muted }}>
                           {change > 0 ? `+${change}%` : `${change}%`}
                         </span>
                       )}
-                      <span style={{ fontSize: 12, fontWeight: 700, color: C.text, fontFamily: "'DM Mono', monospace" }}>{fmt(amount)}</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: C.text, fontVariantNumeric: "tabular-nums" }}>{fmt(amount)}</span>
                     </div>
                   </div>
-                  <div style={{ height: 5, background: isDark ? "rgba(255,255,255,0.06)" : "#e2e8f0", borderRadius: 3, overflow: "hidden" }}>
-                    <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 3 }}/>
+                  <div style={{ height: 4, background: isDark ? "rgba(255,255,255,0.05)" : "#f1f5f9", borderRadius: 999, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${pct}%`, background: `linear-gradient(90deg,${color}88,${color})`, borderRadius: 999, transition: "width 0.7s ease" }}/>
                   </div>
                 </div>
               );
@@ -3447,36 +3517,50 @@ function Insights({ transactions, t, isDark, recurringItems = [], lang = "nl" })
           </div>
         </div>
 
-        {/* Top tegenpartijen + Grootste transacties */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        {/* Biggest expenses */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {topCounterparties.length > 0 && (
-            <div style={{ ...card(isDark) }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 12 }}>{lang === "nl" ? "👤 Meeste geld naar" : "👤 Most money to"}</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ ...pCard }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                <div style={{ width: 30, height: 30, borderRadius: 9, background: "rgba(148,163,184,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Activity size={14} color={C.sub}/>
+                </div>
+                <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{lang === "nl" ? "Meeste geld naar" : "Most money to"}</span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {topCounterparties.map(([name, amount], i) => (
                   <div key={name} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ width: 22, height: 22, borderRadius: 6, background: isDark ? "rgba(255,255,255,0.06)" : "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: C.muted, flexShrink: 0 }}>#{i+1}</div>
+                    <div style={{ width: 24, height: 24, borderRadius: 7, background: isDark ? "rgba(255,255,255,0.05)" : "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: C.muted, flexShrink: 0 }}>
+                      {i + 1}
+                    </div>
                     <span style={{ fontSize: 12, color: C.sub, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: "#f43f5e", fontFamily: "'DM Mono', monospace", flexShrink: 0 }}>{fmt(amount)}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: C.text, fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>{fmt(amount)}</span>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          <div style={{ ...card(isDark) }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 12 }}>{lang === "nl" ? "💸 Grootste uitgaven" : "💸 Biggest expenses"}</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ ...pCard, flex: 1 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+              <div style={{ width: 30, height: 30, borderRadius: 9, background: "rgba(244,63,94,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <ArrowDownRight size={14} color="#f43f5e"/>
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{lang === "nl" ? "Grootste uitgaven" : "Biggest expenses"}</span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {biggestTxs.map(tx => (
-                <div key={tx.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: 2, background: CATEGORY_COLORS[tx.category] || "#64748b", flexShrink: 0 }}/>
+                <div key={tx.id} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 10, background: isDark ? "rgba(255,255,255,0.04)" : "#f8fafc", border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: 2, background: CATEGORY_COLORS[tx.category] || "#64748b" }}/>
+                  </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, color: C.text, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <div style={{ fontSize: 12, color: C.text, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {tx.counterparty || tx.description}
                     </div>
-                    <div style={{ fontSize: 10, color: C.muted }}>{tx.date}</div>
+                    <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>{tx.date}</div>
                   </div>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "#f43f5e", fontFamily: "'DM Mono', monospace", flexShrink: 0 }}>{fmt(Math.abs(tx.amount))}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#f43f5e", fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>{fmt(Math.abs(tx.amount))}</span>
                 </div>
               ))}
             </div>
@@ -3486,27 +3570,38 @@ function Insights({ transactions, t, isDark, recurringItems = [], lang = "nl" })
 
       {/* ── Maandtrend chart ── */}
       {monthTrend.length >= 2 && (
-        <div style={{ ...card(isDark) }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 16 }}>{lang === "nl" ? `📈 Trend laatste ${monthTrend.length} maanden` : `📈 Trend last ${monthTrend.length} months`}</div>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={monthTrend} barGap={4}>
-              <XAxis dataKey="month" tick={{ fill: C.muted, fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tickFormatter={v => fmtShort(v)} tick={{ fill: C.muted, fontSize: 10 }} axisLine={false} tickLine={false} width={48} />
-              <Tooltip formatter={(v, n) => [fmt(v), n === "income" ? t.general.income : t.general.expenses]}
-                contentStyle={{ background: isDark ? "#1e293b" : "#fff", border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 12 }}
-                labelStyle={{ color: C.text, fontWeight: 700, marginBottom: 4 }} />
-              <Bar dataKey="income"   fill="#22c55e" radius={[4,4,0,0]} opacity={0.85} name="income" />
-              <Bar dataKey="expenses" fill="#f43f5e" radius={[4,4,0,0]} opacity={0.85} name="expenses" />
-            </BarChart>
-          </ResponsiveContainer>
-          <div style={{ display: "flex", gap: 16, justifyContent: "center", marginTop: 8 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: C.muted }}>
-              <div style={{ width: 10, height: 10, borderRadius: 2, background: "#22c55e" }}/> Inkomsten
+        <div style={{ ...pCard }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 30, height: 30, borderRadius: 9, background: "rgba(79,142,247,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <TrendingUp size={14} color="#4f8ef7"/>
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>
+                {lang === "nl" ? `Trend laatste ${monthTrend.length} maanden` : `Trend last ${monthTrend.length} months`}
+              </span>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: C.muted }}>
-              <div style={{ width: 10, height: 10, borderRadius: 2, background: "#f43f5e" }}/> Uitgaven
+            <div style={{ display: "flex", gap: 16 }}>
+              {[["#4f8ef7", lang === "nl" ? "Inkomsten" : "Income"], ["#f43f5e", lang === "nl" ? "Uitgaven" : "Expenses"]].map(([clr, lbl]) => (
+                <div key={lbl} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: C.muted }}>
+                  <div style={{ width: 8, height: 8, borderRadius: 3, background: clr }}/> {lbl}
+                </div>
+              ))}
             </div>
           </div>
+          <ResponsiveContainer width="100%" height={160}>
+            <BarChart data={monthTrend} barGap={4} barCategoryGap="28%">
+              <XAxis dataKey="month" tick={{ fill: C.muted, fontSize: 11 }} axisLine={false} tickLine={false}/>
+              <YAxis tickFormatter={v => fmtShort(v)} tick={{ fill: C.muted, fontSize: 10 }} axisLine={false} tickLine={false} width={44}/>
+              <Tooltip
+                formatter={(v, n) => [fmt(v), n === "income" ? t.general.income : t.general.expenses]}
+                contentStyle={{ background: isDark ? "#1a2235" : "#fff", border: `1px solid ${C.border}`, borderRadius: 12, fontSize: 12, boxShadow: "0 8px 24px rgba(0,0,0,0.18)" }}
+                labelStyle={{ color: C.text, fontWeight: 700, marginBottom: 4 }}
+                cursor={{ fill: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)", borderRadius: 6 }}
+              />
+              <Bar dataKey="income"   fill="#4f8ef7" radius={[5,5,0,0]} opacity={0.9} name="income"/>
+              <Bar dataKey="expenses" fill="#f43f5e" radius={[5,5,0,0]} opacity={0.9} name="expenses"/>
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       )}
     </div>
@@ -6167,7 +6262,7 @@ export default function App() {
               onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.06)"; e.currentTarget.style.filter = "brightness(1.12) drop-shadow(0 0 6px rgba(99,102,241,0.5))"; }}
               onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.filter = "none"; }}>
               <DynafyLogo size={32} bg={theme === "light" ? "#d97706" : isCloud ? "#4361ee" : undefined} />
-              <ChevronRight size={11} style={{ color: "#475569", transform: "rotate(0deg)" }} />
+              <ChevronRight size={13} style={{ color: "#94a3b8" }} />
             </button>
           )}
         </div>
