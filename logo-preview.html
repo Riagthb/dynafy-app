@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dynafy Logo</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@700;800;900&display=swap" rel="stylesheet"/>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0a0f1e;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: 'Outfit', sans-serif;
+      gap: 60px;
+      padding: 60px 40px;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 48px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .label {
+      color: rgba(255,255,255,0.3);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+
+    .card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── Horizontal lockup ── */
+    .lockup {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .lockup-name {
+      font-size: 32px;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.8px;
+    }
+
+    /* ── Light bg ── */
+    .lockup-light {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: #f8fafc;
+      padding: 20px 28px;
+      border-radius: 16px;
+    }
+    .lockup-light .lockup-name {
+      color: #0f172a;
+    }
+
+    /* ── Dark card bg ── */
+    .lockup-dark {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: #111827;
+      padding: 20px 28px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.07);
+    }
+    .lockup-dark .lockup-name {
+      color: #f1f5f9;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── ROW 1: Icon sizes ── -->
+  <div class="card">
+    <div class="label">Icon — alle maten</div>
+    <div class="row">
+
+      <!-- 512px -->
+      <svg width="180" height="180" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="512" height="512" rx="112" fill="url(#g512)"/>
+        <rect width="512" height="512" rx="112" fill="url(#glow512)" opacity="0.5"/>
+        <!-- D left bar -->
+        <rect x="128" y="130" width="66" height="252" rx="33" fill="white"/>
+        <!-- D right arc -->
+        <path d="M158 138 H232 C340 138 412 190 412 256 C412 322 340 374 232 374 H158"
+          stroke="white" strokeWidth="66" strokeLinecap="round" fill="none"/>
+        <!-- D inner cutout -->
+        <path d="M188 186 H228 C306 186 352 218 352 256 C352 294 306 326 228 326 H188"
+          stroke="url(#cutout512)" strokeWidth="44" strokeLinecap="round" fill="none"/>
+        <!-- Trend spark top-right -->
+        <path d="M348 138 L382 96" stroke="rgba(255,255,255,0.45)" strokeWidth="22" strokeLinecap="round"/>
+        <path d="M390 152 L416 112" stroke="rgba(255,255,255,0.25)" strokeWidth="16" strokeLinecap="round"/>
+        <defs>
+          <linearGradient id="g512" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#3B82F6"/>
+            <stop offset="0.55" stopColor="#6366F1"/>
+            <stop offset="1" stopColor="#8B5CF6"/>
+          </linearGradient>
+          <radialGradient id="glow512" cx="28%" cy="22%" r="55%">
+            <stop stopColor="white" stopOpacity="0.18"/>
+            <stop offset="1" stopColor="white" stopOpacity="0"/>
+          </radialGradient>
+          <linearGradient id="cutout512" x1="188" y1="256" x2="352" y2="256" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#3B82F6"/>
+            <stop offset="1" stopColor="#7C3AED"/>
+          </linearGradient>
+        </defs>
+      </svg>
+
+      <!-- 64px -->
+      <svg width="64" height="64" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="512" height="512" rx="112" fill="url(#g64)"/>
+        <rect width="512" height="512" rx="112" fill="url(#glow64)" opacity="0.5"/>
+        <rect x="128" y="130" width="66" height="252" rx="33" fill="white"/>
+        <path d="M158 138 H232 C340 138 412 190 412 256 C412 322 340 374 232 374 H158"
+          stroke="white" strokeWidth="66" strokeLinecap="round" fill="none"/>
+        <path d="M188 186 H228 C306 186 352 218 352 256 C352 294 306 326 228 326 H188"
+          stroke="url(#co64)" strokeWidth="44" strokeLinecap="round" fill="none"/>
+        <path d="M348 138 L382 96" stroke="rgba(255,255,255,0.45)" strokeWidth="22" strokeLinecap="round"/>
+        <defs>
+          <linearGradient id="g64" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#3B82F6"/><stop offset="0.55" stopColor="#6366F1"/><stop offset="1" stopColor="#8B5CF6"/>
+          </linearGradient>
+          <radialGradient id="glow64" cx="28%" cy="22%" r="55%">
+            <stop stopColor="white" stopOpacity="0.18"/><stop offset="1" stopColor="white" stopOpacity="0"/>
+          </radialGradient>
+          <linearGradient id="co64" x1="188" y1="256" x2="352" y2="256" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#3B82F6"/><stop offset="1" stopColor="#7C3AED"/>
+          </linearGradient>
+        </defs>
+      </svg>
+
+      <!-- 32px -->
+      <svg width="32" height="32" viewBox="0 0 512 512" fill="none">
+        <rect width="512" height="512" rx="112" fill="url(#g32)"/>
+        <rect x="128" y="130" width="66" height="252" rx="33" fill="white"/>
+        <path d="M158 138 H232 C340 138 412 190 412 256 C412 322 340 374 232 374 H158"
+          stroke="white" strokeWidth="66" strokeLinecap="round" fill="none"/>
+        <path d="M188 186 H228 C306 186 352 218 352 256 C352 294 306 326 228 326 H188"
+          stroke="url(#co32)" strokeWidth="44" strokeLinecap="round" fill="none"/>
+        <defs>
+          <linearGradient id="g32" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#3B82F6"/><stop offset="1" stopColor="#8B5CF6"/>
+          </linearGradient>
+          <linearGradient id="co32" x1="188" y1="256" x2="352" y2="256" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#3B82F6"/><stop offset="1" stopColor="#7C3AED"/>
+          </linearGradient>
+        </defs>
+      </svg>
+
+      <!-- 16px -->
+      <svg width="16" height="16" viewBox="0 0 512 512" fill="none">
+        <rect width="512" height="512" rx="112" fill="url(#g16)"/>
+        <rect x="128" y="130" width="66" height="252" rx="33" fill="white"/>
+        <path d="M158 138 H232 C340 138 412 190 412 256 C412 322 340 374 232 374 H158"
+          stroke="white" strokeWidth="66" strokeLinecap="round" fill="none"/>
+        <path d="M188 186 H228 C306 186 352 218 352 256 C352 294 306 326 228 326 H188"
+          stroke="url(#co16)" strokeWidth="44" strokeLinecap="round" fill="none"/>
+        <defs>
+          <linearGradient id="g16" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#3B82F6"/><stop offset="1" stopColor="#8B5CF6"/>
+          </linearGradient>
+          <linearGradient id="co16" x1="188" y1="256" x2="352" y2="256" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#3B82F6"/><stop offset="1" stopColor="#7C3AED"/>
+          </linearGradient>
+        </defs>
+      </svg>
+
+    </div>
+  </div>
+
+  <!-- ── ROW 2: Horizontale lockup ── -->
+  <div class="card">
+    <div class="label">Horizontale lockup</div>
+    <div class="row">
+
+      <!-- Dark -->
+      <div class="lockup-dark">
+        <svg width="44" height="44" viewBox="0 0 512 512" fill="none">
+          <rect width="512" height="512" rx="112" fill="url(#gDark)"/>
+          <rect width="512" height="512" rx="112" fill="url(#glowDark)" opacity="0.5"/>
+          <rect x="128" y="130" width="66" height="252" rx="33" fill="white"/>
+          <path d="M158 138 H232 C340 138 412 190 412 256 C412 322 340 374 232 374 H158"
+            stroke="white" strokeWidth="66" strokeLinecap="round" fill="none"/>
+          <path d="M188 186 H228 C306 186 352 218 352 256 C352 294 306 326 228 326 H188"
+            stroke="url(#coDark)" strokeWidth="44" strokeLinecap="round" fill="none"/>
+          <path d="M348 138 L382 96" stroke="rgba(255,255,255,0.45)" strokeWidth="22" strokeLinecap="round"/>
+          <defs>
+            <linearGradient id="gDark" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+              <stop stopColor="#3B82F6"/><stop offset="0.55" stopColor="#6366F1"/><stop offset="1" stopColor="#8B5CF6"/>
+            </linearGradient>
+            <radialGradient id="glowDark" cx="28%" cy="22%" r="55%">
+              <stop stopColor="white" stopOpacity="0.18"/><stop offset="1" stopColor="white" stopOpacity="0"/>
+            </radialGradient>
+            <linearGradient id="coDark" x1="188" y1="256" x2="352" y2="256" gradientUnits="userSpaceOnUse">
+              <stop stopColor="#3B82F6"/><stop offset="1" stopColor="#7C3AED"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <span class="lockup-name">Dynafy</span>
+      </div>
+
+      <!-- Light -->
+      <div class="lockup-light">
+        <svg width="44" height="44" viewBox="0 0 512 512" fill="none">
+          <rect width="512" height="512" rx="112" fill="url(#gLight)"/>
+          <rect width="512" height="512" rx="112" fill="url(#glowLight)" opacity="0.5"/>
+          <rect x="128" y="130" width="66" height="252" rx="33" fill="white"/>
+          <path d="M158 138 H232 C340 138 412 190 412 256 C412 322 340 374 232 374 H158"
+            stroke="white" strokeWidth="66" strokeLinecap="round" fill="none"/>
+          <path d="M188 186 H228 C306 186 352 218 352 256 C352 294 306 326 228 326 H188"
+            stroke="url(#coLight)" strokeWidth="44" strokeLinecap="round" fill="none"/>
+          <path d="M348 138 L382 96" stroke="rgba(255,255,255,0.45)" strokeWidth="22" strokeLinecap="round"/>
+          <defs>
+            <linearGradient id="gLight" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+              <stop stopColor="#3B82F6"/><stop offset="0.55" stopColor="#6366F1"/><stop offset="1" stopColor="#8B5CF6"/>
+            </linearGradient>
+            <radialGradient id="glowLight" cx="28%" cy="22%" r="55%">
+              <stop stopColor="white" stopOpacity="0.18"/><stop offset="1" stopColor="white" stopOpacity="0"/>
+            </radialGradient>
+            <linearGradient id="coLight" x1="188" y1="256" x2="352" y2="256" gradientUnits="userSpaceOnUse">
+              <stop stopColor="#3B82F6"/><stop offset="1" stopColor="#7C3AED"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <span class="lockup-name" style="color:#0f172a;">Dynafy</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ROW 3: App icon preview ── -->
+  <div class="card">
+    <div class="label">App icon preview</div>
+    <div class="row">
+      <div style="display:flex; flex-direction:column; align-items:center; gap:10px;">
+        <!-- iPhone style -->
+        <div style="background:linear-gradient(145deg,#1c1f2e,#232640); border-radius:24px; padding:16px; box-shadow: 0 20px 60px rgba(0,0,0,0.5);">
+          <svg width="96" height="96" viewBox="0 0 512 512" fill="none">
+            <rect width="512" height="512" rx="112" fill="url(#gApp)"/>
+            <rect width="512" height="512" rx="112" fill="url(#glowApp)" opacity="0.5"/>
+            <rect x="128" y="130" width="66" height="252" rx="33" fill="white"/>
+            <path d="M158 138 H232 C340 138 412 190 412 256 C412 322 340 374 232 374 H158"
+              stroke="white" strokeWidth="66" strokeLinecap="round" fill="none"/>
+            <path d="M188 186 H228 C306 186 352 218 352 256 C352 294 306 326 228 326 H188"
+              stroke="url(#coApp)" strokeWidth="44" strokeLinecap="round" fill="none"/>
+            <path d="M348 138 L382 96" stroke="rgba(255,255,255,0.45)" strokeWidth="22" strokeLinecap="round"/>
+            <path d="M390 152 L416 112" stroke="rgba(255,255,255,0.25)" strokeWidth="16" strokeLinecap="round"/>
+            <defs>
+              <linearGradient id="gApp" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#3B82F6"/><stop offset="0.55" stopColor="#6366F1"/><stop offset="1" stopColor="#8B5CF6"/>
+              </linearGradient>
+              <radialGradient id="glowApp" cx="28%" cy="22%" r="55%">
+                <stop stopColor="white" stopOpacity="0.18"/><stop offset="1" stopColor="white" stopOpacity="0"/>
+              </radialGradient>
+              <linearGradient id="coApp" x1="188" y1="256" x2="352" y2="256" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#3B82F6"/><stop offset="1" stopColor="#7C3AED"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <span style="color:rgba(255,255,255,0.5); font-size:11px; font-weight:600; letter-spacing:1px;">APP STORE</span>
+      </div>
+
+      <!-- Favicon style -->
+      <div style="display:flex; flex-direction:column; align-items:center; gap:10px;">
+        <div style="background:#1a1d2e; border-radius:8px; padding:12px; display:flex; align-items:center; gap:8px; border:1px solid rgba(255,255,255,0.08);">
+          <svg width="20" height="20" viewBox="0 0 512 512" fill="none">
+            <rect width="512" height="512" rx="112" fill="url(#gFav)"/>
+            <rect x="128" y="130" width="66" height="252" rx="33" fill="white"/>
+            <path d="M158 138 H232 C340 138 412 190 412 256 C412 322 340 374 232 374 H158"
+              stroke="white" strokeWidth="66" strokeLinecap="round" fill="none"/>
+            <path d="M188 186 H228 C306 186 352 218 352 256 C352 294 306 326 228 326 H188"
+              stroke="url(#coFav)" strokeWidth="44" strokeLinecap="round" fill="none"/>
+            <defs>
+              <linearGradient id="gFav" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#3B82F6"/><stop offset="1" stopColor="#8B5CF6"/>
+              </linearGradient>
+              <linearGradient id="coFav" x1="188" y1="256" x2="352" y2="256" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#3B82F6"/><stop offset="1" stopColor="#7C3AED"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          <span style="color:#f1f5f9; font-size:13px; font-weight:700; letter-spacing:-0.2px;">Dynafy</span>
+        </div>
+        <span style="color:rgba(255,255,255,0.5); font-size:11px; font-weight:600; letter-spacing:1px;">BROWSER TAB</span>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,32 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="512" height="512" rx="112" fill="url(#mainGrad)"/>
+  <!-- Inner highlight -->
+  <rect width="512" height="512" rx="112" fill="url(#innerGlow)" opacity="0.5"/>
+  <!-- D — left vertical bar -->
+  <rect x="128" y="130" width="66" height="252" rx="33" fill="white"/>
+  <!-- D — right arc (outer) -->
+  <path d="M158 138 H232 C340 138 412 190 412 256 C412 322 340 374 232 374 H158"
+    stroke="white" strokeWidth="66" strokeLinecap="round" fill="none"/>
+  <!-- D — inner cutout -->
+  <path d="M188 186 H228 C306 186 352 218 352 256 C352 294 306 326 228 326 H188"
+    stroke="url(#cutoutGrad)" strokeWidth="44" strokeLinecap="round" fill="none"/>
+  <!-- Trend spark lines top-right -->
+  <path d="M348 138 L384 94" stroke="rgba(255,255,255,0.45)" strokeWidth="22" strokeLinecap="round"/>
+  <path d="M388 150 L416 110" stroke="rgba(255,255,255,0.25)" strokeWidth="16" strokeLinecap="round"/>
+  <defs>
+    <linearGradient id="mainGrad" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop stopColor="#3B82F6"/>
+      <stop offset="0.55" stopColor="#6366F1"/>
+      <stop offset="1" stopColor="#8B5CF6"/>
+    </linearGradient>
+    <radialGradient id="innerGlow" cx="28%" cy="22%" r="55%">
+      <stop stopColor="white" stopOpacity="0.18"/>
+      <stop offset="1" stopColor="white" stopOpacity="0"/>
+    </radialGradient>
+    <linearGradient id="cutoutGrad" x1="188" y1="256" x2="352" y2="256" gradientUnits="userSpaceOnUse">
+      <stop stopColor="#3B82F6"/>
+      <stop offset="1" stopColor="#7C3AED"/>
+    </linearGradient>
+  </defs>
+</svg>

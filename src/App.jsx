@@ -858,23 +858,39 @@ function useCountUp(target, duration = 900) {
 
 // ─── DYNAFY LOGO ───────────────────────────────────────────────
 function DynafyLogo({ size = 32, bg }) {
-  const fill = bg || "url(#dynLg)";
+  const uid = bg ? "custom" : "default";
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
-      <rect width="32" height="32" rx="8" fill={fill}/>
-      {/* Left vertical bar of D */}
-      <rect x="9" y="8.5" width="3.5" height="15" rx="1.75" fill="white"/>
-      {/* Right arc of D */}
-      <path d="M12.5 9.5h2.8c3.7 0 6.7 2.9 6.7 6.5s-3 6.5-6.7 6.5h-2.8"
-        stroke="white" strokeWidth="3.5" strokeLinecap="round" fill="none"/>
-      {/* Trend spark top-right */}
-      <path d="M21.5 9L23 7" stroke="rgba(255,255,255,0.5)" strokeWidth="1.6" strokeLinecap="round"/>
-      <path d="M19.5 8L21 6" stroke="rgba(255,255,255,0.25)" strokeWidth="1.2" strokeLinecap="round"/>
+    <svg width={size} height={size} viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+      {/* Background */}
+      <rect width="512" height="512" rx="112" fill={bg || `url(#dynMainGrad_${uid})`}/>
+      {/* Inner highlight */}
+      {!bg && <rect width="512" height="512" rx="112" fill={`url(#dynGlow_${uid})`} opacity="0.5"/>}
+      {/* D — left vertical bar */}
+      <rect x="128" y="130" width="66" height="252" rx="33" fill="white"/>
+      {/* D — right arc */}
+      <path d="M158 138 H232 C340 138 412 190 412 256 C412 322 340 374 232 374 H158"
+        stroke="white" strokeWidth="66" strokeLinecap="round" fill="none"/>
+      {/* D — inner cutout */}
+      <path d="M188 186 H228 C306 186 352 218 352 256 C352 294 306 326 228 326 H188"
+        stroke={bg ? "rgba(255,255,255,0.35)" : `url(#dynCutout_${uid})`}
+        strokeWidth="44" strokeLinecap="round" fill="none"/>
+      {/* Trend spark lines top-right */}
+      <path d="M348 138 L384 94" stroke="rgba(255,255,255,0.45)" strokeWidth="22" strokeLinecap="round"/>
+      <path d="M388 150 L416 110" stroke="rgba(255,255,255,0.22)" strokeWidth="16" strokeLinecap="round"/>
       {!bg && (
         <defs>
-          <linearGradient id="dynLg" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#4f8ef7"/>
-            <stop offset="1" stopColor="#6366f1"/>
+          <linearGradient id={`dynMainGrad_${uid}`} x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#3B82F6"/>
+            <stop offset="0.55" stopColor="#6366F1"/>
+            <stop offset="1" stopColor="#8B5CF6"/>
+          </linearGradient>
+          <radialGradient id={`dynGlow_${uid}`} cx="28%" cy="22%" r="55%">
+            <stop stopColor="white" stopOpacity="0.18"/>
+            <stop offset="1" stopColor="white" stopOpacity="0"/>
+          </radialGradient>
+          <linearGradient id={`dynCutout_${uid}`} x1="188" y1="256" x2="352" y2="256" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#3B82F6"/>
+            <stop offset="1" stopColor="#7C3AED"/>
           </linearGradient>
         </defs>
       )}
