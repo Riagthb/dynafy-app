@@ -6140,24 +6140,35 @@ export default function App() {
         {/* ── Sidebar header with logo + toggle ── */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: sidebarOpen ? "space-between" : "center", padding: "16px 12px", borderBottom: isDark || theme === "light" ? "1px solid rgba(255,255,255,0.06)" : "1px solid #e2e6ed", flexShrink: 0, minHeight: 60 }}>
           {sidebarOpen ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden", minWidth: 0 }}>
-              <DynafyLogo size={32} bg={theme === "light" ? "#d97706" : isCloud ? "#4361ee" : undefined} />
-              <div style={{ fontSize: 17, fontWeight: 800, color: (isDark || theme === "light") ? "#f1f5f9" : isCloud ? "#4361ee" : "#0f172a", whiteSpace: "nowrap", letterSpacing: "-0.3px" }}>
-                {t.appName}
+            <>
+              {/* Expanded: logo + naam */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden", minWidth: 0 }}>
+                <DynafyLogo size={32} bg={theme === "light" ? "#d97706" : isCloud ? "#4361ee" : undefined} />
+                <div style={{ fontSize: 17, fontWeight: 800, color: (isDark || theme === "light") ? "#f1f5f9" : isCloud ? "#4361ee" : "#0f172a", whiteSpace: "nowrap", letterSpacing: "-0.3px" }}>
+                  {t.appName}
+                </div>
               </div>
-            </div>
+              {/* Toggle knop alleen zichtbaar wanneer uitgeklapt */}
+              <button
+                onClick={() => setSidebarOpen(false)}
+                title="Inklappen"
+                style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", cursor: "pointer", color: "#64748b", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.15s" }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(79,142,247,0.12)"; e.currentTarget.style.color = "#4f8ef7"; e.currentTarget.style.borderColor = "rgba(79,142,247,0.3)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; e.currentTarget.style.color = "#64748b"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; }}>
+                <ChevronRight size={13} style={{ transform: "rotate(180deg)" }} />
+              </button>
+            </>
           ) : (
-            <DynafyLogo size={32} bg={theme === "light" ? "#d97706" : isCloud ? "#4361ee" : undefined} />
+            /* Collapsed: logo IS de toggle knop */
+            <button
+              onClick={() => setSidebarOpen(true)}
+              title="Uitklappen"
+              style={{ background: "none", border: "none", cursor: "pointer", padding: 0, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", transition: "transform 0.15s, filter 0.15s" }}
+              onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.08)"; e.currentTarget.style.filter = "brightness(1.15) drop-shadow(0 0 6px rgba(99,102,241,0.5))"; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.filter = "none"; }}>
+              <DynafyLogo size={34} bg={theme === "light" ? "#d97706" : isCloud ? "#4361ee" : undefined} />
+            </button>
           )}
-          {/* Toggle button */}
-          <button
-            onClick={() => setSidebarOpen(p => !p)}
-            title={sidebarOpen ? "Inklappen" : "Uitklappen"}
-            style={{ width: 32, height: 32, borderRadius: 9, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", cursor: "pointer", color: isDark ? "#64748b" : "#64748b", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.15s" }}
-            onMouseEnter={e => { e.currentTarget.style.background = "rgba(79,142,247,0.12)"; e.currentTarget.style.color = "#4f8ef7"; e.currentTarget.style.borderColor = "rgba(79,142,247,0.3)"; }}
-            onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; e.currentTarget.style.color = "#64748b"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; }}>
-            <ChevronRight size={15} style={{ transform: sidebarOpen ? "rotate(180deg)" : "none", transition: "transform 0.25s" }} />
-          </button>
         </div>
 
         {/* ── Nav items ── */}
