@@ -475,13 +475,31 @@ const S = {
   },
 };
 
+// ─── DESIGN TOKENS ────────────────────────────────────────────
+// Border-radius scale
+const R = { sm: 8, md: 12, lg: 16, xl: 20, xxl: 24 };
+// Spacing scale
+const SP = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 32 };
+// Dark mode elevation layers
+const DK = {
+  L0:  "#050b15",   // page — deepest layer
+  L1:  "#0b1628",   // card surface — floats above page
+  L2:  "#0f1e36",   // elevated card / nested panel
+  L3:  "#142746",   // modal / highest elevation
+  b0:  "rgba(255,255,255,0.06)",  // border on page
+  b1:  "rgba(255,255,255,0.08)",  // border on L1 cards
+  b2:  "rgba(255,255,255,0.10)",  // border on L2 elevated
+};
+
 // Theme-aware card style
 const card = (isDark) => ({
-  background: isDark ? "rgba(255,255,255,0.04)" : "#ffffff",
-  border: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid #e2e6ed",
-  borderRadius: 16,
-  padding: "20px 24px",
-  boxShadow: isDark ? "0 2px 12px rgba(0,0,0,0.25)" : "0 1px 8px rgba(15,23,42,0.06)",
+  background: isDark ? DK.L1 : "#ffffff",
+  border: `1px solid ${isDark ? DK.b1 : "#e8ecf1"}`,
+  borderRadius: R.lg,
+  padding: `${SP.xl}px ${SP.xxl - 8}px`,
+  boxShadow: isDark
+    ? `0 1px 0 rgba(255,255,255,0.05) inset, 0 4px 24px rgba(0,0,0,0.4)`
+    : "0 1px 3px rgba(15,23,42,0.04), 0 4px 16px rgba(15,23,42,0.07)",
   transition: "transform 0.18s ease, box-shadow 0.18s ease",
 });
 
@@ -968,7 +986,7 @@ function CategoryPie({ transactions, t, isDark = true }) {
     if (active && payload?.length) {
       const { name, value } = payload[0].payload;
       return (
-        <div style={{ background: isDark ? "#1a2235" : "#ffffff", border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #e2e6ed", borderRadius: 10, padding: "10px 14px" }}>
+        <div style={{ background: isDark ? DK.L2 : "#ffffff", border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #e2e6ed", borderRadius: 10, padding: "10px 14px" }}>
           <div style={{ color: CATEGORY_COLORS[name] || "#64748b", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>{t.categories[name] || name}</div>
           <div style={{ color: isDark ? "#f1f5f9" : "#0f172a", fontSize: 16, fontWeight: 700, fontFamily: "'DM Mono', monospace" }}>{fmt(value)}</div>
         </div>
@@ -1008,7 +1026,7 @@ function IncomeExpensesBar({ t, isDark = true }) {
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload?.length) {
       return (
-        <div style={{ background: isDark ? "#1a2235" : "#ffffff", border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #e2e6ed", borderRadius: 10, padding: "10px 14px" }}>
+        <div style={{ background: isDark ? DK.L2 : "#ffffff", border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #e2e6ed", borderRadius: 10, padding: "10px 14px" }}>
           <div style={{ color: isDark ? "#64748b" : "#64748b", fontSize: 12, marginBottom: 6 }}>{label}</div>
           {payload.map(p => (
             <div key={p.name} style={{ color: p.fill, fontSize: 13, fontWeight: 600, fontFamily: "'DM Mono', monospace" }}>
@@ -1053,7 +1071,7 @@ function SpendingTrend({ t, isDark = true }) {
           <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)"} />
           <XAxis dataKey="week" tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} />
           <YAxis tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `€${v}`} />
-          <Tooltip contentStyle={{ background: isDark ? "#1a2235" : "#ffffff", border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #e2e6ed", borderRadius: 10, fontSize: 12 }} labelStyle={{ color: isDark ? "#64748b" : "#64748b" }} itemStyle={{ color: "#4f8ef7" }} />
+          <Tooltip contentStyle={{ background: isDark ? DK.L2 : "#ffffff", border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #e2e6ed", borderRadius: 10, fontSize: 12 }} labelStyle={{ color: isDark ? "#64748b" : "#64748b" }} itemStyle={{ color: "#4f8ef7" }} />
           <Area type="monotone" dataKey="amount" stroke="#4f8ef7" strokeWidth={2} fill="url(#areaGrad)" />
         </AreaChart>
       </ResponsiveContainer>
@@ -1353,7 +1371,7 @@ function WidgetDashboard({ transactions, t, isDark, accent = "#4f8ef7", accounts
                 <XAxis dataKey="month" tick={{ fill: C.muted, fontSize: 10 }} axisLine={false} tickLine={false}/>
                 <YAxis tickFormatter={v => fmtShort(v)} tick={{ fill: C.muted, fontSize: 10 }} axisLine={false} tickLine={false} width={44}/>
                 <Tooltip formatter={(v, n) => [fmt(v), n === "income" ? t.general.income : t.general.expenses]}
-                  contentStyle={{ background: isDark ? "#1e293b" : "#fff", border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 12 }}/>
+                  contentStyle={{ background: isDark ? DK.L2 : "#fff", border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 12 }}/>
                 <Bar dataKey="income"   fill="#22c55e" radius={[3,3,0,0]} opacity={0.85}/>
                 <Bar dataKey="expenses" fill="#f43f5e" radius={[3,3,0,0]} opacity={0.85}/>
               </BarChart>
@@ -1690,7 +1708,7 @@ function Overzicht({ transactions, t, accounts, selectedAccount, setSelectedAcco
   const CustomBarTooltip = ({ active, payload, label }) => {
     if (!active || !payload?.length) return null;
     return (
-      <div style={{ background: isDark ? "#1a2235" : "#ffffff", border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #e2e6ed", borderRadius: 10, padding: "10px 14px" }}>
+      <div style={{ background: isDark ? DK.L2 : "#ffffff", border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #e2e6ed", borderRadius: 10, padding: "10px 14px" }}>
         <div style={{ color: isDark ? "#64748b" : "#64748b", fontSize: 12, marginBottom: 6 }}>{label}</div>
         <div style={{ color: "#22c55e", fontSize: 13, fontWeight: 600, fontFamily: "'DM Mono', monospace" }}>+{fmt(payload[0]?.value || 0)}</div>
         <div style={{ color: "#f43f5e", fontSize: 13, fontWeight: 600, fontFamily: "'DM Mono', monospace" }}>−{fmt(payload[1]?.value || 0)}</div>
@@ -1902,7 +1920,7 @@ function Overzicht({ transactions, t, accounts, selectedAccount, setSelectedAcco
             if (!pieData.length) return <div style={{ height: 180, display: "flex", alignItems: "center", justifyContent: "center", color: isDark ? "#334155" : "#94a3b8", fontSize: 13 }}>Geen uitgaven deze maand</div>;
 
             const CatTip = ({ active, payload }) => active && payload?.length ? (
-              <div style={{ background: isDark ? "#1a2235" : "#ffffff", border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #e2e6ed", borderRadius: 10, padding: "10px 14px", pointerEvents: "none" }}>
+              <div style={{ background: isDark ? DK.L2 : "#ffffff", border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #e2e6ed", borderRadius: 10, padding: "10px 14px", pointerEvents: "none" }}>
                 <div style={{ color: CATEGORY_COLORS[payload[0].payload.name] || "#64748b", fontSize: 12, fontWeight: 700 }}>{t.categories[payload[0].payload.name] || payload[0].payload.name}</div>
                 <div style={{ color: isDark ? "#f1f5f9" : "#0f172a", fontSize: 15, fontFamily: "'DM Mono', monospace", fontWeight: 700 }}>{fmt(payload[0].payload.value)}</div>
                 <div style={{ fontSize: 11, color: isDark ? "#64748b" : "#64748b", marginTop: 3 }}>Klik voor transacties →</div>
@@ -2010,7 +2028,7 @@ function Overzicht({ transactions, t, accounts, selectedAccount, setSelectedAcco
                 <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)"} />
                 <XAxis dataKey="day" tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `€${v}`} />
-                <Tooltip contentStyle={{ background: isDark ? "#1a2235" : "#ffffff", border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #e2e6ed", borderRadius: 10, fontSize: 12 }} labelStyle={{ color: isDark ? "#64748b" : "#64748b" }} itemStyle={{ color: "#4f8ef7" }} formatter={v => [fmt(v), t.general.expenses]} labelFormatter={d => `Dag ${d}`} />
+                <Tooltip contentStyle={{ background: isDark ? DK.L2 : "#ffffff", border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #e2e6ed", borderRadius: 10, fontSize: 12 }} labelStyle={{ color: isDark ? "#64748b" : "#64748b" }} itemStyle={{ color: "#4f8ef7" }} formatter={v => [fmt(v), t.general.expenses]} labelFormatter={d => `Dag ${d}`} />
                 <Area type="monotone" dataKey="amount" stroke="#4f8ef7" strokeWidth={2} fill="url(#trendGrad)" />
               </AreaChart>
             </ResponsiveContainer>
@@ -2205,7 +2223,7 @@ function Transactions({ transactions, setTransactions, t, accounts, setAccounts,
                     <select autoFocus defaultValue={tx.category}
                       onChange={e => { if (e.target.value === "__new__") { setInlineCatInput(tx.id); setInlineCatVal(""); setEditCat(null); } else updateCategory(tx.id, e.target.value); }}
                       onBlur={e => { if (e.target.value !== "__new__") setEditCat(null); }}
-                      style={{ padding: "4px 10px", background: isDark ? "#1a2235" : "#f8fafc", border: `1px solid ${CATEGORY_COLORS[tx.category] || "#334155"}`, borderRadius: 8, color: isDark ? "#f1f5f9" : "#0f172a", fontSize: 12, cursor: "pointer", outline: "none" }}>
+                      style={{ padding: "4px 10px", background: isDark ? DK.L2 : "#f8fafc", border: `1px solid ${CATEGORY_COLORS[tx.category] || "#334155"}`, borderRadius: 8, color: isDark ? "#f1f5f9" : "#0f172a", fontSize: 12, cursor: "pointer", outline: "none" }}>
                       {Object.keys(CATEGORY_COLORS).map(k => <option key={k} value={k}>{t.categories[k] || k}</option>)}
                       <option disabled>──────────</option>
                       <option value="__new__">+ Nieuwe categorie...</option>
@@ -3176,7 +3194,7 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
               <Pie data={allocationData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={4} dataKey="value">
                 {allocationData.map(entry => <Cell key={entry.name} fill={INVESTMENT_COLORS[entry.name] || "#64748b"} stroke="transparent" />)}
               </Pie>
-              <Tooltip contentStyle={{ background: isDark ? "#1a2235" : "#ffffff", border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #e2e6ed", borderRadius: 10, fontSize: 12 }} itemStyle={{ color: isDark ? "#f1f5f9" : "#0f172a" }} formatter={v => fmt(v)} />
+              <Tooltip contentStyle={{ background: isDark ? DK.L2 : "#ffffff", border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #e2e6ed", borderRadius: 10, fontSize: 12 }} itemStyle={{ color: isDark ? "#f1f5f9" : "#0f172a" }} formatter={v => fmt(v)} />
             </PieChart>
           </ResponsiveContainer>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -3342,10 +3360,11 @@ function Insights({ transactions, t, isDark, recurringItems = [], lang = "nl" })
   }
 
   const pCard = {
-    background: isDark ? "linear-gradient(145deg,rgba(255,255,255,0.05) 0%,rgba(255,255,255,0.02) 100%)" : "#ffffff",
-    borderRadius: 18,
-    border: `1px solid ${C.border}`,
-    padding: "20px",
+    background: isDark ? DK.L1 : "#ffffff",
+    borderRadius: R.xl,
+    border: `1px solid ${isDark ? DK.b1 : "#e8ecf1"}`,
+    padding: `${SP.xl}px`,
+    boxShadow: isDark ? `0 1px 0 rgba(255,255,255,0.05) inset, 0 4px 24px rgba(0,0,0,0.35)` : "0 1px 3px rgba(15,23,42,0.04), 0 4px 16px rgba(15,23,42,0.07)",
   };
 
   return (
@@ -3594,7 +3613,7 @@ function Insights({ transactions, t, isDark, recurringItems = [], lang = "nl" })
               <YAxis tickFormatter={v => fmtShort(v)} tick={{ fill: C.muted, fontSize: 10 }} axisLine={false} tickLine={false} width={44}/>
               <Tooltip
                 formatter={(v, n) => [fmt(v), n === "income" ? t.general.income : t.general.expenses]}
-                contentStyle={{ background: isDark ? "#1a2235" : "#fff", border: `1px solid ${C.border}`, borderRadius: 12, fontSize: 12, boxShadow: "0 8px 24px rgba(0,0,0,0.18)" }}
+                contentStyle={{ background: isDark ? DK.L2 : "#fff", border: `1px solid ${C.border}`, borderRadius: 12, fontSize: 12, boxShadow: "0 8px 24px rgba(0,0,0,0.18)" }}
                 labelStyle={{ color: C.text, fontWeight: 700, marginBottom: 4 }}
                 cursor={{ fill: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)", borderRadius: 6 }}
               />
@@ -6102,7 +6121,7 @@ export default function App() {
   const accent     = isDark ? "#4f8ef7" : isCloud ? "#4361ee" : "#d97706";
   const accentBg   = isDark ? "rgba(79,142,247,0.12)" : isCloud ? "#eef1ff" : "#fef3c7";
   const accentBorder = isDark ? "rgba(79,142,247,0.5)" : isCloud ? "rgba(67,97,238,0.5)" : "rgba(217,119,6,0.5)";
-  const pageBg     = isDark ? "linear-gradient(145deg,#070c17 0%,#080d18 55%,#09101f 100%)" : isCloud ? "linear-gradient(145deg,#eef2ff 0%,#f0f4ff 60%,#e8eeff 100%)" : "linear-gradient(145deg,#f7f5f2 0%,#f5f4f0 60%,#f2f0ec 100%)";
+  const pageBg     = isDark ? `linear-gradient(160deg,${DK.L0} 0%,#060d1a 55%,#071120 100%)` : isCloud ? "linear-gradient(145deg,#eef2ff 0%,#f0f4ff 60%,#e8eeff 100%)" : "linear-gradient(145deg,#f7f5f2 0%,#f5f4f0 60%,#f2f0ec 100%)";
   const cardBorder = isDark ? "rgba(255,255,255,0.08)" : isCloud ? "#dde3f5" : theme === "light" ? "#e8e4de" : "#e2e6ed";
   const t = T[lang];
 
@@ -6183,44 +6202,63 @@ export default function App() {
   }
 
   return (
-    <div data-theme={theme} style={{ display: "flex", minHeight: "100vh", background: pageBg, fontFamily: "'Outfit', 'Segoe UI', sans-serif", color: isDark ? "#f1f5f9" : "#0f172a", position: "relative", overflow: "hidden" }}>
+    <div data-theme={theme} style={{ display: "flex", minHeight: "100vh", background: pageBg, fontFamily: "'Inter', -apple-system, 'Segoe UI', sans-serif", color: isDark ? "#e2e8f0" : "#0f172a", position: "relative", overflow: "hidden" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        ::-webkit-scrollbar { width: 6px; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+        :root {
+          --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-xl: 20px; --r-2xl: 24px;
+          --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px; --sp-6: 24px; --sp-8: 32px;
+          --font-num: "Inter", -apple-system, sans-serif;
+          --dk-l0: #050b15; --dk-l1: #0b1628; --dk-l2: #0f1e36; --dk-l3: #142746;
+        }
+
+        *, *::before, *::after {
+          box-sizing: border-box; margin: 0; padding: 0;
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+
+        html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
+
+        /* Tabular numbers globally for finance data */
+        .num, [data-num] { font-variant-numeric: tabular-nums; font-feature-settings: "tnum", "ss01"; }
+
+        /* Scrollbars */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 3px; }
-        [data-theme="dark"] ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); }
-        [data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(15,23,42,0.15); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 99px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.14); }
+        [data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(15,23,42,0.12); }
+        [data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: rgba(15,23,42,0.2); }
+
+        /* Select + input */
         [data-theme="light"] select option { background: #fff; color: #0f172a; }
-        [data-theme="dark"] select option { background: #1a2235; color: #f1f5f9; }
+        [data-theme="dark"] select option { background: #0f1e36; color: #f1f5f9; }
         [data-theme="light"] input::placeholder { color: #94a3b8; }
-        [data-theme="dark"] input::placeholder { color: #334155; }
+        [data-theme="dark"] input::placeholder { color: #2d4060; }
+
+        /* Pill buttons */
         button[style*="border-radius: 50px"]:hover, button[style*="border-radius: 50"]:not([disabled]):hover { filter: brightness(1.12) saturate(1.1); transform: translateY(-1px); }
         button[style*="border-radius: 50px"]:active, button[style*="border-radius: 50"]:active { transform: translateY(0); filter: brightness(0.96); }
 
         @keyframes statReveal {
-          from { opacity: 0; transform: translateY(8px); }
+          from { opacity: 0; transform: translateY(10px); }
           to   { opacity: 1; transform: translateY(0); }
         }
+        @keyframes fadeIn {
+          from { opacity: 0; } to { opacity: 1; }
+        }
 
-        .premium-card {
-          transition: transform 0.18s ease, box-shadow 0.18s ease !important;
-        }
-        .premium-card:hover {
-          transform: translateY(-4px) scale(1.008) !important;
-        }
+        .premium-card { transition: transform 0.2s cubic-bezier(0.4,0,0.2,1), box-shadow 0.2s cubic-bezier(0.4,0,0.2,1) !important; }
+        .premium-card:hover { transform: translateY(-3px) scale(1.006) !important; }
         [data-theme="dark"] .premium-card:hover {
-          box-shadow: 0 20px 48px rgba(0,0,0,0.45), 0 0 0 1px rgba(79,142,247,0.15) !important;
+          box-shadow: 0 20px 48px rgba(0,0,0,0.55), 0 0 0 1px rgba(79,142,247,0.14), 0 1px 0 rgba(255,255,255,0.06) inset !important;
         }
         [data-theme="light"] .premium-card:hover, [data-theme="cloud"] .premium-card:hover {
-          box-shadow: 0 16px 40px rgba(0,0,0,0.12) !important;
+          box-shadow: 0 16px 40px rgba(0,0,0,0.1) !important;
         }
 
-        .glass-modal {
-          backdrop-filter: blur(12px) saturate(1.4);
-          -webkit-backdrop-filter: blur(12px) saturate(1.4);
-        }
+        .glass-modal { backdrop-filter: blur(16px) saturate(1.6); -webkit-backdrop-filter: blur(16px) saturate(1.6); }
       `}</style>
 
       {/* Background glow */}
@@ -6230,7 +6268,7 @@ export default function App() {
       </div>
 
       {/* SIDEBAR */}
-      <div style={{ width: sidebarOpen ? 220 : 64, background: isDark ? "rgba(255,255,255,0.02)" : (theme === "light" ? "#1c1917" : "#ffffff"), borderRight: isDark ? "1px solid rgba(255,255,255,0.06)" : (theme === "light" ? "1px solid rgba(255,255,255,0.06)" : isCloud ? "1px solid #dde3f5" : "1px solid #e2e6ed"), display: "flex", flexDirection: "column", position: "relative", zIndex: 10, transition: "width 0.25s ease", flexShrink: 0, overflow: sidebarOpen ? "hidden" : "visible" }}>
+      <div style={{ width: sidebarOpen ? 220 : 64, background: isDark ? DK.L0 : (theme === "light" ? "#111827" : "#ffffff"), borderRight: isDark ? `1px solid ${DK.b0}` : (theme === "light" ? "1px solid rgba(255,255,255,0.06)" : isCloud ? "1px solid #dde3f5" : "1px solid #e2e6ed"), display: "flex", flexDirection: "column", position: "relative", zIndex: 10, transition: "width 0.25s ease", flexShrink: 0, overflow: sidebarOpen ? "hidden" : "visible" }}>
 
         {/* ── Sidebar header with logo + toggle ── */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: sidebarOpen ? "space-between" : "center", padding: "16px 12px", borderBottom: isDark || theme === "light" ? "1px solid rgba(255,255,255,0.06)" : "1px solid #e2e6ed", flexShrink: 0, minHeight: 60 }}>
@@ -6278,7 +6316,7 @@ export default function App() {
               left: 58px;
               top: 50%;
               transform: translateY(-50%) translateX(-4px);
-              background: ${isDark ? "#1a2235" : "#1e293b"};
+              background: ${isDark ? DK.L2 : "#1e293b"};
               border: 1px solid ${isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.08)"};
               border-radius: 9px;
               padding: 6px 12px;
@@ -6300,7 +6338,7 @@ export default function App() {
               width: 0; height: 0;
               border-top: 5px solid transparent;
               border-bottom: 5px solid transparent;
-              border-right: 5px solid ${isDark ? "#1a2235" : "#1e293b"};
+              border-right: 5px solid ${isDark ? DK.L2 : "#1e293b"};
             }
             .nav-item:hover .nav-tooltip {
               visibility: visible;
