@@ -15,7 +15,7 @@ import { Upload, Home, List, TrendingUp, Lightbulb, Settings,
 // ─── TRANSLATIONS ─────────────────────────────────────────────
 const T = {
   en: {
-    appName: "Flo Finance",
+    appName: "Dynafy",
     tagline: "Your personal financial assistant",
     nav: { dashboard: "Dashboard", transactions: "Transactions", investments: "Investments", insights: "Insights", settings: "Settings" },
     dashboard: {
@@ -89,7 +89,7 @@ const T = {
     },
   },
   nl: {
-    appName: "Flo Finance",
+    appName: "Dynafy",
     tagline: "Jouw persoonlijke financiële assistent",
     nav: { dashboard: "Dashboard", transactions: "Transacties", investments: "Investeringen", insights: "Inzichten", settings: "Instellingen" },
     dashboard: {
@@ -3803,7 +3803,7 @@ function SettingsView({ lang, setLang, t, accounts, setAccounts, onDeleteAccount
 
         {/* About */}
         <div style={{ ...card(isDark), textAlign: "center" }}>
-          <div style={{ fontSize: 13, color: isDark ? "#334155" : "#94a3b8" }}>Flo Finance • MVP v1.0 • Built for ZZP'ers & freelancers in 🇳🇱</div>
+          <div style={{ fontSize: 13, color: isDark ? "#334155" : "#94a3b8" }}>Dynafy • MVP v1.0 • Built for ZZP'ers & freelancers in 🇳🇱</div>
           <div style={{ marginTop: 8 }}>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 20, background: "linear-gradient(135deg, rgba(79,142,247,0.2), rgba(99,102,241,0.2))", border: "1px solid rgba(79,142,247,0.3)", fontSize: 12, color: "#4f8ef7", fontWeight: 700 }}>
               ⚡ Upgrade to Pro — €9,99/month
@@ -4610,7 +4610,7 @@ function ExportView({ transactions, isDark }) {
     ).join("\n");
     const blob = new Blob([header + rows], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = `flo-finance-export-${new Date().toISOString().slice(0,10)}.csv`;
+    const a = document.createElement("a"); a.href = url; a.download = `dynafy-export-${new Date().toISOString().slice(0,10)}.csv`;
     a.click(); URL.revokeObjectURL(url);
     setTimeout(() => setExporting(null), 1500);
   };
@@ -4620,7 +4620,7 @@ function ExportView({ transactions, isDark }) {
     const dateRange = dateFrom || dateTo ? `${dateFrom || "begin"} t/m ${dateTo || "nu"}` : "Alle transacties";
 
     // Build HTML for PDF print
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Flo Finance Export</title>
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Dynafy Export</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       body { font-family: system-ui, sans-serif; color: #0f172a; padding: 40px; font-size: 12px; }
@@ -4639,7 +4639,7 @@ function ExportView({ transactions, isDark }) {
       .amount-neg { color: #dc2626; font-weight: 700; font-family: monospace; text-align: right; }
       @media print { body { padding: 20px; } }
     </style></head><body>
-    <h1>Flo Finance — Exportoverzicht</h1>
+    <h1>Dynafy — Exportoverzicht</h1>
     <div class="meta">Gegenereerd op ${new Date().toLocaleDateString("nl-NL", { dateStyle: "long" })} · ${dateRange} · ${filtered.length} transacties</div>
     <div class="summary">
       <div class="sum-card"><div class="sum-label">Totaal inkomsten</div><div class="sum-value income">+${fmt(totalIncome)}</div></div>
@@ -5639,7 +5639,7 @@ function Onboarding({ onComplete }) {
         <div>
           <div style={{ fontSize: 32, marginBottom: 8 }}>👋</div>
           <div style={{ fontSize: 24, fontWeight: 800, color: textColor, marginBottom: 8 }}>
-            {lang === "nl" ? "Welkom bij Flo Finance" : "Welcome to Flo Finance"}
+            {lang === "nl" ? "Welkom bij Dynafy" : "Welcome to Dynafy"}
           </div>
           <div style={{ fontSize: 14, color: mutedColor, marginBottom: 32, lineHeight: 1.6 }}>
             {lang === "nl" ? "Jouw persoonlijke financiële app. Kies eerst je taal." : "Your personal finance app. Choose your language first."}
@@ -5679,8 +5679,8 @@ function Onboarding({ onComplete }) {
           <div style={{ padding: "14px 16px", borderRadius: 12, background: isDarkTheme ? "rgba(255,255,255,0.03)" : "#f8fafc", border: `1px solid ${tosAccepted ? accentColor + "50" : borderColor}`, transition: "border-color 0.2s" }}>
             <div style={{ fontSize: 12, color: mutedColor, lineHeight: 1.6, marginBottom: 12 }}>
               🔒 {lang === "nl"
-                ? "Flo Finance slaat al jouw financiële gegevens lokaal op in jouw browser. Er worden geen gegevens naar externe servers verzonden. Jouw data blijft altijd van jou."
-                : "Flo Finance stores all your financial data locally in your browser. No data is sent to external servers. Your data always stays yours."}
+                ? "Dynafy slaat al jouw financiële gegevens lokaal op in jouw browser. Er worden geen gegevens naar externe servers verzonden. Jouw data blijft altijd van jou."
+                : "Dynafy stores all your financial data locally in your browser. No data is sent to external servers. Your data always stays yours."}
             </div>
             <div onClick={() => setTosAccepted(p => !p)} style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
               <div style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${tosAccepted ? accentColor : borderColor}`, background: tosAccepted ? accentColor : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1, transition: "all 0.15s" }}>
@@ -5688,8 +5688,8 @@ function Onboarding({ onComplete }) {
               </div>
               <span style={{ fontSize: 13, color: textColor, lineHeight: 1.5 }}>
                 {lang === "nl"
-                  ? "Ik ga akkoord met de gebruiksvoorwaarden en het privacybeleid van Flo Finance"
-                  : "I agree to the Flo Finance terms of service and privacy policy"}
+                  ? "Ik ga akkoord met de gebruiksvoorwaarden en het privacybeleid van Dynafy"
+                  : "I agree to the Dynafy terms of service and privacy policy"}
               </span>
             </div>
           </div>
@@ -5886,9 +5886,9 @@ function Onboarding({ onComplete }) {
       {/* Logo */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 32 }}>
         <div style={{ width: 36, height: 36, borderRadius: 10, background: accentColor, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <span style={{ color: "#fff", fontSize: 16, fontWeight: 800 }}>F</span>
+          <span style={{ color: "#fff", fontSize: 16, fontWeight: 800 }}>D</span>
         </div>
-        <span style={{ fontSize: 20, fontWeight: 800, color: textColor }}>Flo Finance</span>
+        <span style={{ fontSize: 20, fontWeight: 800, color: textColor }}>Dynafy</span>
       </div>
 
       {/* Progress bar */}
