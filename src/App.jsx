@@ -2329,7 +2329,11 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
     return { price: Math.round(current * 100) / 100, change24h, source: "Yahoo Finance" };
   };
 
-  const fetchTicker = async () => {
+  const lastTickerFetch = useRef(0);
+  const fetchTicker = async (force = false) => {
+    const now = Date.now();
+    if (!force && now - lastTickerFetch.current < 30_000) return; // min 30s between calls
+    lastTickerFetch.current = now;
     setTickerLoading(true);
     const results = {};
 
@@ -2852,7 +2856,7 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
                 </button>
               ))}
             </div>
-            <button onClick={fetchTicker} disabled={tickerLoading}
+            <button onClick={() => fetchTicker(true)} disabled={tickerLoading}
               style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 20, background: "transparent", border: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid #e2e6ed", color: isDark ? "#475569" : "#94a3b8", cursor: tickerLoading ? "wait" : "pointer", fontSize: 11, fontWeight: 600 }}>
               <RefreshCw size={11} style={{ animation: tickerLoading ? "spin 1s linear infinite" : "none" }} />
               {tickerLoading ? "Laden..." : "Vernieuwen"}
