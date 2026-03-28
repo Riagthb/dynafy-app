@@ -856,6 +856,32 @@ function useCountUp(target, duration = 900) {
   return current;
 }
 
+// ─── DYNAFY LOGO ───────────────────────────────────────────────
+function DynafyLogo({ size = 32, bg }) {
+  const fill = bg || "url(#dynLg)";
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+      <rect width="32" height="32" rx="8" fill={fill}/>
+      {/* Left vertical bar of D */}
+      <rect x="9" y="8.5" width="3.5" height="15" rx="1.75" fill="white"/>
+      {/* Right arc of D */}
+      <path d="M12.5 9.5h2.8c3.7 0 6.7 2.9 6.7 6.5s-3 6.5-6.7 6.5h-2.8"
+        stroke="white" strokeWidth="3.5" strokeLinecap="round" fill="none"/>
+      {/* Trend spark top-right */}
+      <path d="M21.5 9L23 7" stroke="rgba(255,255,255,0.5)" strokeWidth="1.6" strokeLinecap="round"/>
+      <path d="M19.5 8L21 6" stroke="rgba(255,255,255,0.25)" strokeWidth="1.2" strokeLinecap="round"/>
+      {!bg && (
+        <defs>
+          <linearGradient id="dynLg" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#4f8ef7"/>
+            <stop offset="1" stopColor="#6366f1"/>
+          </linearGradient>
+        </defs>
+      )}
+    </svg>
+  );
+}
+
 // ─── STAT CARD ─────────────────────────────────────────────────
 function StatCard({ label, value, rawValue, formatter, sub, color = "#4f8ef7", icon: Icon, trend, isDark = true, onClick }) {
   const animated     = useCountUp(rawValue ?? null);
@@ -5885,10 +5911,8 @@ function Onboarding({ onComplete }) {
 
       {/* Logo */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 32 }}>
-        <div style={{ width: 36, height: 36, borderRadius: 10, background: accentColor, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <span style={{ color: "#fff", fontSize: 16, fontWeight: 800 }}>D</span>
-        </div>
-        <span style={{ fontSize: 20, fontWeight: 800, color: textColor }}>Dynafy</span>
+        <DynafyLogo size={36} />
+        <span style={{ fontSize: 20, fontWeight: 800, color: textColor, letterSpacing: "-0.3px" }}>Dynafy</span>
       </div>
 
       {/* Progress bar */}
@@ -6095,19 +6119,19 @@ export default function App() {
       </div>
 
       {/* SIDEBAR */}
-      <div style={{ width: sidebarOpen ? 220 : 64, background: isDark ? "rgba(255,255,255,0.02)" : (theme === "light" ? "#1c1917" : "#ffffff"), borderRight: isDark ? "1px solid rgba(255,255,255,0.06)" : (theme === "light" ? "1px solid rgba(255,255,255,0.06)" : isCloud ? "1px solid #dde3f5" : "1px solid #e2e6ed"), display: "flex", flexDirection: "column", position: "relative", zIndex: 10, transition: "width 0.25s ease", flexShrink: 0, overflow: "hidden" }}>
+      <div style={{ width: sidebarOpen ? 220 : 64, background: isDark ? "rgba(255,255,255,0.02)" : (theme === "light" ? "#1c1917" : "#ffffff"), borderRight: isDark ? "1px solid rgba(255,255,255,0.06)" : (theme === "light" ? "1px solid rgba(255,255,255,0.06)" : isCloud ? "1px solid #dde3f5" : "1px solid #e2e6ed"), display: "flex", flexDirection: "column", position: "relative", zIndex: 10, transition: "width 0.25s ease", flexShrink: 0, overflow: sidebarOpen ? "hidden" : "visible" }}>
 
         {/* ── Sidebar header with logo + toggle ── */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: sidebarOpen ? "space-between" : "center", padding: "16px 12px", borderBottom: isDark || theme === "light" ? "1px solid rgba(255,255,255,0.06)" : "1px solid #e2e6ed", flexShrink: 0, minHeight: 60 }}>
-          {sidebarOpen && (
+          {sidebarOpen ? (
             <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden", minWidth: 0 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 10, background: theme === "light" ? "#d97706" : isCloud ? "#4361ee" : "linear-gradient(135deg, #4f8ef7, #6366f1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <DollarSign size={18} color="#fff" />
-              </div>
+              <DynafyLogo size={32} bg={theme === "light" ? "#d97706" : isCloud ? "#4361ee" : undefined} />
               <div style={{ fontSize: 17, fontWeight: 800, color: (isDark || theme === "light") ? "#f1f5f9" : isCloud ? "#4361ee" : "#0f172a", whiteSpace: "nowrap", letterSpacing: "-0.3px" }}>
                 {t.appName}
               </div>
             </div>
+          ) : (
+            <DynafyLogo size={32} bg={theme === "light" ? "#d97706" : isCloud ? "#4361ee" : undefined} />
           )}
           {/* Toggle button */}
           <button
@@ -6121,11 +6145,45 @@ export default function App() {
         </div>
 
         {/* ── Nav items ── */}
-        <nav style={{ flex: 1, display: "flex", flexDirection: "column", gap: 2, padding: "12px 8px", overflowY: "auto", overflowX: "hidden" }}>
+        <nav style={{ flex: 1, display: "flex", flexDirection: "column", gap: 2, padding: "12px 8px", overflowY: sidebarOpen ? "auto" : "visible", overflowX: sidebarOpen ? "hidden" : "visible" }}>
           <style>{`
             .nav-item { position: relative; }
-            .nav-tooltip { display: none; position: absolute; left: 52px; top: 50%; transform: translateY(-50%); background: ${isDark ? "#1a2235" : "#ffffff"}; border: 1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}; border-radius: 8px; padding: 5px 10px; font-size: 12px; font-weight: 600; color: ${isDark ? "#f1f5f9" : "#0f172a"}; white-space: nowrap; pointer-events: none; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-            .nav-item:hover .nav-tooltip { display: block; }
+            .nav-tooltip {
+              visibility: hidden;
+              opacity: 0;
+              position: absolute;
+              left: 58px;
+              top: 50%;
+              transform: translateY(-50%) translateX(-4px);
+              background: ${isDark ? "#1a2235" : "#1e293b"};
+              border: 1px solid ${isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.08)"};
+              border-radius: 9px;
+              padding: 6px 12px;
+              font-size: 12px;
+              font-weight: 600;
+              color: #f1f5f9;
+              white-space: nowrap;
+              pointer-events: none;
+              z-index: 9999;
+              box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+              transition: opacity 0.18s ease, visibility 0.18s ease, transform 0.18s ease;
+            }
+            .nav-tooltip::before {
+              content: '';
+              position: absolute;
+              left: -5px;
+              top: 50%;
+              transform: translateY(-50%);
+              width: 0; height: 0;
+              border-top: 5px solid transparent;
+              border-bottom: 5px solid transparent;
+              border-right: 5px solid ${isDark ? "#1a2235" : "#1e293b"};
+            }
+            .nav-item:hover .nav-tooltip {
+              visibility: visible;
+              opacity: 1;
+              transform: translateY(-50%) translateX(0);
+            }
 
             .nav-btn { position: relative; overflow: hidden; }
             .nav-btn::after {
