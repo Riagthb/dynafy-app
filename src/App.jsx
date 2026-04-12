@@ -8719,6 +8719,7 @@ function Onboarding({ onComplete }) {
   const [theme, setTheme] = useState("dark");
   const [bank, setBank] = useState(null);
   const [tosAccepted, setTosAccepted] = useState(false);
+  const [referral, setReferral] = useState(null);
   const [dragging, setDragging] = useState(false);
   const [parsed, setParsed] = useState(null);
   const [fileName, setFileName] = useState("");
@@ -8727,44 +8728,43 @@ function Onboarding({ onComplete }) {
   const T_OB = {
     nl: {
       next: "Volgende →", skip: "Sla over", back: "← Terug",
-      steps: ["Taal", "Naam", "Situatie", "Doelen", "Thema", "Upload"],
+      steps: ["Welkom", "Naam", "Herkomst", "Jouw profiel", "Upload"],
     },
     en: {
       next: "Next →", skip: "Skip", back: "← Back",
-      steps: ["Language", "Name", "Situation", "Goals", "Theme", "Upload"],
+      steps: ["Welcome", "Name", "Discovery", "Your profile", "Upload"],
     },
   };
   const t = T_OB[lang];
 
   const THEMES = [
-    { id: "dark",  label: "Donker",  icon: "🌙", bg: "#080d18", sidebar: "#0d1424", accent: "#4f8ef7", desc: "Nachtmodus" },
-    { id: "light", label: "Pearl",   icon: "🪨", bg: "#f5f4f0", sidebar: "#1c1917", accent: "#d97706", desc: "Warm amber" },
-    { id: "cloud", label: "Cloud",   icon: "☁️", bg: "#f0f4ff", sidebar: "#ffffff",  accent: "#4361ee", desc: "Indigo" },
+    { id: "dark",  label: "Donker", bg: "#080d18", sidebar: "#0d1424", accent: "#4f8ef7", desc: lang === "nl" ? "Nachtmodus" : "Dark mode" },
+    { id: "cloud", label: "Cloud",  bg: "#f0f4ff", sidebar: "#ffffff",  accent: "#4361ee", desc: "Indigo" },
   ];
 
   const SITUATIONS = [
-    { id: "zzp",      label: lang === "nl" ? "ZZP'er / Freelancer" : "Freelancer",     icon: "💼" },
-    { id: "employee", label: lang === "nl" ? "In loondienst"        : "Employed",       icon: "🏢" },
-    { id: "student",  label: lang === "nl" ? "Student"              : "Student",        icon: "🎓" },
-    { id: "other",    label: lang === "nl" ? "Anders"               : "Other",          icon: "✨" },
+    { id: "zzp",      label: lang === "nl" ? "ZZP'er / Freelancer" : "Freelancer" },
+    { id: "employee", label: lang === "nl" ? "In loondienst"        : "Employed"  },
+    { id: "student",  label: lang === "nl" ? "Student"              : "Student"   },
+    { id: "other",    label: lang === "nl" ? "Anders"               : "Other"     },
   ];
 
   const GOALS_LIST = [
-    { id: "expenses",    label: lang === "nl" ? "Uitgaven bijhouden" : "Track expenses",     icon: "📊" },
-    { id: "invest",      label: lang === "nl" ? "Investeren"          : "Investing",          icon: "📈" },
-    { id: "fire",        label: "FIRE",                                                        icon: "🔥" },
-    { id: "debt",        label: lang === "nl" ? "Schulden afbouwen"   : "Pay off debt",       icon: "📉" },
-    { id: "save",        label: lang === "nl" ? "Sparen"              : "Save money",         icon: "🎯" },
-    { id: "budget",      label: lang === "nl" ? "Budgetteren"         : "Budget",             icon: "💰" },
+    { id: "expenses", label: lang === "nl" ? "Uitgaven bijhouden"      : "Track expenses"      },
+    { id: "invest",   label: lang === "nl" ? "Investeren"              : "Investing"           },
+    { id: "admin",    label: lang === "nl" ? "Bedrijfsadministratie"   : "Business admin"      },
+    { id: "debt",     label: lang === "nl" ? "Schulden afbouwen"       : "Pay off debt"        },
+    { id: "save",     label: lang === "nl" ? "Sparen"                  : "Save money"          },
+    { id: "budget",   label: lang === "nl" ? "Budgetteren"             : "Budget"              },
   ];
 
   const BANKS = [
-    { id: "ing",     label: "ING",       logo: "🧡" },
-    { id: "abn",     label: "ABN AMRO",  logo: "💚" },
-    { id: "rabo",    label: "Rabobank",  logo: "🔴" },
-    { id: "bunq",    label: "Bunq",      logo: "🟢" },
-    { id: "n26",     label: "N26",       logo: "⚫" },
-    { id: "other",   label: lang === "nl" ? "Anders" : "Other", logo: "🏦" },
+    { id: "ing",   label: "ING"     },
+    { id: "abn",   label: "ABN AMRO"},
+    { id: "rabo",  label: "Rabobank"},
+    { id: "bunq",  label: "Bunq"    },
+    { id: "n26",   label: "N26"     },
+    { id: "other", label: lang === "nl" ? "Anders" : "Other" },
   ];
 
   const BANK_INSTRUCTIONS = {
@@ -8782,7 +8782,7 @@ function Onboarding({ onComplete }) {
   const textColor = isDarkTheme ? "#f1f5f9" : "#0f172a";
   const mutedColor = isDarkTheme ? "#64748b" : "#64748b";
   const borderColor = isDarkTheme ? "rgba(255,255,255,0.1)" : "#e2e6ed";
-  const accentColor = THEMES.find(t => t.id === theme)?.accent || "#4f8ef7";
+  const accentColor = THEMES.find(th => th.id === theme)?.accent || "#4f8ef7";
 
   const handleFile = (file) => {
     if (!file) return;
@@ -8796,18 +8796,18 @@ function Onboarding({ onComplete }) {
   };
 
   const completeOnboarding = (withUpload) => {
+    const onboardingData = { lang, theme, name, situation, goals, referral, completed_at: new Date().toISOString() };
     if (withUpload && parsed?.length > 0) {
       const accName = bank ? BANKS.find(b => b.id === bank)?.label || "Geïmporteerd" : "Geïmporteerd";
       const acc = { id: Date.now(), name: accName, iban: "—" };
       const txs = parsed.map(tx => ({ ...tx, account: accName }));
-      onComplete({ lang, theme, name, transactions: txs, accounts: [acc] });
+      onComplete({ lang, theme, name, transactions: txs, accounts: [acc], onboardingData });
     } else {
-      onComplete({ lang, theme, name });
+      onComplete({ lang, theme, name, onboardingData });
     }
   };
 
-  const TOTAL_STEPS = 6;
-  const progress = ((step) / (TOTAL_STEPS - 1)) * 100;
+  const TOTAL_STEPS = 5;
 
   const stepContainerStyle = {
     width: "100%", maxWidth: 560,
@@ -8817,152 +8817,94 @@ function Onboarding({ onComplete }) {
     fontFamily: "'Outfit', system-ui, sans-serif",
   };
 
+  const TosRow = () => (
+    <div style={{ marginTop: 24, display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }} onClick={() => setTosAccepted(p => !p)}>
+      <div style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${tosAccepted ? accentColor : borderColor}`, background: tosAccepted ? accentColor : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1, transition: "all 0.15s" }}>
+        {tosAccepted && <Check size={12} color="#fff" />}
+      </div>
+      <span style={{ fontSize: 13, color: textColor, lineHeight: 1.6 }} onClick={e => e.stopPropagation()}>
+        {lang === "nl" ? (
+          <>Ik ga akkoord met de{" "}
+            <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: accentColor, textDecoration: "underline" }} onClick={e => e.stopPropagation()}>gebruiksvoorwaarden</a>
+            {" "}en het{" "}
+            <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: accentColor, textDecoration: "underline" }} onClick={e => e.stopPropagation()}>privacybeleid</a>
+            {" "}van Dynafy
+          </>
+        ) : (
+          <>I agree to the Dynafy{" "}
+            <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: accentColor, textDecoration: "underline" }} onClick={e => e.stopPropagation()}>terms of service</a>
+            {" "}and{" "}
+            <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: accentColor, textDecoration: "underline" }} onClick={e => e.stopPropagation()}>privacy policy</a>
+          </>
+        )}
+      </span>
+    </div>
+  );
+
+  const REFERRAL_OPTIONS = [
+    { id: "google",    label: lang === "nl" ? "Google"                        : "Google"                    },
+    { id: "ai",        label: lang === "nl" ? "ChatGPT of ander AI"           : "ChatGPT or other AI"       },
+    { id: "news",      label: lang === "nl" ? "Nieuws artikel"                : "News article"              },
+    { id: "social",    label: lang === "nl" ? "Familie, vrienden of kennissen": "Family, friends or peers"  },
+    { id: "employer",  label: lang === "nl" ? "Werkgever of collega's"        : "Employer or colleagues"    },
+    { id: "podcast",   label: lang === "nl" ? "Podcast"                       : "Podcast"                   },
+    { id: "influencer",label: lang === "nl" ? "Influencer"                    : "Influencer"                },
+  ];
+
   const renderStep = () => {
     switch (step) {
-      // ── Step 0: Language ─────────────────────────────────────
+      // ── Step 0: Language + Theme ──────────────────────────────
       case 0: return (
         <div>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>👋</div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: textColor, marginBottom: 8 }}>
+          <div style={{ fontSize: 24, fontWeight: 800, color: textColor, marginBottom: 6 }}>
             {lang === "nl" ? "Welkom bij Dynafy" : "Welcome to Dynafy"}
           </div>
-          <div style={{ fontSize: 14, color: mutedColor, marginBottom: 32, lineHeight: 1.6 }}>
-            {lang === "nl" ? "Jouw persoonlijke financiële app. Kies eerst je taal." : "Your personal finance app. Choose your language first."}
+          <div style={{ fontSize: 14, color: mutedColor, marginBottom: 28, lineHeight: 1.6 }}>
+            {lang === "nl" ? "Jouw persoonlijke financiële app. Kies je taal en thema." : "Your personal finance app. Choose your language and theme."}
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+          {/* Language */}
+          <div style={{ fontSize: 11, fontWeight: 700, color: mutedColor, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
+            {lang === "nl" ? "Taal" : "Language"}
+          </div>
+          <div style={{ display: "flex", gap: 10, marginBottom: 28 }}>
             {[["nl", "🇳🇱", "Nederlands"], ["en", "🇬🇧", "English"]].map(([l, flag, label]) => (
               <button key={l} onClick={() => setLang(l)}
-                style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 20px", borderRadius: 14, border: lang === l ? `2px solid ${accentColor}` : `1px solid ${borderColor}`, background: lang === l ? `${accentColor}12` : "transparent", cursor: "pointer", transition: "all 0.15s" }}>
-                <span style={{ fontSize: 24 }}>{flag}</span>
-                <span style={{ fontSize: 16, fontWeight: 700, color: lang === l ? accentColor : textColor }}>{label}</span>
-                {lang === l && <Check size={16} color={accentColor} style={{ marginLeft: "auto" }} />}
+                style={{ flex: 1, padding: "12px 16px", borderRadius: 12, border: lang === l ? `2px solid ${accentColor}` : `1px solid ${borderColor}`, background: lang === l ? `${accentColor}12` : "transparent", cursor: "pointer", fontSize: 14, fontWeight: 700, color: lang === l ? accentColor : textColor, display: "flex", alignItems: "center", gap: 10, transition: "all 0.15s" }}>
+                <span style={{ fontSize: 20 }}>{flag}</span>
+                {label}
+                {lang === l && <Check size={14} color={accentColor} style={{ marginLeft: "auto" }} />}
               </button>
             ))}
           </div>
-        </div>
-      );
 
-      // ── Step 1: Name + ToS ──────────────────────────────────
-      case 1: return (
-        <div>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>😊</div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: textColor, marginBottom: 8 }}>
-            {lang === "nl" ? "Hoe heet je?" : "What's your name?"}
+          {/* Theme */}
+          <div style={{ fontSize: 11, fontWeight: 700, color: mutedColor, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
+            {lang === "nl" ? "Thema" : "Theme"}
           </div>
-          <div style={{ fontSize: 14, color: mutedColor, marginBottom: 20 }}>
-            {lang === "nl" ? "We gebruiken dit om de app te personaliseren." : "We use this to personalize the app."}
-          </div>
-          <input
-            autoFocus value={name} onChange={e => setName(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && name.trim() && tosAccepted && setStep(2)}
-            placeholder={lang === "nl" ? "Jouw naam..." : "Your name..."}
-            style={{ width: "100%", padding: "16px 20px", fontSize: 18, fontWeight: 600, background: isDarkTheme ? "rgba(255,255,255,0.05)" : "#f8fafc", border: `1.5px solid ${name ? accentColor : borderColor}`, borderRadius: 14, color: textColor, outline: "none", boxSizing: "border-box", transition: "border-color 0.15s", marginBottom: 16 }}
-          />
-          {name && <div style={{ fontSize: 13, color: accentColor, marginBottom: 16, fontWeight: 600 }}>
-            {lang === "nl" ? `Hoi ${name}! 👋` : `Hi ${name}! 👋`}
-          </div>}
-          <div style={{ padding: "14px 16px", borderRadius: 12, background: isDarkTheme ? "rgba(255,255,255,0.03)" : "#f8fafc", border: `1px solid ${tosAccepted ? accentColor + "50" : borderColor}`, transition: "border-color 0.2s" }}>
-            <div style={{ fontSize: 12, color: mutedColor, lineHeight: 1.6, marginBottom: 12 }}>
-              🔒 {lang === "nl"
-                ? "Dynafy slaat al jouw financiële gegevens lokaal op in jouw browser. Er worden geen gegevens naar externe servers verzonden. Jouw data blijft altijd van jou."
-                : "Dynafy stores all your financial data locally in your browser. No data is sent to external servers. Your data always stays yours."}
-            </div>
-            <div onClick={() => setTosAccepted(p => !p)} style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
-              <div style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${tosAccepted ? accentColor : borderColor}`, background: tosAccepted ? accentColor : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1, transition: "all 0.15s" }}>
-                {tosAccepted && <Check size={12} color="#fff" />}
-              </div>
-              <span style={{ fontSize: 13, color: textColor, lineHeight: 1.5 }}>
-                {lang === "nl"
-                  ? "Ik ga akkoord met de gebruiksvoorwaarden en het privacybeleid van Dynafy"
-                  : "I agree to the Dynafy terms of service and privacy policy"}
-              </span>
-            </div>
-          </div>
-        </div>
-      );
-
-      // ── Step 2: Situation ────────────────────────────────────
-      case 2: return (
-        <div>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>🏷️</div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: textColor, marginBottom: 8 }}>
-            {lang === "nl" ? "Wat is jouw situatie?" : "What's your situation?"}
-          </div>
-          <div style={{ fontSize: 14, color: mutedColor, marginBottom: 28 }}>
-            {lang === "nl" ? "Dit helpt ons de app beter op jou af te stemmen." : "This helps us tailor the app to you."}
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            {SITUATIONS.map(s => (
-              <button key={s.id} onClick={() => setSituation(s.id)}
-                style={{ padding: "20px 16px", borderRadius: 14, border: situation === s.id ? `2px solid ${accentColor}` : `1px solid ${borderColor}`, background: situation === s.id ? `${accentColor}12` : "transparent", cursor: "pointer", textAlign: "center", transition: "all 0.15s" }}>
-                <div style={{ fontSize: 28, marginBottom: 8 }}>{s.icon}</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: situation === s.id ? accentColor : textColor }}>{s.label}</div>
-              </button>
-            ))}
-          </div>
-        </div>
-      );
-
-      // ── Step 3: Goals ────────────────────────────────────────
-      case 3: return (
-        <div>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>🎯</div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: textColor, marginBottom: 8 }}>
-            {lang === "nl" ? "Wat wil je bijhouden?" : "What do you want to track?"}
-          </div>
-          <div style={{ fontSize: 14, color: mutedColor, marginBottom: 28 }}>
-            {lang === "nl" ? "Kies alles wat van toepassing is. Je kunt dit later aanpassen." : "Choose all that apply. You can change this later."}
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            {GOALS_LIST.map(g => {
-              const selected = goals.includes(g.id);
-              return (
-                <button key={g.id} onClick={() => setGoals(prev => selected ? prev.filter(x => x !== g.id) : [...prev, g.id])}
-                  style={{ padding: "16px 14px", borderRadius: 12, border: selected ? `2px solid ${accentColor}` : `1px solid ${borderColor}`, background: selected ? `${accentColor}12` : "transparent", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, transition: "all 0.15s" }}>
-                  <span style={{ fontSize: 20 }}>{g.icon}</span>
-                  <span style={{ fontSize: 13, fontWeight: selected ? 700 : 500, color: selected ? accentColor : textColor, textAlign: "left" }}>{g.label}</span>
-                  {selected && <Check size={14} color={accentColor} style={{ marginLeft: "auto", flexShrink: 0 }}/>}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      );
-
-      // ── Step 4: Theme ────────────────────────────────────────
-      case 4: return (
-        <div>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>🎨</div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: textColor, marginBottom: 8 }}>
-            {lang === "nl" ? "Kies jouw thema" : "Choose your theme"}
-          </div>
-          <div style={{ fontSize: 14, color: mutedColor, marginBottom: 28 }}>
-            {lang === "nl" ? "Je kunt dit altijd aanpassen in instellingen." : "You can always change this in settings."}
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {THEMES.map(opt => {
               const active = theme === opt.id;
               return (
                 <button key={opt.id} onClick={() => setTheme(opt.id)}
-                  style={{ display: "flex", alignItems: "center", gap: 16, padding: "14px 18px", borderRadius: 14, border: active ? `2px solid ${opt.accent}` : `1px solid ${borderColor}`, background: active ? `${opt.accent}12` : "transparent", cursor: "pointer", transition: "all 0.15s" }}>
-                  {/* Mini preview */}
-                  <div style={{ width: 72, height: 44, borderRadius: 10, background: opt.bg, overflow: "hidden", display: "flex", flexShrink: 0, border: "1px solid rgba(0,0,0,0.1)" }}>
-                    <div style={{ width: "35%", background: opt.sidebar, display: "flex", flexDirection: "column", gap: 3, padding: "6px 5px" }}>
+                  style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 16px", borderRadius: 12, border: active ? `2px solid ${opt.accent}` : `1px solid ${borderColor}`, background: active ? `${opt.accent}12` : "transparent", cursor: "pointer", transition: "all 0.15s" }}>
+                  <div style={{ width: 60, height: 36, borderRadius: 8, background: opt.bg, overflow: "hidden", display: "flex", flexShrink: 0, border: "1px solid rgba(0,0,0,0.1)" }}>
+                    <div style={{ width: "35%", background: opt.sidebar, display: "flex", flexDirection: "column", gap: 3, padding: "5px 4px" }}>
                       {[opt.accent + "33", opt.accent + "55", "rgba(255,255,255,0.08)"].map((bg2, i) => (
-                        <div key={i} style={{ height: 6, borderRadius: 3, background: bg2, width: i === 0 ? "100%" : "75%" }}/>
+                        <div key={i} style={{ height: 5, borderRadius: 2, background: bg2, width: i === 0 ? "100%" : "75%" }}/>
                       ))}
                     </div>
-                    <div style={{ flex: 1, padding: "6px 6px", display: "flex", flexDirection: "column", gap: 3 }}>
-                      <div style={{ height: 8, borderRadius: 3, background: opt.accent + "40", width: "70%" }}/>
-                      <div style={{ height: 5, borderRadius: 2, background: "rgba(128,128,128,0.2)", width: "90%" }}/>
-                      <div style={{ height: 5, borderRadius: 2, background: "rgba(128,128,128,0.15)", width: "55%" }}/>
+                    <div style={{ flex: 1, padding: "5px 5px", display: "flex", flexDirection: "column", gap: 3 }}>
+                      <div style={{ height: 6, borderRadius: 2, background: opt.accent + "40", width: "70%" }}/>
+                      <div style={{ height: 4, borderRadius: 2, background: "rgba(128,128,128,0.2)", width: "90%" }}/>
+                      <div style={{ height: 4, borderRadius: 2, background: "rgba(128,128,128,0.15)", width: "55%" }}/>
                     </div>
                   </div>
                   <div style={{ flex: 1, textAlign: "left" }}>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: active ? opt.accent : textColor }}>{opt.icon} {opt.label}</div>
-                    <div style={{ fontSize: 12, color: mutedColor, marginTop: 2 }}>{opt.desc}</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: active ? opt.accent : textColor }}>{opt.label}</div>
+                    <div style={{ fontSize: 12, color: mutedColor, marginTop: 1 }}>{opt.desc}</div>
                   </div>
-                  {active && <div style={{ width: 22, height: 22, borderRadius: "50%", background: opt.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Check size={12} color="#fff"/></div>}
+                  {active && <div style={{ width: 20, height: 20, borderRadius: "50%", background: opt.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Check size={11} color="#fff"/></div>}
                 </button>
               );
             })}
@@ -8970,15 +8912,95 @@ function Onboarding({ onComplete }) {
         </div>
       );
 
-      // ── Step 5: Upload ───────────────────────────────────────
-      case 5: return (
+      // ── Step 1: Name ────────────────────────────────────────
+      case 1: return (
         <div>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>🏦</div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: textColor, marginBottom: 8 }}>
+          <div style={{ fontSize: 24, fontWeight: 800, color: textColor, marginBottom: 6 }}>
+            {lang === "nl" ? "Laten we beginnen" : "Let's get started"}
+          </div>
+          <div style={{ fontSize: 14, color: mutedColor, marginBottom: 24, lineHeight: 1.6 }}>
+            {lang === "nl"
+              ? "Mensen noemen ons \"Dyna-Fy\", hoe zullen wij jou noemen?"
+              : "People call us \"Dyna-Fy\", what shall we call you?"}
+          </div>
+          <input
+            autoFocus value={name} onChange={e => setName(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && name.trim() && setStep(2)}
+            placeholder={lang === "nl" ? "Jouw naam..." : "Your name..."}
+            style={{ width: "100%", padding: "16px 20px", fontSize: 18, fontWeight: 600, background: isDarkTheme ? "rgba(255,255,255,0.05)" : "#f8fafc", border: `1.5px solid ${name ? accentColor : borderColor}`, borderRadius: 14, color: textColor, outline: "none", boxSizing: "border-box", transition: "border-color 0.15s" }}
+          />
+          {name && <div style={{ fontSize: 13, color: accentColor, marginTop: 12, fontWeight: 600 }}>
+            {lang === "nl" ? `Hoi ${name}!` : `Hi ${name}!`}
+          </div>}
+        </div>
+      );
+
+      // ── Step 2: Referral ─────────────────────────────────────
+      case 2: return (
+        <div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: textColor, marginBottom: 6 }}>
+            {lang === "nl" ? "Hoe ben je bij ons terecht gekomen?" : "How did you find us?"}
+          </div>
+          <div style={{ fontSize: 14, color: mutedColor, marginBottom: 24 }}>
+            {lang === "nl" ? "Dit helpt ons te begrijpen hoe mensen ons vinden." : "This helps us understand how people discover us."}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {REFERRAL_OPTIONS.map(opt => (
+              <button key={opt.id} onClick={() => setReferral(opt.id)}
+                style={{ padding: "14px 18px", borderRadius: 12, border: referral === opt.id ? `2px solid ${accentColor}` : `1px solid ${borderColor}`, background: referral === opt.id ? `${accentColor}12` : "transparent", cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", justifyContent: "space-between", transition: "all 0.15s" }}>
+                <span style={{ fontSize: 14, fontWeight: referral === opt.id ? 700 : 500, color: referral === opt.id ? accentColor : textColor }}>{opt.label}</span>
+                {referral === opt.id && <Check size={14} color={accentColor} />}
+              </button>
+            ))}
+          </div>
+        </div>
+      );
+
+      // ── Step 3: Situation + Goals + ToS ──────────────────────
+      case 3: return (
+        <div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: textColor, marginBottom: 6 }}>
+            {lang === "nl" ? "Wat is jouw situatie?" : "What's your situation?"}
+          </div>
+          <div style={{ fontSize: 14, color: mutedColor, marginBottom: 20 }}>
+            {lang === "nl" ? "Dit helpt ons de app beter op jou af te stemmen." : "This helps us tailor the app to you."}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 24 }}>
+            {SITUATIONS.map(s => (
+              <button key={s.id} onClick={() => setSituation(s.id)}
+                style={{ padding: "16px 14px", borderRadius: 12, border: situation === s.id ? `2px solid ${accentColor}` : `1px solid ${borderColor}`, background: situation === s.id ? `${accentColor}12` : "transparent", cursor: "pointer", textAlign: "center", transition: "all 0.15s" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: situation === s.id ? accentColor : textColor }}>{s.label}</div>
+              </button>
+            ))}
+          </div>
+
+          <div style={{ fontSize: 11, fontWeight: 700, color: mutedColor, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>
+            {lang === "nl" ? "Wat wil je bijhouden?" : "What do you want to track?"}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            {GOALS_LIST.map(g => {
+              const selected = goals.includes(g.id);
+              return (
+                <button key={g.id} onClick={() => setGoals(prev => selected ? prev.filter(x => x !== g.id) : [...prev, g.id])}
+                  style={{ padding: "12px 14px", borderRadius: 10, border: selected ? `2px solid ${accentColor}` : `1px solid ${borderColor}`, background: selected ? `${accentColor}12` : "transparent", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s" }}>
+                  <span style={{ fontSize: 13, fontWeight: selected ? 700 : 500, color: selected ? accentColor : textColor, textAlign: "left" }}>{g.label}</span>
+                  {selected && <Check size={13} color={accentColor} style={{ marginLeft: "auto", flexShrink: 0 }}/>}
+                </button>
+              );
+            })}
+          </div>
+          <TosRow />
+        </div>
+      );
+
+      // ── Step 4: Upload ───────────────────────────────────────
+      case 4: return (
+        <div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: textColor, marginBottom: 6 }}>
             {lang === "nl" ? "Upload je transacties" : "Upload your transactions"}
           </div>
           <div style={{ fontSize: 14, color: mutedColor, marginBottom: 24, lineHeight: 1.6 }}>
-            {lang === "nl" ? "Kies je bank en upload een CSV-export. Alle data blijft lokaal in je browser — er wordt niets opgeslagen op een server. 🔒" : "Choose your bank and upload a CSV export. All data stays local in your browser — nothing is stored on a server. 🔒"}
+            {lang === "nl" ? "Kies je bank en upload een CSV-export." : "Choose your bank and upload a CSV export."}
           </div>
 
           {/* Bank picker */}
@@ -8989,13 +9011,13 @@ function Onboarding({ onComplete }) {
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {BANKS.map(b => (
                 <button key={b.id} onClick={() => setBank(b.id)}
-                  style={{ padding: "8px 14px", borderRadius: 20, border: bank === b.id ? `1.5px solid ${accentColor}` : `1px solid ${borderColor}`, background: bank === b.id ? `${accentColor}12` : "transparent", cursor: "pointer", fontSize: 13, fontWeight: bank === b.id ? 700 : 500, color: bank === b.id ? accentColor : textColor, display: "flex", alignItems: "center", gap: 6 }}>
-                  {b.logo} {b.label}
+                  style={{ padding: "8px 14px", borderRadius: 20, border: bank === b.id ? `1.5px solid ${accentColor}` : `1px solid ${borderColor}`, background: bank === b.id ? `${accentColor}12` : "transparent", cursor: "pointer", fontSize: 13, fontWeight: bank === b.id ? 700 : 500, color: bank === b.id ? accentColor : textColor }}>
+                  {b.label}
                 </button>
               ))}
             </div>
             {bank && <div style={{ marginTop: 10, padding: "10px 14px", borderRadius: 10, background: isDarkTheme ? "rgba(79,142,247,0.08)" : "#eff6ff", border: `1px solid ${accentColor}30`, fontSize: 12, color: mutedColor }}>
-              📋 {BANK_INSTRUCTIONS[bank]}
+              {BANK_INSTRUCTIONS[bank]}
             </div>}
           </div>
 
@@ -9020,8 +9042,8 @@ function Onboarding({ onComplete }) {
             <div style={{ padding: "16px", borderRadius: 14, background: isDarkTheme ? "rgba(34,197,94,0.08)" : "#f0fdf4", border: "1px solid rgba(34,197,94,0.3)", marginBottom: 4 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
                 <Check size={16} color="#22c55e"/>
-                <span style={{ fontSize: 14, fontWeight: 700, color: "#22c55e" }}>{fileName} — {parsed.length} {lang === "nl" ? t.overzicht.transactions : "transactions"}</span>
-                <button onClick={() => { setParsed(null); setFileName(""); }} style={{ marginLeft: "auto", background: "none", border: "none", color: mutedColor, cursor: "pointer", fontSize: 12 }}>✕ {lang === "nl" ? "Verwijder" : "Remove"}</button>
+                <span style={{ fontSize: 14, fontWeight: 700, color: "#22c55e" }}>{fileName} — {parsed.length} {lang === "nl" ? "transacties" : "transactions"}</span>
+                <button onClick={() => { setParsed(null); setFileName(""); }} style={{ marginLeft: "auto", background: "none", border: "none", color: mutedColor, cursor: "pointer", fontSize: 12 }}>x {lang === "nl" ? "Verwijder" : "Remove"}</button>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 120, overflowY: "auto" }}>
                 {parsed.slice(0, 4).map((tx, i) => (
@@ -9040,7 +9062,7 @@ function Onboarding({ onComplete }) {
             {parsed?.length > 0 && (
               <button onClick={() => completeOnboarding(true)}
                 style={{ width: "100%", padding: "15px", borderRadius: 50, background: `linear-gradient(135deg, ${accentColor}, ${accentColor}cc)`, border: "none", color: "#fff", fontSize: 15, fontWeight: 800, cursor: "pointer" }}>
-                🚀 {lang === "nl" ? `Start met ${parsed.length} transacties` : `Start with ${parsed.length} transactions`}
+                {lang === "nl" ? `Start met ${parsed.length} transacties` : `Start with ${parsed.length} transactions`}
               </button>
             )}
             <button onClick={() => completeOnboarding(false)}
@@ -9056,12 +9078,11 @@ function Onboarding({ onComplete }) {
   };
 
   const canAdvance = [
-    true,                    // lang: always ok
-    name.trim().length > 0 && tosAccepted,  // name + ToS required
-    situation !== null,      // situation: required
-    true,                    // goals: optional
-    true,                    // theme: always ok
-    false,                   // upload: uses own buttons
+    true,                                        // step 0: lang + theme, always ok
+    name.trim().length > 0,                      // step 1: name required
+    referral !== null,                           // step 2: referral required
+    situation !== null && tosAccepted,           // step 3: situation + ToS required
+    false,                                       // step 4: upload uses own buttons
   ][step];
 
   return (
@@ -9090,7 +9111,7 @@ function Onboarding({ onComplete }) {
         {renderStep()}
 
         {/* Nav buttons (not shown on upload step) */}
-        {step < 5 && (
+        {step < 4 && (
           <div style={{ display: "flex", gap: 10, marginTop: 32 }}>
             {step > 0 && (
               <button onClick={() => setStep(s => s - 1)}
@@ -9104,7 +9125,7 @@ function Onboarding({ onComplete }) {
             </button>
           </div>
         )}
-        {step === 5 && step > 0 && (
+        {step === 4 && step > 0 && (
           <button onClick={() => setStep(s => s - 1)}
             style={{ width: "100%", padding: "10px", marginTop: 10, borderRadius: 50, border: `1px solid ${borderColor}`, background: "transparent", color: mutedColor, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
             {t.back}
@@ -13171,7 +13192,7 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted }) {
     setAddingUser(true);
     const { data: { session: adminSession } } = await supabase.auth.getSession();
     const pw = newPassword.trim() || Math.random().toString(36).slice(-8) + 'Aa1!';
-    const { data, error } = await supabase.auth.signUp({ email: newEmail.trim(), password: pw });
+    const { data, error } = await supabase.auth.signUp({ email: newEmail.trim(), password: pw, options: { emailRedirectTo: window.location.origin } });
     if (error) { flash(`Fout: ${error.message}`, false); setAddingUser(false); return; }
     // Restore admin session if signUp changed it
     if (adminSession) {
@@ -13285,6 +13306,21 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted }) {
     premium:   profiles.filter(p => p.plan && p.plan !== 'normal').length,
     active:    profiles.filter(p => p.last_seen > monthAgo).length,
   };
+
+  // Onboarding analytics
+  const withOnboarding = profiles.filter(p => p.onboarding_data);
+  const referralCounts = withOnboarding.reduce((acc, p) => {
+    const r = p.onboarding_data?.referral || 'unknown';
+    acc[r] = (acc[r] || 0) + 1;
+    return acc;
+  }, {});
+  const situationCounts = withOnboarding.reduce((acc, p) => {
+    const s = p.onboarding_data?.situation || 'unknown';
+    acc[s] = (acc[s] || 0) + 1;
+    return acc;
+  }, {});
+  const REFERRAL_LABELS = { google: 'Google', ai: 'ChatGPT / AI', news: 'Nieuws artikel', social: 'Familie / Vrienden', employer: 'Werkgever', podcast: 'Podcast', influencer: 'Influencer', unknown: 'Onbekend' };
+  const SITUATION_LABELS = { zzp: "ZZP'er / Freelancer", employee: 'In loondienst', student: 'Student', other: 'Anders', unknown: 'Onbekend' };
 
   const fmt_date = (iso) => {
     if (!iso) return '—';
@@ -13406,6 +13442,56 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted }) {
           </div>
         ))}
       </div>
+
+      {/* Onboarding analytics */}
+      {withOnboarding.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 28 }}>
+          {/* Referral */}
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, padding: '20px 22px' }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 16 }}>
+              Herkomst ({withOnboarding.length} ingevuld)
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {Object.entries(referralCounts).sort((a,b) => b[1]-a[1]).map(([key, count]) => {
+                const pct = Math.round((count / withOnboarding.length) * 100);
+                return (
+                  <div key={key}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                      <span style={{ color: C.text, fontWeight: 500 }}>{REFERRAL_LABELS[key] || key}</span>
+                      <span style={{ color: C.muted, fontFamily: 'monospace' }}>{count} · {pct}%</span>
+                    </div>
+                    <div style={{ height: 4, borderRadius: 2, background: isDark ? 'rgba(255,255,255,0.06)' : '#e2e6ed' }}>
+                      <div style={{ height: '100%', width: `${pct}%`, borderRadius: 2, background: '#4f8ef7', transition: 'width 0.4s ease' }}/>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          {/* Situation */}
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, padding: '20px 22px' }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 16 }}>
+              Situatie ({withOnboarding.length} ingevuld)
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {Object.entries(situationCounts).sort((a,b) => b[1]-a[1]).map(([key, count]) => {
+                const pct = Math.round((count / withOnboarding.length) * 100);
+                return (
+                  <div key={key}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                      <span style={{ color: C.text, fontWeight: 500 }}>{SITUATION_LABELS[key] || key}</span>
+                      <span style={{ color: C.muted, fontFamily: 'monospace' }}>{count} · {pct}%</span>
+                    </div>
+                    <div style={{ height: 4, borderRadius: 2, background: isDark ? 'rgba(255,255,255,0.06)' : '#e2e6ed' }}>
+                      <div style={{ height: '100%', width: `${pct}%`, borderRadius: 2, background: '#22c55e', transition: 'width 0.4s ease' }}/>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Search + filter bar */}
       <div style={{ display:'flex', gap:10, marginBottom:16, alignItems:'center' }}>
@@ -13722,7 +13808,7 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted }) {
 
 // ─── MAIN APP ──────────────────────────────────────────────────
 export default function App() {
-  const [onboarded, setOnboarded] = useState(true); // TEMP: skip onboarding during testing
+  const [onboarded, setOnboarded] = useState(false);
   const [userName, setUserName] = useState("");
   const [uncatAlert, setUncatAlert] = useState(null);
   const [showGlobalUpload, setShowGlobalUpload] = useState(false);
@@ -13897,7 +13983,7 @@ export default function App() {
           supabase.from('investments').select('*').eq('user_id', user.id),
           supabase.from('goals').select('*').eq('user_id', user.id),
           supabase.from('recurring').select('*').eq('user_id', user.id),
-          supabase.from('profiles').select('is_admin, plan, company_name, kvk, btw_number, iban, address, city, postal_code, theme, currency, data_cleared').eq('id', user.id).single(),
+          supabase.from('profiles').select('is_admin, plan, company_name, name, kvk, btw_number, iban, address, city, postal_code, theme, currency, data_cleared').eq('id', user.id).single(),
         ]);
 
         // Check if user deliberately cleared their data — localStorage OR Supabase flag
@@ -13959,6 +14045,14 @@ export default function App() {
 
         // Use already-loaded profile data (fetched in parallel above)
         const profileCheck = profileRes.data;
+
+        // Skip onboarding for returning users (have a name), admins, or explicit localStorage flag
+        if (profileCheck?.name || profileCheck?.is_admin || localStorage.getItem(`dynafy_${user.id}_onboarded`) === 'true') {
+          setOnboarded(true);
+          const resolvedName = profileCheck?.name || profileCheck?.display_name || "";
+          if (resolvedName) setUserName(resolvedName);
+        }
+
         if (profileCheck?.is_admin === true) setIsAdmin(true);
         if (profileCheck?.plan) setUserPlan(profileCheck.plan);
         if (profileCheck?.theme) setTheme(profileCheck.theme);
@@ -14246,7 +14340,7 @@ export default function App() {
             else setLoginError(msg);
           }
         } else if (loginMode === 'register') {
-          const { data: signUpData, error } = await supabase.auth.signUp({ email: loginEmail.trim(), password: loginPassword });
+          const { data: signUpData, error } = await supabase.auth.signUp({ email: loginEmail.trim(), password: loginPassword, options: { emailRedirectTo: window.location.origin } });
           if (error) {
             if (error.message.includes('rate limit')) setLoginError('Te veel pogingen. Probeer het over een uur opnieuw.');
             else if (error.message.includes('already registered') || error.message.includes('User already')) setLoginError('Dit e-mailadres is al in gebruik. Probeer in te loggen.');
@@ -14425,14 +14519,16 @@ export default function App() {
             setAppGoals([]);
             runAiCategorization(opts.transactions);
           }
-          // Save name to profile
+          // Save name + onboarding data to profile and mark onboarded
           if (user) {
+            localStorage.setItem(`dynafy_${user.id}_onboarded`, 'true');
             supabase.from('profiles').upsert({
               id: user.id,
               email: user.email,
               name: opts.name,
               subscription: 'free',
               last_seen: new Date().toISOString(),
+              onboarding_data: opts.onboardingData || null,
             }, { onConflict: 'id' });
           }
           setOnboarded(true);
