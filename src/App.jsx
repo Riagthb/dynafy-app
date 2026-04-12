@@ -3404,6 +3404,11 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
   };
 
   const PROXY = "https://corsproxy.io/?";
+  const PROXIES = [
+    (url) => `https://corsproxy.io/?${url}`,
+    (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    (url) => `https://corsproxy.org/?${url}`,
+  ];
 
   const tsFmt = () => new Date().toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" });
 
@@ -3447,18 +3452,24 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
     };
   };
 
-  // Haal Yahoo Finance prijs op (via CORS proxy)
+  // Haal Yahoo Finance prijs op (via CORS proxy — probeert meerdere proxies)
   const fetchYahoo = async (symbol) => {
-    const url = `${PROXY}https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=2d`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-    if (!res.ok) throw new Error("yahoo " + res.status);
-    const data = await res.json();
-    const meta = data.chart?.result?.[0]?.meta;
-    if (!meta?.regularMarketPrice) throw new Error("no price");
-    const current = meta.regularMarketPrice;
-    const prev = meta.previousClose || meta.chartPreviousClose;
-    const change24h = prev ? ((current - prev) / prev) * 100 : null;
-    return { price: Math.round(current * 100) / 100, change24h, source: "Yahoo Finance" };
+    const baseUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=2d`;
+    let lastErr;
+    for (const proxyFn of PROXIES) {
+      try {
+        const res = await fetch(proxyFn(baseUrl), { signal: AbortSignal.timeout(8000) });
+        if (!res.ok) throw new Error("yahoo " + res.status);
+        const data = await res.json();
+        const meta = data.chart?.result?.[0]?.meta;
+        if (!meta?.regularMarketPrice) throw new Error("no price");
+        const current = meta.regularMarketPrice;
+        const prev = meta.previousClose || meta.chartPreviousClose;
+        const change24h = prev ? ((current - prev) / prev) * 100 : null;
+        return { price: Math.round(current * 100) / 100, change24h, source: "Yahoo Finance" };
+      } catch (e) { lastErr = e; }
+    }
+    throw lastErr;
   };
 
   // ── Chart data fetcher ────────────────────────────────────────
@@ -3500,13 +3511,20 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
         const d = await res.json();
         points = (d.prices || []).map(([ts, price]) => ({ time: ts, price: Math.round(price * 100) / 100 }));
       } else {
-        // Stocks/metals/indices via Yahoo Finance
+        // Stocks/metals/indices via Yahoo Finance (probeert meerdere proxies)
         const sym = CHART_YAHOO_SYMBOLS[asset.id];
         if (!sym) throw new Error("Geen symbool beschikbaar");
-        const url = `${PROXY}https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=${p.interval}&range=${p.range}`;
-        const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
-        if (!res.ok) throw new Error(`Yahoo fout ${res.status}`);
-        const d = await res.json();
+        const baseChartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=${p.interval}&range=${p.range}`;
+        let d = null;
+        for (const proxyFn of PROXIES) {
+          try {
+            const res = await fetch(proxyFn(baseChartUrl), { signal: AbortSignal.timeout(12000) });
+            if (!res.ok) continue;
+            d = await res.json();
+            if (d.chart?.result?.[0]) break;
+          } catch {}
+        }
+        if (!d) throw new Error("Geen data ontvangen");
         const result = d.chart?.result?.[0];
         if (!result) throw new Error("Geen data ontvangen");
         const timestamps = result.timestamp || [];
