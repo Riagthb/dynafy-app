@@ -14085,9 +14085,11 @@ export default function App() {
         // Use already-loaded profile data (fetched in parallel above)
         const profileCheck = profileRes.data;
 
-        // Skip onboarding for returning users (have a name), admins, or explicit localStorage flag
-        if (profileCheck?.name || profileCheck?.is_admin || localStorage.getItem(`dynafy_${user.id}_onboarded`) === 'true') {
+        // Skip onboarding als profiel bestaat (ook zonder naam), als admin, of als localStorage-vlag gezet is
+        const alreadyOnboarded = !!profileCheck || profileCheck?.is_admin === true || localStorage.getItem(`dynafy_${user.id}_onboarded`) === 'true';
+        if (alreadyOnboarded) {
           setOnboarded(true);
+          localStorage.setItem(`dynafy_${user.id}_onboarded`, 'true'); // zet altijd voor zekerheid
           const resolvedName = profileCheck?.display_name || profileCheck?.name || user?.user_metadata?.full_name || user?.user_metadata?.display_name || "";
           // Niet het e-mailadres als naam tonen
           if (resolvedName && resolvedName !== user.email) setUserName(resolvedName);
@@ -14549,7 +14551,7 @@ export default function App() {
           // Save name + onboarding data to profile and mark onboarded
           if (user) {
             localStorage.setItem(`dynafy_${user.id}_onboarded`, 'true');
-            supabase.from('profiles').upsert({
+            await supabase.from('profiles').upsert({
               id: user.id,
               email: user.email,
               name: opts.name,
@@ -14558,6 +14560,12 @@ export default function App() {
               last_seen: new Date().toISOString(),
               onboarding_data: opts.onboardingData || null,
             }, { onConflict: 'id' });
+            // Herladen profiel om admin-status/plan te herstellen (bijv. als admin per ongeluk onboarding zag)
+            const { data: freshProfile } = await supabase.from('profiles')
+              .select('is_admin, plan, display_name, lang, theme, currency')
+              .eq('id', user.id).single();
+            if (freshProfile?.is_admin === true) setIsAdmin(true);
+            if (freshProfile?.plan) setUserPlan(freshProfile.plan);
           }
           setOnboarded(true);
         }}
