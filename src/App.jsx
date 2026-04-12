@@ -14503,6 +14503,14 @@ export default function App() {
       onLinksChange={setClientLinks} />
   );
 
+  // Wait for data to load before deciding onboarding vs main app
+  if (!dataLoaded) return (
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#07111f', flexDirection:'column', gap:16 }}>
+      <div style={{ width:40, height:40, border:'3px solid rgba(79,142,247,0.2)', borderTopColor:'#4f8ef7', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+
   // Show onboarding on first load
   if (!onboarded) {
     return (
