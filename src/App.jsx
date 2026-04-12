@@ -13238,6 +13238,36 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted }) {
     setConfirm(null);
   };
 
+  const deleteUserAccount = async (profile) => {
+    const uid = profile.id;
+    // 1) Verwijder eerst alle data
+    const { data: invRows } = await supabase.from('invoices').select('id').eq('user_id', uid);
+    const invIds = (invRows || []).map(r => r.id);
+    await Promise.all([
+      supabase.from('transactions').delete().eq('user_id', uid),
+      supabase.from('investments').delete().eq('user_id', uid),
+      supabase.from('goals').delete().eq('user_id', uid),
+      supabase.from('recurring').delete().eq('user_id', uid),
+      ...(invIds.length ? [supabase.from('invoice_lines').delete().in('invoice_id', invIds)] : []),
+      supabase.from('invoices').delete().eq('user_id', uid),
+      supabase.from('costs').delete().eq('user_id', uid),
+      supabase.from('bonnen').delete().eq('user_id', uid),
+    ]);
+    // 2) Verwijder het profiel uit de profiles tabel
+    await supabase.from('profiles').delete().eq('id', uid);
+    // 3) Verwijder het auth-account via de database RPC functie
+    const { error: fnError } = await supabase.rpc('delete_user_account', {
+      target_user_id: uid,
+    });
+    if (fnError) {
+      flash(`Data verwijderd, maar auth-account kon niet worden verwijderd: ${fnError.message}`, false);
+    } else {
+      setProfiles(prev => prev.filter(p => p.id !== uid));
+      flash(`Account van ${profile.email} volledig verwijderd`);
+    }
+    setConfirm(null);
+  };
+
   const filtered = profiles.filter(p =>
     !search || p.email?.toLowerCase().includes(search.toLowerCase()) || p.name?.toLowerCase().includes(search.toLowerCase())
   );
@@ -13531,6 +13561,13 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted }) {
                   <Trash2 size={13} />
                 </button>
               )}
+              {/* Delete account */}
+              {profile.id !== user?.id && (
+                <button onClick={() => setConfirm({ type: 'deleteAccount', profile })} title="Account verwijderen"
+                  style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid rgba(244,63,94,0.5)', background: 'rgba(244,63,94,0.08)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f43f5e' }}>
+                  <UserX size={13} />
+                </button>
+              )}
             </div>
           </div>
           );
@@ -13638,10 +13675,10 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted }) {
         document.body
       )}
 
-      {/* Note over auth-verwijdering */}
+      {/* Note over verwijderopties */}
       <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 12, background: isDark ? 'rgba(99,102,241,0.08)' : '#eef2ff', border: `1px solid rgba(99,102,241,0.2)`, fontSize: 12, color: C.muted, display: 'flex', alignItems: 'center', gap: 8 }}>
         <Shield size={13} color="#6366f1" />
-        Data verwijderen wist alle transacties, investeringen en doelen. Account verwijderen doe je via het Supabase dashboard → Authentication → Users.
+        🗑️ <strong style={{color:C.text}}>Data verwijderen</strong> wist alle transacties, investeringen en doelen maar behoudt het login-account. &nbsp;👤✕ <strong style={{color:C.text}}>Account verwijderen</strong> verwijdert alles inclusief het login-account.
       </div>
 
       {/* Confirm modal */}
@@ -13649,13 +13686,15 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted }) {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 20 }}>
           <div style={{ background: isDark ? '#0f1e36' : '#fff', border: `1px solid ${C.border}`, borderRadius: 20, padding: '32px', maxWidth: 400, width: '100%' }}>
             <div style={{ fontSize: 32, marginBottom: 12, textAlign: 'center' }}>
-              {confirm.type === 'delete' ? '🗑️' : confirm.profile.disabled ? '✅' : '🚫'}
+              {confirm.type === 'deleteAccount' ? '💀' : confirm.type === 'delete' ? '🗑️' : confirm.profile.disabled ? '✅' : '🚫'}
             </div>
             <div style={{ fontSize: 17, fontWeight: 700, color: C.text, textAlign: 'center', marginBottom: 8 }}>
-              {confirm.type === 'delete' ? 'Data verwijderen?' : confirm.profile.disabled ? 'Gebruiker inschakelen?' : 'Gebruiker uitschakelen?'}
+              {confirm.type === 'deleteAccount' ? 'Account permanent verwijderen?' : confirm.type === 'delete' ? 'Data verwijderen?' : confirm.profile.disabled ? 'Gebruiker inschakelen?' : 'Gebruiker uitschakelen?'}
             </div>
             <div style={{ fontSize: 13, color: C.muted, textAlign: 'center', marginBottom: 24, lineHeight: 1.6 }}>
-              {confirm.type === 'delete'
+              {confirm.type === 'deleteAccount'
+                ? <><strong style={{color:'#f43f5e'}}>{confirm.profile.email}</strong> wordt volledig verwijderd — alle data én het login-account. Dit kan <strong style={{color:C.text}}>niet</strong> ongedaan worden.</>
+                : confirm.type === 'delete'
                 ? <>Alle data van <strong style={{color:C.text}}>{confirm.profile.email}</strong> wordt permanent verwijderd. Dit kan niet ongedaan worden.</>
                 : <>Account van <strong style={{color:C.text}}>{confirm.profile.email}</strong> wordt {confirm.profile.disabled ? 'ingeschakeld' : 'uitgeschakeld'}.</>
               }
@@ -13665,10 +13704,10 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted }) {
                 Annuleren
               </button>
               <button
-                onClick={() => confirm.type === 'delete' ? deleteUserData(confirm.profile) : toggleDisable(confirm.profile)}
-                style={{ flex: 1, padding: '12px', borderRadius: 12, border: 'none', background: confirm.type === 'delete' ? '#f43f5e' : (confirm.profile.disabled ? '#22c55e' : '#f59e0b'), color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+                onClick={() => confirm.type === 'deleteAccount' ? deleteUserAccount(confirm.profile) : confirm.type === 'delete' ? deleteUserData(confirm.profile) : toggleDisable(confirm.profile)}
+                style={{ flex: 1, padding: '12px', borderRadius: 12, border: 'none', background: (confirm.type === 'deleteAccount' || confirm.type === 'delete') ? '#f43f5e' : (confirm.profile.disabled ? '#22c55e' : '#f59e0b'), color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
               >
-                {confirm.type === 'delete' ? 'Verwijderen' : confirm.profile.disabled ? 'Inschakelen' : 'Uitschakelen'}
+                {confirm.type === 'deleteAccount' ? 'Account verwijderen' : confirm.type === 'delete' ? 'Data verwijderen' : confirm.profile.disabled ? 'Inschakelen' : 'Uitschakelen'}
               </button>
             </div>
           </div>
