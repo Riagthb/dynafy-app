@@ -14085,8 +14085,19 @@ export default function App() {
         // Use already-loaded profile data (fetched in parallel above)
         const profileCheck = profileRes.data;
 
-        // Skip onboarding als profiel bestaat (ook zonder naam), als admin, of als localStorage-vlag gezet is
-        const alreadyOnboarded = !!profileCheck || profileCheck?.is_admin === true || localStorage.getItem(`dynafy_${user.id}_onboarded`) === 'true';
+        // Sla admin-status op in localStorage als extra veiligheidsnet
+        if (profileCheck?.is_admin === true) {
+          try { localStorage.setItem(`dynafy_${user.id}_is_admin`, 'true'); } catch {}
+        }
+
+        // Skip onboarding als:
+        // 1. Profiel bestaat in DB (meest betrouwbaar)
+        // 2. localStorage-vlag is gezet (eerder ingelogd)
+        // 3. localStorage admin-vlag is gezet (admin omzeilt altijd onboarding)
+        const alreadyOnboarded =
+          !!profileCheck ||
+          localStorage.getItem(`dynafy_${user.id}_onboarded`) === 'true' ||
+          localStorage.getItem(`dynafy_${user.id}_is_admin`) === 'true';
         if (alreadyOnboarded) {
           setOnboarded(true);
           localStorage.setItem(`dynafy_${user.id}_onboarded`, 'true'); // zet altijd voor zekerheid
@@ -14551,20 +14562,40 @@ export default function App() {
           // Save name + onboarding data to profile and mark onboarded
           if (user) {
             localStorage.setItem(`dynafy_${user.id}_onboarded`, 'true');
-            await supabase.from('profiles').upsert({
-              id: user.id,
-              email: user.email,
-              name: opts.name,
-              lang: opts.lang || 'nl',
-              subscription: 'free',
-              last_seen: new Date().toISOString(),
-              onboarding_data: opts.onboardingData || null,
-            }, { onConflict: 'id' });
-            // Herladen profiel om admin-status/plan te herstellen (bijv. als admin per ongeluk onboarding zag)
+
+            // Controleer of profiel al bestaat — gebruik dan UPDATE (nooit upsert/insert)
+            // zodat is_admin en plan NOOIT worden overschreven
+            const { data: existingProfile } = await supabase
+              .from('profiles').select('id, is_admin, plan').eq('id', user.id).single();
+
+            if (existingProfile) {
+              // Profiel bestaat al → alleen niet-gevoelige velden updaten
+              await supabase.from('profiles').update({
+                name: opts.name,
+                lang: opts.lang || 'nl',
+                last_seen: new Date().toISOString(),
+                onboarding_data: opts.onboardingData || null,
+              }).eq('id', user.id);
+            } else {
+              // Nieuw account → volledig aanmaken (zonder is_admin/plan — die worden nooit client-side gezet)
+              await supabase.from('profiles').insert({
+                id: user.id,
+                email: user.email,
+                name: opts.name,
+                lang: opts.lang || 'nl',
+                last_seen: new Date().toISOString(),
+                onboarding_data: opts.onboardingData || null,
+              });
+            }
+
+            // Altijd herladen vanuit DB om admin-status/plan correct te zetten
             const { data: freshProfile } = await supabase.from('profiles')
               .select('is_admin, plan, display_name, lang, theme, currency')
               .eq('id', user.id).single();
-            if (freshProfile?.is_admin === true) setIsAdmin(true);
+            if (freshProfile?.is_admin === true) {
+              setIsAdmin(true);
+              try { localStorage.setItem(`dynafy_${user.id}_is_admin`, 'true'); } catch {}
+            }
             if (freshProfile?.plan) setUserPlan(freshProfile.plan);
           }
           setOnboarded(true);
