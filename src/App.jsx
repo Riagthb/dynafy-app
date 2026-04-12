@@ -1,16 +1,19 @@
 
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
+import { supabase } from './supabase.js';
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, LineChart, Line, CartesianGrid, Legend, AreaChart, Area
 } from "recharts";
-import { Upload, Home, List, TrendingUp, Lightbulb, Settings,
+import { Upload, Home, List, TrendingUp, TrendingDown, Lightbulb, Settings,
   Plus, X, ChevronDown, ArrowUpRight, ArrowDownRight, Wallet,
   RefreshCw, BarChart2, Globe, Check, Edit2, Trash2, AlertCircle,
   PiggyBank, Target, Zap, Moon, Sun, ChevronRight, Building2,
   CreditCard, DollarSign, Activity, Sliders, Search, Tag, ChevronUp,
   Repeat, Bell, BellOff, Download, FileText, FileSpreadsheet,
-  Calendar, Clock, Eye, EyeOff, Filter, ChevronLeft } from "lucide-react";
+  Calendar, Clock, Eye, EyeOff, Filter, ChevronLeft,
+  Shield, Users, UserX, Crown, Ban, RotateCcw, Mail, LogOut, Briefcase, Copy, Link2, UserPlus } from "lucide-react";
 
 // ─── TRANSLATIONS ─────────────────────────────────────────────
 const T = {
@@ -651,9 +654,9 @@ function TransactionDrawer({ title, subtitle, transactions, allTransactions, isD
   const CATS = Object.keys(CATEGORY_COLORS);
 
   return (
-    <div onClick={onClose} className="glass-modal" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 9999, display: "flex", justifyContent: "flex-end" }}>
+    <div onClick={onClose} className="glass-modal" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.72)", zIndex: 9999, display: "flex", justifyContent: "flex-end" }}>
       <div onClick={e => e.stopPropagation()}
-        style={{ width: "min(520px, 100vw)", height: "100%", background: isDark ? "rgba(8,13,24,0.92)" : C.bg, borderLeft: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : C.border}`, display: "flex", flexDirection: "column", animation: "slideIn 0.22s ease", backdropFilter: "blur(2px)" }}>
+        style={{ width: "min(520px, 100vw)", height: "100%", background: isDark ? "#080d18" : C.bg, borderLeft: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : C.border}`, display: "flex", flexDirection: "column", animation: "slideIn 0.22s ease" }}>
         <style>{`@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         .cat-pill:hover { filter: brightness(1.15); transform: scale(1.04); }
         .group-row:hover { background: ${isDark ? "rgba(255,255,255,0.05)" : "#f1f5f9"} !important; }`}</style>
@@ -825,7 +828,7 @@ function TransactionDrawer({ title, subtitle, transactions, allTransactions, isD
             // ── LIST VIEW ────────────────────────────────────
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               {[...transactions].sort((a, b) => b.date.localeCompare(a.date)).map((tx, i) => (
-                <div key={tx.id} className="fade-up" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: 10, background: i % 2 === 0 ? C.rowBg : "transparent", border: `1px solid ${i % 2 === 0 ? C.border : "transparent"}`, animationDelay: `${Math.min(i, 15) * 25}ms` }}>
+                <div key={tx.id} className="fade-up tx-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: 10, background: i % 2 === 0 ? C.rowBg : "transparent", border: `1px solid ${i % 2 === 0 ? C.border : "transparent"}`, animationDelay: `${Math.min(i, 15) * 25}ms` }}>
                   <div style={{ display: "flex", gap: 10, alignItems: "center", minWidth: 0 }}>
                     <div style={{ width: 30, height: 30, borderRadius: 8, background: `${CATEGORY_COLORS[tx.category] || "#64748b"}18`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                       <div style={{ width: 8, height: 8, borderRadius: 2, background: CATEGORY_COLORS[tx.category] || "#64748b" }} />
@@ -877,44 +880,33 @@ function useCountUp(target, duration = 900) {
   return current;
 }
 
-// ─── DYNAFY LOGO ───────────────────────────────────────────────
-function DynafyLogo({ size = 32, bg }) {
-  const uid = bg ? "custom" : "default";
+// ─── DYNAFY LOGO — Wave 4A ─────────────────────────────────────
+function DynafyLogo({ size = 32 }) {
+  // Unique ID per instance to avoid SVG gradient conflicts
+  const uid = Math.random().toString(36).slice(2, 7);
   return (
-    <svg width={size} height={size} viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
-      {/* Background */}
-      <rect width="512" height="512" rx="112" fill={bg || `url(#dynMainGrad_${uid})`}/>
-      {/* Inner highlight */}
-      {!bg && <rect width="512" height="512" rx="112" fill={`url(#dynGlow_${uid})`} opacity="0.5"/>}
-      {/* D — left vertical bar */}
-      <rect x="128" y="130" width="66" height="252" rx="33" fill="white"/>
-      {/* D — right arc */}
-      <path d="M158 138 H232 C340 138 412 190 412 256 C412 322 340 374 232 374 H158"
-        stroke="white" strokeWidth="66" strokeLinecap="round" fill="none"/>
-      {/* D — inner cutout */}
-      <path d="M188 186 H228 C306 186 352 218 352 256 C352 294 306 326 228 326 H188"
-        stroke={bg ? "rgba(255,255,255,0.35)" : `url(#dynCutout_${uid})`}
-        strokeWidth="44" strokeLinecap="round" fill="none"/>
-      {/* Trend spark lines top-right */}
-      <path d="M348 138 L384 94" stroke="rgba(255,255,255,0.45)" strokeWidth="22" strokeLinecap="round"/>
-      <path d="M388 150 L416 110" stroke="rgba(255,255,255,0.22)" strokeWidth="16" strokeLinecap="round"/>
-      {!bg && (
-        <defs>
-          <linearGradient id={`dynMainGrad_${uid}`} x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#3B82F6"/>
-            <stop offset="0.55" stopColor="#6366F1"/>
-            <stop offset="1" stopColor="#8B5CF6"/>
-          </linearGradient>
-          <radialGradient id={`dynGlow_${uid}`} cx="28%" cy="22%" r="55%">
-            <stop stopColor="white" stopOpacity="0.18"/>
-            <stop offset="1" stopColor="white" stopOpacity="0"/>
-          </radialGradient>
-          <linearGradient id={`dynCutout_${uid}`} x1="188" y1="256" x2="352" y2="256" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#3B82F6"/>
-            <stop offset="1" stopColor="#7C3AED"/>
-          </linearGradient>
-        </defs>
-      )}
+    <svg width={size} height={size} viewBox="0 0 44 44" fill="none" style={{ flexShrink: 0 }}>
+      <rect width="44" height="44" rx={Math.round(size * 0.27)} fill="#070c1a"/>
+      <defs>
+        <linearGradient id={`wl-${uid}`} x1="5" y1="0" x2="39" y2="0" gradientUnits="userSpaceOnUse">
+          <stop offset="0%"   stopColor="#4f8ef7"/>
+          <stop offset="60%"  stopColor="#a855f7"/>
+          <stop offset="100%" stopColor="#ec4899"/>
+        </linearGradient>
+        <linearGradient id={`wf-${uid}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor="#a855f7" stopOpacity="0.35"/>
+          <stop offset="100%" stopColor="#a855f7" stopOpacity="0"/>
+        </linearGradient>
+      </defs>
+      {/* Area fill */}
+      <path d="M5,30 C10,30 10,18 16,18 C22,18 22,26 27,24 C32,22 34,15 39,14 L39,36 L5,36 Z"
+        fill={`url(#wf-${uid})`}/>
+      {/* Wave line */}
+      <path d="M5,30 C10,30 10,18 16,18 C22,18 22,26 27,24 C32,22 34,15 39,14"
+        fill="none" stroke={`url(#wl-${uid})`} strokeWidth="2.5" strokeLinecap="round"/>
+      {/* Peak dot */}
+      <circle cx="39" cy="14" r="3"   fill="#a855f7"/>
+      <circle cx="39" cy="14" r="5.5" fill="#a855f7" opacity="0.15"/>
     </svg>
   );
 }
@@ -1362,7 +1354,6 @@ const DEFAULT_WIDGETS = [
   { id: "spending",    icon: "🍕", enabled: true  },
   { id: "investments", icon: "📈", enabled: true  },
   { id: "goals",       icon: "🎯", enabled: true  },
-  { id: "fire",        icon: "🔥", enabled: true  },
   { id: "budget",      icon: "📊", enabled: true  },
   { id: "cashflow",    icon: "📉", enabled: true  },
   { id: "debts",       icon: "🏦", enabled: false },
@@ -1370,15 +1361,143 @@ const DEFAULT_WIDGETS = [
 ];
 
 const WIDGET_LABELS = {
-  nl: { balance:"Saldo overzicht", spending:"Uitgaven verdeling", investments:"Investeringen", goals:"Spaardoelen", fire:"FIRE voortgang", budget:"Budget status", cashflow:"Cashflow trend", debts:"Schulden", topcat:"Top categorieën" },
-  en: { balance:"Balance overview", spending:"Spending breakdown", investments:"Investments", goals:"Saving goals", fire:"FIRE progress", budget:"Budget status", cashflow:"Cashflow trend", debts:"Debt", topcat:"Top categories" },
+  nl: { balance:"Saldo overzicht", spending:"Uitgaven verdeling", investments:"Investeringen", goals:"Spaardoelen", budget:"Budget status", cashflow:"Cashflow trend", debts:"Schulden", topcat:"Top categorieën" },
+  en: { balance:"Balance overview", spending:"Spending breakdown", investments:"Investments", goals:"Saving goals", budget:"Budget status", cashflow:"Cashflow trend", debts:"Debt", topcat:"Top categories" },
 };
+
+// Widget wrapper with hover lift effect
+function WidgetWrapper({ w, editMode, accent, dragging, dragOver, onDragStart, onDragOver, onDrop, onDragEnd, onClick, children }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div
+      draggable={editMode}
+      onDragStart={() => onDragStart(w.id)}
+      onDragOver={e => onDragOver(e, w.id)}
+      onDrop={() => onDrop(w.id)}
+      onDragEnd={onDragEnd}
+      onClick={onClick}
+      onMouseEnter={() => { if (!editMode) setHovered(true); }}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        gridColumn: (w.id === "cashflow" || w.id === "balance") ? "span 3" : "span 1",
+        opacity: dragging === w.id ? 0.45 : 1,
+        outline: dragOver === w.id && dragging !== w.id ? `2px dashed ${accent}` : "none",
+        outlineOffset: 3,
+        borderRadius: 16,
+        cursor: editMode ? "grab" : "pointer",
+        transition: "opacity 0.15s, transform 0.18s, box-shadow 0.18s",
+        transform: hovered ? "translateY(-2px)" : "translateY(0)",
+        boxShadow: hovered ? `0 8px 28px rgba(0,0,0,0.18)` : "none",
+      }}>
+      {children}
+    </div>
+  );
+}
+
+// Balance stat card with hover + animated counter
+function BalanceStatCard({ k, isDark, C, trendGood, fmt, onCardClick }) {
+  const [hovered, setHovered] = useState(false);
+  const [displayed, setDisplayed] = useState(k.raw);
+  const fromRef = useRef(k.raw);
+  const rafRef  = useRef(null);
+  useEffect(() => {
+    const from = fromRef.current;
+    const to   = k.raw;
+    fromRef.current = to;
+    if (Math.abs(from - to) < 0.01) { setDisplayed(to); return; }
+    const duration = 700;
+    const start = performance.now();
+    const tick = (now) => {
+      const progress = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplayed(from + (to - from) * eased);
+      if (progress < 1) rafRef.current = requestAnimationFrame(tick);
+    };
+    cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [k.raw]);
+
+  return (
+    <div
+      onClick={onCardClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        padding: "12px 14px", borderRadius: 12,
+        background: hovered ? (isDark ? `${k.color}14` : `${k.color}08`) : (isDark ? DK.L2 : "#f8fafc"),
+        border: `1px solid ${hovered ? k.color + "50" : (isDark ? DK.b1 : "#e8ecf1")}`,
+        borderTop: isDark ? `1px solid ${k.color}${hovered ? "70" : "35"}` : `2px solid ${k.color}`,
+        position: "relative", overflow: "hidden",
+        transition: "background 0.2s, border-color 0.2s, box-shadow 0.2s",
+        boxShadow: hovered ? `0 4px 20px ${k.color}20` : "none",
+        cursor: "pointer",
+      }}>
+      <div style={{ position: "absolute", top: 0, right: 0, width: hovered ? 120 : 80, height: hovered ? 120 : 80,
+        background: `radial-gradient(circle at 80% 10%, ${k.color}${hovered ? "35" : "22"}, transparent 65%)`,
+        borderRadius: "0 12px 0 0", pointerEvents: "none", transition: "all 0.3s" }}/>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>{k.label}</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: C.text, letterSpacing: "-0.5px", fontVariantNumeric: "tabular-nums", marginBottom: 6, lineHeight: 1 }}>
+            {k.showSign && displayed < 0 ? "−" : ""}{fmt(Math.abs(displayed))}
+          </div>
+          {k.pct != null ? (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 20,
+              background: trendGood ? "rgba(34,197,94,0.12)" : "rgba(244,63,94,0.12)",
+              color: trendGood ? "#22c55e" : "#f43f5e" }}>
+              {k.pct > 0 ? "▲" : "▼"} {Math.abs(k.pct)}%
+            </span>
+          ) : k.sub ? (
+            <span style={{ fontSize: 10, color: C.muted }}>{k.sub}</span>
+          ) : null}
+        </div>
+        <div style={{ width: 34, height: 34, borderRadius: 10,
+          background: hovered ? `${k.color}28` : `${k.color}18`,
+          border: `1px solid ${k.color}${hovered ? "50" : "28"}`,
+          display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginLeft: 8,
+          transition: "all 0.2s", transform: hovered ? "scale(1.1)" : "scale(1)" }}>
+          <k.Icon size={16} color={k.color}/>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Animated count-up number component
+function AnimNum({ value, format }) {
+  const [displayed, setDisplayed] = useState(value);
+  const fromRef = useRef(value);
+  const rafRef  = useRef(null);
+  useEffect(() => {
+    const from = fromRef.current;
+    const to   = value;
+    fromRef.current = to;
+    if (from === to) { setDisplayed(to); return; }
+    const duration = 650;
+    const start = performance.now();
+    const tick = (now) => {
+      const t = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setDisplayed(from + (to - from) * eased);
+      if (t < 1) rafRef.current = requestAnimationFrame(tick);
+    };
+    cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [value]);
+  return format(displayed);
+}
 
 function WidgetDashboard({ transactions, t, isDark, accent = "#4f8ef7", accounts, investments = [], goals = [], lang = "nl" }) {
   const [widgets, setWidgets] = useState(DEFAULT_WIDGETS);
   const [editMode, setEditMode] = useState(false);
   const [dragging, setDragging] = useState(null);
   const [dragOver, setDragOver] = useState(null);
+  const [activeDetail, setActiveDetail] = useState(null);
+  const [detailTab, setDetailTab] = useState("list");
+  const [detailSort, setDetailSort] = useState("date_desc");
+  const [detailFilter, setDetailFilter] = useState("all");
 
   const C = {
     text: isDark ? "#f1f5f9" : "#0f172a",
@@ -1437,48 +1556,79 @@ function WidgetDashboard({ transactions, t, isDark, accent = "#4f8ef7", accounts
 
   // ── Widget renderers ─────────────────────────────────────────
   const renderWidget = (w) => {
-    const wCard = { ...card(isDark), position: "relative", transition: "box-shadow 0.2s", minHeight: 120 };
+    const wCard = { ...card(isDark), position: "relative", overflow: "hidden", transition: "box-shadow 0.2s" };
+
+    // Shared section header — icon badge + label + optional subtitle
+    const WHeader = ({ Icon, color, label, sub, right }) => (
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+        <div style={{ width: 30, height: 30, borderRadius: 9, background: `${color}18`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <Icon size={14} color={color}/>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.text, textTransform: "uppercase", letterSpacing: "0.09em" }}>{label}</div>
+          {sub && <div style={{ fontSize: 10, color: C.muted, marginTop: 1 }}>{sub}</div>}
+        </div>
+        {right}
+      </div>
+    );
 
     switch (w.id) {
       case "balance": return (
         <div style={wCard}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>{lang === "nl" ? "💰 Saldo overzicht" : "💰 Balance overview"} · {fmtMonth(latestMonth, lang === "nl" ? "nl-NL" : "en-US")}</div>
+          <div style={{ position: "absolute", top: -40, right: -40, width: 160, height: 160, borderRadius: "50%", background: "radial-gradient(circle, rgba(79,142,247,0.07) 0%, transparent 70%)", pointerEvents: "none" }}/>
+          <WHeader Icon={Wallet} color="#4f8ef7"
+            label={lang === "nl" ? "Saldo overzicht" : "Balance overview"}
+            sub={fmtMonth(latestMonth, lang === "nl" ? "nl-NL" : "en-US")}/>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
             {[
-              { label: t.general.income, value: fmt(income), color: "#22c55e", sub: prevIncome ? `${income >= prevIncome ? "↑" : "↓"} ${Math.round(Math.abs(income-prevIncome)/prevIncome*100)}% ${t.general.vsLastMonth}` : "" },
-              { label: t.general.expenses, value: fmt(expenses), color: "#f43f5e", sub: prevExpenses ? `${expenses >= prevExpenses ? "↑" : "↓"} ${Math.round(Math.abs(expenses-prevExpenses)/prevExpenses*100)}% ${t.general.vsLastMonth}` : "" },
-              { label: t.general.balance, value: fmt(Math.abs(balance)), color: balance >= 0 ? "#4f8ef7" : "#f43f5e", sub: balance >= 0 ? lang === "nl" ? "positief" : "positive" : lang === "nl" ? "negatief" : "negative" },
-            ].map(k => (
-              <div key={k.label} style={{ padding: "10px 12px", borderRadius: 10, background: `${k.color}10`, border: `1px solid ${k.color}25` }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>{k.label}</div>
-                <div style={{ fontSize: 17, fontWeight: 800, color: k.color, fontFamily: "'DM Mono', monospace" }}>{k.value}</div>
-                {k.sub && <div style={{ fontSize: 10, color: C.muted, marginTop: 3 }}>{k.sub}</div>}
-              </div>
-            ))}
+              { label: t.general.income,   raw: income,            color: "#22c55e",  Icon: ArrowUpRight,  detailId: "d_income",
+                pct: prevIncome   ? Math.round((income   - prevIncome)   / prevIncome   * 100) : null, invertBad: false },
+              { label: t.general.expenses, raw: expenses,          color: "#f43f5e",  Icon: ArrowDownRight, detailId: "d_expenses",
+                pct: prevExpenses ? Math.round((expenses - prevExpenses) / prevExpenses * 100) : null, invertBad: true },
+              { label: t.general.balance,  raw: balance, color: balance >= 0 ? "#4f8ef7" : "#f43f5e", Icon: Wallet, detailId: "balance", showSign: true,
+                sub: balance >= 0 ? (lang === "nl" ? "overschot" : "surplus") : (lang === "nl" ? "tekort" : "deficit") },
+            ].map(k => {
+              const trendGood = k.invertBad ? k.pct < 0 : k.pct > 0;
+              return (
+                <BalanceStatCard key={k.label} k={k} isDark={isDark} C={C} trendGood={trendGood} fmt={fmt}
+                  onCardClick={(e) => { e.stopPropagation(); setActiveDetail(k.detailId); setDetailTab("list"); }}/>
+              );
+            })}
           </div>
         </div>
       );
 
       case "spending": return (
         <div style={wCard}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>{lang === "nl" ? "🍕 Uitgaven verdeling" : "🍕 Spending breakdown"}</div>
+          <WHeader Icon={BarChart2} color="#6366f1"
+            label={lang === "nl" ? "Uitgaven verdeling" : "Spending breakdown"}
+            sub={fmtMonth(latestMonth, lang === "nl" ? "nl-NL" : "en-US")}/>
           {catData.length === 0 ? (
             <div style={{ textAlign: "center", color: C.muted, fontSize: 13, padding: "20px 0" }}>{lang === "nl" ? "Geen data" : "No data"}</div>
           ) : (
-            <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-              <ResponsiveContainer width={120} height={120}>
-                <PieChart><Pie data={catData} cx="50%" cy="50%" innerRadius={30} outerRadius={55} dataKey="value" paddingAngle={2}>
-                  {catData.map((_, i) => <Cell key={i} fill={Object.values(CATEGORY_COLORS)[i % Object.values(CATEGORY_COLORS).length]}/>)}
-                </Pie></PieChart>
-              </ResponsiveContainer>
+            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              <div style={{ flexShrink: 0 }}>
+                <ResponsiveContainer width={110} height={110}>
+                  <PieChart>
+                    <Pie data={catData} cx="50%" cy="50%" innerRadius={28} outerRadius={52} dataKey="value" paddingAngle={3}>
+                      {catData.map((_, i) => <Cell key={i} fill={Object.values(CATEGORY_COLORS)[i % Object.values(CATEGORY_COLORS).length]}/>)}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
               <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
-                {catData.map((cat, i) => (
-                  <div key={cat.name} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ width: 8, height: 8, borderRadius: 2, background: Object.values(CATEGORY_COLORS)[i % Object.values(CATEGORY_COLORS).length], flexShrink: 0 }}/>
-                    <span style={{ fontSize: 11, color: C.sub, flex: 1 }}>{t.categories[cat.name] || cat.name}</span>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: C.text, fontFamily: "'DM Mono', monospace" }}>{fmt(cat.value)}</span>
-                  </div>
-                ))}
+                {catData.map((cat, i) => {
+                  const color = Object.values(CATEGORY_COLORS)[i % Object.values(CATEGORY_COLORS).length];
+                  const pct = expenses > 0 ? Math.round(cat.value / expenses * 100) : 0;
+                  return (
+                    <div key={cat.name} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ width: 8, height: 8, borderRadius: 2, background: color, flexShrink: 0 }}/>
+                      <span style={{ fontSize: 11, color: C.sub, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.categories[cat.name] || cat.name}</span>
+                      <span style={{ fontSize: 10, color: C.muted, fontVariantNumeric: "tabular-nums", minWidth: 28, textAlign: "right" }}>{pct}%</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: C.text, fontVariantNumeric: "tabular-nums" }}>{fmt(cat.value)}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -1486,64 +1636,67 @@ function WidgetDashboard({ transactions, t, isDark, accent = "#4f8ef7", accounts
       );
 
       case "cashflow": return (
-        <div style={{...wCard, gridColumn: "span 3"}}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>📉 Cashflow trend</div>
+        <div style={wCard}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 30, height: 30, borderRadius: 9, background: "rgba(79,142,247,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Activity size={14} color="#4f8ef7"/>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.text, textTransform: "uppercase", letterSpacing: "0.09em" }}>Cashflow trend</div>
+                <div style={{ fontSize: 10, color: C.muted, marginTop: 1 }}>{lang === "nl" ? "Afgelopen 6 maanden" : "Last 6 months"}</div>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 14 }}>
+              {[{ color: "#4f8ef7", label: t.general.income }, { color: "#f43f5e", label: t.general.expenses }].map(l => (
+                <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: 2, background: l.color }}/>
+                  <span style={{ fontSize: 10, color: C.muted, fontWeight: 600 }}>{l.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
           {trendData.length < 2 ? (
             <div style={{ textAlign: "center", color: C.muted, fontSize: 13, padding: "20px 0" }}>{lang === "nl" ? "Minimaal 2 maanden data nodig" : "At least 2 months of data needed"}</div>
           ) : (
-            <ResponsiveContainer width="100%" height={140}>
-              <BarChart data={trendData} barGap={3}>
+            <ResponsiveContainer width="100%" height={150}>
+              <BarChart data={trendData} barGap={4} barCategoryGap="30%">
                 <XAxis dataKey="month" tick={{ fill: C.muted, fontSize: 10 }} axisLine={false} tickLine={false}/>
                 <YAxis tickFormatter={v => fmtShort(v)} tick={{ fill: C.muted, fontSize: 10 }} axisLine={false} tickLine={false} width={44}/>
                 <Tooltip formatter={(v, n) => [fmt(v), n === "income" ? t.general.income : t.general.expenses]}
-                  contentStyle={{ background: isDark ? DK.L2 : "#fff", border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 12 }}/>
-                <Bar dataKey="income"   fill="#22c55e" radius={[3,3,0,0]} opacity={0.85}/>
-                <Bar dataKey="expenses" fill="#f43f5e" radius={[3,3,0,0]} opacity={0.85}/>
+                  contentStyle={{ background: isDark ? DK.L2 : "#fff", border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 12 }}
+                  cursor={{ fill: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)" }}/>
+                <Bar dataKey="income"   fill="#4f8ef7" radius={[4,4,0,0]}/>
+                <Bar dataKey="expenses" fill="#f43f5e" radius={[4,4,0,0]}/>
               </BarChart>
             </ResponsiveContainer>
           )}
         </div>
       );
 
-      case "fire": {
-        const monthlyExp = expenses || 3000;
-        const fireNum = Math.round(monthlyExp * 12 * 25);
-        const wealth = Math.max(0, totalSaldo);
-        const pct = Math.min(100, Math.round(wealth / fireNum * 100));
-        return (
-          <div style={wCard}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>{lang === "nl" ? "🔥 FIRE voortgang" : "🔥 FIRE progress"}</div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <span style={{ fontSize: 22, fontWeight: 800, color: "#f59e0b" }}>{pct}%</span>
-              <span style={{ fontSize: 12, color: C.muted }}>{lang === "nl" ? "doel" : "goal"}: {fmtShort(fireNum)}</span>
-            </div>
-            <div style={{ height: 8, background: isDark ? "rgba(255,255,255,0.06)" : "#e2e8f0", borderRadius: 4, overflow: "hidden", marginBottom: 8 }}>
-              <div style={{ height: "100%", width: `${pct}%`, background: "linear-gradient(90deg, #f59e0b, #ef4444)", borderRadius: 4 }}/>
-            </div>
-            <div style={{ fontSize: 11, color: C.muted }}>{lang === "nl" ? `Gebaseerd op €${Math.round(monthlyExp)}/mnd uitgaven · 4% regel` : `Based on €${Math.round(monthlyExp)}/mo expenses · 4% rule`}</div>
-          </div>
-        );
-      }
-
       case "goals": return (
         <div style={wCard}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>{lang === "nl" ? "🎯 Spaardoelen" : "🎯 Savings goals"}</div>
+          <WHeader Icon={Target} color="#22c55e"
+            label={lang === "nl" ? "Spaardoelen" : "Savings goals"}
+            sub={goals.length > 0 ? `${goals.length} ${lang === "nl" ? "actieve doelen" : "active goals"}` : undefined}/>
           {goals.length === 0 ? (
             <div style={{ fontSize: 13, color: C.muted, textAlign: "center", padding: "12px 0" }}>{lang === "nl" ? "Nog geen spaardoelen toegevoegd" : "No savings goals added yet"}</div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {goals.slice(0, 3).map(goal => {
                 const pct = Math.min(100, Math.round((goal.current / goal.target) * 100));
                 return (
                   <div key={goal.id}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
                       <span style={{ fontSize: 12, color: C.sub, fontWeight: 600 }}>{goal.name}</span>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: goal.color, fontFamily: "'DM Mono', monospace" }}>{pct}%</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ fontSize: 10, color: C.muted, fontVariantNumeric: "tabular-nums" }}>{fmt(goal.current)} / {fmt(goal.target)}</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 10, background: `${goal.color}18`, color: goal.color }}>{pct}%</span>
+                      </div>
                     </div>
-                    <div style={{ height: 5, background: isDark ? "rgba(255,255,255,0.06)" : "#e2e8f0", borderRadius: 3 }}>
-                      <div style={{ height: "100%", width: `${pct}%`, background: goal.color, borderRadius: 3 }}/>
+                    <div style={{ height: 5, background: isDark ? "rgba(255,255,255,0.06)" : "#e2e8f0", borderRadius: 3, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${pct}%`, background: `linear-gradient(90deg, ${goal.color}70, ${goal.color})`, borderRadius: 3 }}/>
                     </div>
-                    <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>{fmt(goal.current)} / {fmt(goal.target)}</div>
                   </div>
                 );
               })}
@@ -1560,27 +1713,45 @@ function WidgetDashboard({ transactions, t, isDark, accent = "#4f8ef7", accounts
         const gainPct = totalInvested > 0 ? ((gain / totalInvested) * 100).toFixed(1) : 0;
         return (
           <div style={wCard}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>{lang === "nl" ? "📈 Investeringen" : "📈 Investments"}</div>
+            <WHeader Icon={TrendingUp} color="#4f8ef7"
+              label={lang === "nl" ? "Investeringen" : "Investments"}
+              sub={investments.length > 0 ? `${investments.length} ${lang === "nl" ? "posities" : "positions"}` : undefined}/>
             {investments.length === 0 ? (
               <div style={{ fontSize: 13, color: C.muted, textAlign: "center", padding: "12px 0" }}>{lang === "nl" ? "Nog geen investeringen toegevoegd" : "No investments added yet"}</div>
             ) : (
               <>
-                <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
-                  <div style={{ flex: 1, padding: "8px 10px", borderRadius: 8, background: "rgba(79,142,247,0.1)", border: "1px solid rgba(79,142,247,0.2)" }}>
-                    <div style={{ fontSize: 10, color: C.muted, fontWeight: 700, textTransform: "uppercase", marginBottom: 3 }}>{lang === "nl" ? "Geïnvesteerd" : "Invested"}</div>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: "#4f8ef7", fontFamily: "'DM Mono', monospace" }}>{fmt(totalInvested)}</div>
-                  </div>
-                  <div style={{ flex: 1, padding: "8px 10px", borderRadius: 8, background: gain >= 0 ? "rgba(34,197,94,0.1)" : "rgba(244,63,94,0.1)", border: `1px solid ${gain >= 0 ? "rgba(34,197,94,0.2)" : "rgba(244,63,94,0.2)"}` }}>
-                    <div style={{ fontSize: 10, color: C.muted, fontWeight: 700, textTransform: "uppercase", marginBottom: 3 }}>{lang === "nl" ? "Winst/Verlies" : "Profit/Loss"}</div>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: gain >= 0 ? "#22c55e" : "#f43f5e", fontFamily: "'DM Mono', monospace" }}>{gain >= 0 ? "+" : ""}{fmt(gain)} ({gainPct}%)</div>
-                  </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+                  {[
+                    { label: lang === "nl" ? "Geïnvesteerd" : "Invested", value: fmt(totalInvested), color: "#4f8ef7", Icon: PiggyBank, sub: null },
+                    { label: lang === "nl" ? "Winst / Verlies" : "Profit / Loss", value: `${gain >= 0 ? "+" : ""}${fmt(gain)}`, color: gain >= 0 ? "#22c55e" : "#f43f5e", Icon: gain >= 0 ? TrendingUp : TrendingDown, sub: `${gain >= 0 ? "▲" : "▼"} ${Math.abs(gainPct)}%` },
+                  ].map(s => (
+                    <div key={s.label} style={{ padding: "10px 12px", borderRadius: 10, background: isDark ? DK.L2 : "#f8fafc",
+                      border: `1px solid ${isDark ? DK.b1 : "#e8ecf1"}`,
+                      borderTop: isDark ? `1px solid ${s.color}35` : `2px solid ${s.color}`,
+                      position: "relative", overflow: "hidden" }}>
+                      <div style={{ position: "absolute", top: 0, right: 0, width: 60, height: 60,
+                        background: `radial-gradient(circle at 80% 10%, ${s.color}20, transparent 65%)`,
+                        borderRadius: "0 10px 0 0", pointerEvents: "none" }}/>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <div>
+                          <div style={{ fontSize: 10, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 4 }}>{s.label}</div>
+                          <div style={{ fontSize: 15, fontWeight: 800, color: s.color, fontVariantNumeric: "tabular-nums" }}>{s.value}</div>
+                          {s.sub && <div style={{ fontSize: 10, color: s.color, marginTop: 2 }}>{s.sub}</div>}
+                        </div>
+                        <div style={{ width: 28, height: 28, borderRadius: 8, background: `${s.color}18`, border: `1px solid ${s.color}28`,
+                          display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginLeft: 6 }}>
+                          <s.Icon size={13} color={s.color}/>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
                   {investments.slice(0, 4).map(inv => (
                     <div key={inv.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ width: 6, height: 6, borderRadius: 2, background: INVESTMENT_COLORS[inv.type] || "#64748b", flexShrink: 0 }}/>
+                      <div style={{ width: 8, height: 8, borderRadius: 2, background: INVESTMENT_COLORS[inv.type] || "#64748b", flexShrink: 0 }}/>
                       <span style={{ fontSize: 12, color: C.sub, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{inv.name}</span>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: C.text, fontFamily: "'DM Mono', monospace" }}>{fmt(parseFloat(inv.currentValue) || parseFloat(inv.invested) || 0)}</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: C.text, fontVariantNumeric: "tabular-nums" }}>{fmt(parseFloat(inv.currentValue) || parseFloat(inv.invested) || 0)}</span>
                     </div>
                   ))}
                   {investments.length > 4 && <div style={{ fontSize: 11, color: C.muted }}>+{investments.length - 4} {lang === "nl" ? "meer" : "more"}</div>}
@@ -1594,13 +1765,15 @@ function WidgetDashboard({ transactions, t, isDark, accent = "#4f8ef7", accounts
       case "budget": {
         const cats = ["groceries","eating_out","subscriptions","transport","shopping"];
         const items = cats.map(cat => ({
-          cat, spent: thisTxs.filter(tx => tx.category === cat && tx.amount < 0).reduce((s,tx) => s+Math.abs(tx.amount), 0),
+          cat,
+          spent:  thisTxs.filter(tx => tx.category === cat && tx.amount < 0).reduce((s,tx) => s+Math.abs(tx.amount), 0),
           budget: prevTxs.filter(tx => tx.category === cat && tx.amount < 0).reduce((s,tx) => s+Math.abs(tx.amount), 0) * 1.1 || 0,
         })).filter(x => x.spent > 0 || x.budget > 0).slice(0, 4);
         return (
           <div style={wCard}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>📊 Budget status</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <WHeader Icon={Sliders} color="#a855f7" label="Budget status"
+              sub={lang === "nl" ? "t.o.v. vorige maand" : "vs. last month"}/>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {items.length === 0 ? (
                 <div style={{ fontSize: 13, color: C.muted, textAlign: "center" }}>{lang === "nl" ? "Geen data beschikbaar" : "No data available"}</div>
               ) : items.map(b => {
@@ -1608,12 +1781,15 @@ function WidgetDashboard({ transactions, t, isDark, accent = "#4f8ef7", accounts
                 const color = pct >= 100 ? "#f43f5e" : pct >= 80 ? "#f59e0b" : "#22c55e";
                 return (
                   <div key={b.cat}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                      <span style={{ fontSize: 11, color: C.sub }}>{t.categories[b.cat] || b.cat}</span>
-                      <span style={{ fontSize: 11, fontWeight: 700, color, fontFamily: "'DM Mono', monospace" }}>{fmt(b.spent)}</span>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+                      <span style={{ fontSize: 11, color: C.sub, fontWeight: 600 }}>{t.categories[b.cat] || b.cat}</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: C.text, fontVariantNumeric: "tabular-nums" }}>{fmt(b.spent)}</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 10, background: `${color}15`, color }}>{Math.round(pct)}%</span>
+                      </div>
                     </div>
-                    <div style={{ height: 4, background: isDark ? "rgba(255,255,255,0.06)" : "#e2e8f0", borderRadius: 2 }}>
-                      <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 2 }}/>
+                    <div style={{ height: 4, background: isDark ? "rgba(255,255,255,0.06)" : "#e2e8f0", borderRadius: 2, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${pct}%`, background: `linear-gradient(90deg, ${color}70, ${color})`, borderRadius: 2 }}/>
                     </div>
                   </div>
                 );
@@ -1625,24 +1801,37 @@ function WidgetDashboard({ transactions, t, isDark, accent = "#4f8ef7", accounts
 
       case "debts": return (
         <div style={wCard}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>{lang === "nl" ? "🏦 Schulden" : "🏦 Debts"}</div>
+          <WHeader Icon={CreditCard} color="#f43f5e" label={lang === "nl" ? "Schulden" : "Debts"}/>
           <div style={{ fontSize: 13, color: C.muted, textAlign: "center", padding: "12px 0" }}>{lang === "nl" ? "Open Goals → Schulden om schulden te beheren" : "Open Goals → Debts to manage your debts"}</div>
         </div>
       );
 
       case "topcat": {
         const top = catData.slice(0, 4);
+        const maxVal = top[0]?.value || 1;
         return (
           <div style={wCard}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>{lang === "nl" ? "🏆 Top categorieën" : "🏆 Top categories"}</div>
-            {top.map((cat, i) => (
-              <div key={cat.name} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderBottom: i < top.length-1 ? `1px solid ${C.border}` : "none" }}>
-                <span style={{ fontSize: 13, fontWeight: 800, color: C.muted, width: 18 }}>#{i+1}</span>
-                <div style={{ width: 8, height: 8, borderRadius: 2, background: CATEGORY_COLORS[cat.name] || "#64748b" }}/>
-                <span style={{ fontSize: 12, color: C.sub, flex: 1 }}>{t.categories[cat.name] || cat.name}</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "#f43f5e", fontFamily: "'DM Mono', monospace" }}>{fmt(cat.value)}</span>
-              </div>
-            ))}
+            <WHeader Icon={BarChart2} color="#f59e0b"
+              label={lang === "nl" ? "Top categorieën" : "Top categories"}
+              sub={fmtMonth(latestMonth, lang === "nl" ? "nl-NL" : "en-US")}/>
+            {top.length === 0 ? (
+              <div style={{ fontSize: 13, color: C.muted, textAlign: "center", padding: "12px 0" }}>{lang === "nl" ? "Geen data" : "No data"}</div>
+            ) : top.map((cat, i) => {
+              const color = CATEGORY_COLORS[cat.name] || "#64748b";
+              const barPct = Math.round(cat.value / maxVal * 100);
+              return (
+                <div key={cat.name} style={{ marginBottom: i < top.length - 1 ? 10 : 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                    <div style={{ width: 20, height: 20, borderRadius: 6, background: `${color}20`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, color, flexShrink: 0 }}>#{i+1}</div>
+                    <span style={{ fontSize: 12, color: C.sub, flex: 1 }}>{t.categories[cat.name] || cat.name}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: C.text, fontVariantNumeric: "tabular-nums" }}>{fmt(cat.value)}</span>
+                  </div>
+                  <div style={{ height: 3, background: isDark ? "rgba(255,255,255,0.05)" : "#e2e8f0", borderRadius: 2, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${barPct}%`, background: `linear-gradient(90deg, ${color}70, ${color})`, borderRadius: 2 }}/>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         );
       }
@@ -1654,28 +1843,39 @@ function WidgetDashboard({ transactions, t, isDark, accent = "#4f8ef7", accounts
 
   return (
     <div>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-        <div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: C.text }}>Dashboard</div>
-          <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{lang === "nl" ? "Jouw financieel overzicht op één plek" : "Your financial overview in one place"}</div>
-        </div>
+      {/* ── Header ── */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: 20 }}>
         <button onClick={() => setEditMode(e => !e)}
-          style={{ display: "flex", alignItems: "center", gap: 7, padding: "8px 16px", borderRadius: 20, border: editMode ? `1px solid ${accent}` : `1px solid ${C.border}`, background: editMode ? `${accent}15` : "transparent", color: editMode ? accent : C.muted, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-          <Sliders size={13}/> {editMode ? t.general.done : (lang === "nl" ? "Dashboard aanpassen" : "Customize dashboard")}
+          style={{ display: "flex", alignItems: "center", gap: 7, padding: "8px 16px", borderRadius: 20,
+            border: editMode ? `1px solid ${accent}` : `1px solid ${isDark ? "rgba(255,255,255,0.10)" : "#e2e6ed"}`,
+            background: editMode ? `${accent}18` : isDark ? "rgba(255,255,255,0.04)" : "#f8fafc",
+            color: editMode ? accent : C.muted, fontSize: 12, fontWeight: 700, cursor: "pointer", transition: "all 0.15s" }}>
+          <Sliders size={13}/> {editMode ? t.general.done : (lang === "nl" ? "Aanpassen" : "Customize")}
         </button>
       </div>
 
-      {/* Edit mode — widget picker */}
+      {/* ── Edit mode: widget picker ── */}
       {editMode && (
-        <div style={{ ...card(isDark), marginBottom: 16, border: `1px solid ${accent}40` }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 4 }}>{lang === "nl" ? "Widgets beheren" : "Manage widgets"}</div>
-          <div style={{ fontSize: 12, color: C.muted, marginBottom: 14 }}>{lang === "nl" ? "Zet aan/uit · sleep om de volgorde aan te passen" : "Toggle on/off · drag to reorder"}</div>
+        <div style={{ ...card(isDark), marginBottom: 16, border: `1px solid ${accent}35`, background: isDark ? DK.L1 : "#fafbff" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: `${accent}18`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Sliders size={13} color={accent}/>
+            </div>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{lang === "nl" ? "Widgets beheren" : "Manage widgets"}</div>
+              <div style={{ fontSize: 11, color: C.muted }}>{lang === "nl" ? "Zet aan/uit · sleep om de volgorde te wijzigen" : "Toggle on/off · drag to reorder"}</div>
+            </div>
+          </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {widgets.map(w => (
               <button key={w.id} onClick={() => toggleWidget(w.id)}
-                style={{ display: "flex", alignItems: "center", gap: 7, padding: "7px 14px", borderRadius: 20, border: w.enabled ? `1.5px solid ${accent}` : `1px solid ${C.border}`, background: w.enabled ? `${accent}15` : "transparent", color: w.enabled ? accent : C.muted, fontSize: 12, fontWeight: w.enabled ? 700 : 400, cursor: "pointer", transition: "all 0.15s" }}>
-                <span>{w.icon}</span> {(WIDGET_LABELS[lang] || WIDGET_LABELS.nl)[w.id] || w.id}
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 13px", borderRadius: 20,
+                  border: w.enabled ? `1.5px solid ${accent}` : `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "#e2e6ed"}`,
+                  background: w.enabled ? `${accent}12` : "transparent",
+                  color: w.enabled ? accent : C.muted,
+                  fontSize: 12, fontWeight: w.enabled ? 700 : 400, cursor: "pointer", transition: "all 0.15s" }}>
+                <span style={{ fontSize: 13 }}>{w.icon}</span>
+                {(WIDGET_LABELS[lang] || WIDGET_LABELS.nl)[w.id] || w.id}
                 {w.enabled && <Check size={11}/>}
               </button>
             ))}
@@ -1683,48 +1883,531 @@ function WidgetDashboard({ transactions, t, isDark, accent = "#4f8ef7", accounts
         </div>
       )}
 
-      {/* Widget grid — 2 columns, draggable */}
+      {/* ── Widget grid ── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
         {enabledWidgets.map(w => (
-          <div key={w.id}
-            draggable={editMode}
-            onDragStart={() => handleDragStart(w.id)}
-            onDragOver={e => handleDragOver(e, w.id)}
-            onDrop={() => handleDrop(w.id)}
-            onDragEnd={() => { setDragging(null); setDragOver(null); }}
-            style={{
-              gridColumn: (w.id === "cashflow" || w.id === "balance") ? "span 3" : "span 1",
-              opacity: dragging === w.id ? 0.5 : 1,
-              outline: dragOver === w.id && dragging !== w.id ? `2px dashed ${accent}` : "none",
-              borderRadius: 16,
-              cursor: editMode ? "grab" : "default",
-              transition: "opacity 0.15s, outline 0.1s",
-            }}>
+          <WidgetWrapper key={w.id} w={w} editMode={editMode} accent={accent}
+            dragging={dragging} dragOver={dragOver}
+            onDragStart={handleDragStart} onDragOver={handleDragOver}
+            onDrop={handleDrop} onDragEnd={() => { setDragging(null); setDragOver(null); }}
+            onClick={() => { if (!editMode) { setActiveDetail(w.id); setDetailTab("list"); } }}>
             {editMode && (
-              <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textAlign: "center", marginBottom: 4, letterSpacing: "0.06em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
-                <span style={{ cursor: "grab" }}>⠿</span> {lang === "nl" ? "Sleep om te verplaatsen" : "Drag to reorder"}
+              <div style={{ fontSize: 10, fontWeight: 600, color: C.muted, textAlign: "center", marginBottom: 4,
+                letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+                <span>⠿</span> {lang === "nl" ? "Sleep" : "Drag"}
               </div>
             )}
             {renderWidget(w)}
-          </div>
+          </WidgetWrapper>
         ))}
       </div>
 
+      {/* ── Empty state ── */}
       {enabledWidgets.length === 0 && (
-        <div style={{ ...card(isDark), textAlign: "center", padding: "48px 24px" }}>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>📭</div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 8 }}>{lang === "nl" ? "Geen widgets actief" : "No widgets active"}</div>
-          <div style={{ fontSize: 13, color: C.muted, marginBottom: 20 }}>{lang === "nl" ? "Klik op \"Dashboard aanpassen\" om widgets toe te voegen." : "Click \"Customize dashboard\" to add widgets."}</div>
-          <button onClick={() => setEditMode(true)} style={{ ...pillBtn(), padding: "10px 24px", fontSize: 13 }}>
+        <div style={{ ...card(isDark), textAlign: "center", padding: "56px 24px" }}>
+          <div style={{ width: 56, height: 56, borderRadius: 16, background: isDark ? "rgba(255,255,255,0.05)" : "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", fontSize: 26 }}>📭</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 6 }}>{lang === "nl" ? "Geen widgets actief" : "No widgets active"}</div>
+          <div style={{ fontSize: 13, color: C.muted, marginBottom: 20 }}>{lang === "nl" ? "Pas je dashboard aan om widgets toe te voegen." : "Customize your dashboard to add widgets."}</div>
+          <button onClick={() => setEditMode(true)} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 22px", borderRadius: 20, background: "linear-gradient(135deg,#4f8ef7,#6366f1)", border: "none", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
             <Sliders size={14}/> {lang === "nl" ? "Dashboard aanpassen" : "Customize dashboard"}
           </button>
         </div>
       )}
+
+      {/* ── Detail Modal ── */}
+      {activeDetail && createPortal((() => {
+        const close = () => setActiveDetail(null);
+        const nl = lang === "nl";
+
+        // Accent color per detail type
+        const detailColor = {
+          balance: "#4f8ef7", d_income: "#22c55e", d_expenses: "#f43f5e",
+          spending: "#f59e0b", topcat: "#f59e0b", investments: "#a855f7",
+          goals: "#22c55e", fire: "#f59e0b", budget: "#6366f1",
+          cashflow: "#4f8ef7", debts: "#ef4444"
+        }[activeDetail] || accent;
+
+        // Premium header with colored gradient zone
+        const ModalHeader = ({ title, sub }) => (
+          <div style={{ padding: "26px 24px 20px", background: `linear-gradient(160deg, ${detailColor}22 0%, ${detailColor}08 40%, transparent 70%)`, borderBottom: `1px solid ${isDark ? `${detailColor}25` : `${detailColor}20`}`, marginBottom: 0, position: "relative", flexShrink: 0 }}>
+            {/* Accent bar */}
+            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 4, background: `linear-gradient(90deg, ${detailColor}, ${detailColor}80, transparent)` }}/>
+            {/* Glow blob behind title */}
+            <div style={{ position: "absolute", top: -20, left: -20, width: 160, height: 160, borderRadius: "50%", background: `radial-gradient(circle, ${detailColor}20 0%, transparent 70%)`, pointerEvents: "none" }}/>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, position: "relative" }}>
+              <div>
+                <div style={{ fontSize: 26, fontWeight: 800, color: isDark ? "#f1f5f9" : "#0f172a", letterSpacing: "-0.6px", lineHeight: 1.15 }}>{title}</div>
+                {sub && <div style={{ fontSize: 12, color: C.muted, marginTop: 6, fontWeight: 500 }}>{sub}</div>}
+              </div>
+              <button onClick={close} style={{ width: 34, height: 34, borderRadius: 10, background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)", border: `1px solid ${isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)"}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: C.muted, flexShrink: 0, marginTop: 3, transition: "all 0.15s" }}>
+                <X size={14}/>
+              </button>
+            </div>
+          </div>
+        );
+
+        // Premium stat cards with color tint + inner glow
+        const StatRow = ({ items }) => (
+          <div style={{ display: "grid", gridTemplateColumns: `repeat(${items.length}, 1fr)`, gap: 8, padding: "16px 24px 20px" }}>
+            {items.map(s => (
+              <div key={s.label} style={{ padding: "13px 12px", borderRadius: 14, background: isDark ? `${s.color}16` : `${s.color}0e`, border: `1px solid ${s.color}40`, position: "relative", overflow: "hidden" }}>
+                {/* inner glow top-right */}
+                <div style={{ position: "absolute", top: -10, right: -10, width: 60, height: 60, borderRadius: "50%", background: `radial-gradient(circle, ${s.color}30, transparent 70%)`, pointerEvents: "none" }}/>
+                <div style={{ fontSize: 9, fontWeight: 700, color: s.color, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 7, opacity: 0.9 }}>{s.label}</div>
+                <div style={{ fontSize: 17, fontWeight: 800, color: isDark ? "#f1f5f9" : "#0f172a", fontVariantNumeric: "tabular-nums", letterSpacing: "-0.4px", position: "relative" }}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+        );
+
+        const Tabs = ({ tabs, active, onChange }) => (
+          <div style={{ display: "flex", gap: 6, padding: "0 24px 14px" }}>
+            {tabs.map(t => (
+              <button key={t.id} onClick={() => onChange(t.id)}
+                style={{ padding: "6px 16px", borderRadius: 20, border: active === t.id ? `1.5px solid ${detailColor}` : `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "#e2e6ed"}`,
+                  background: active === t.id ? `${detailColor}15` : "transparent",
+                  color: active === t.id ? detailColor : C.muted, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+        );
+
+        // Sort + filter helpers
+        const applySort = (arr) => {
+          const s = [...arr];
+          if (detailSort === "amount_desc") s.sort((a,b) => Math.abs(b.amount) - Math.abs(a.amount));
+          else if (detailSort === "amount_asc") s.sort((a,b) => Math.abs(a.amount) - Math.abs(b.amount));
+          else s.sort((a,b) => b.date.localeCompare(a.date));
+          return s;
+        };
+        const applyFilter = (arr) => {
+          if (detailFilter === "af") return arr.filter(tx => tx.amount < 0);
+          if (detailFilter === "bij") return arr.filter(tx => tx.amount > 0);
+          return arr;
+        };
+
+        // Filter + sort bar
+        const FilterBar = ({ showAfBij = false }) => (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 24px 14px", flexWrap: "wrap" }}>
+            {showAfBij && [
+              { id: "all", label: nl ? "Alles" : "All" },
+              { id: "af",  label: nl ? "Af" : "Debit" },
+              { id: "bij", label: nl ? "Bij" : "Credit" },
+            ].map(f => (
+              <button key={f.id} onClick={() => setDetailFilter(f.id)} style={{ padding: "4px 12px", borderRadius: 20, border: detailFilter === f.id ? `1.5px solid ${detailColor}` : `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "#e2e6ed"}`, background: detailFilter === f.id ? `${detailColor}18` : "transparent", color: detailFilter === f.id ? detailColor : C.muted, fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>{f.label}</button>
+            ))}
+            <div style={{ flex: showAfBij ? "0 0 auto" : 1, display: "flex", gap: 5, marginLeft: showAfBij ? "auto" : 0 }}>
+              {[
+                { id: "date_desc", label: nl ? "📅 Nieuwst" : "📅 Newest" },
+                { id: "amount_desc", label: nl ? "↓ Hoog" : "↓ High" },
+                { id: "amount_asc",  label: nl ? "↑ Laag" : "↑ Low" },
+              ].map(s => (
+                <button key={s.id} onClick={() => setDetailSort(s.id)} style={{ padding: "4px 10px", borderRadius: 20, border: detailSort === s.id ? `1.5px solid ${detailColor}` : `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "#e2e6ed"}`, background: detailSort === s.id ? `${detailColor}18` : "transparent", color: detailSort === s.id ? detailColor : C.muted, fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>{s.label}</button>
+              ))}
+            </div>
+          </div>
+        );
+
+        // Premium transaction row with hover — beneficiary first
+        const TxRow = ({ tx }) => {
+          const [hov, setHov] = useState(false);
+          const isPos = tx.amount > 0;
+          const catColor = CATEGORY_COLORS[tx.category] || "#64748b";
+          const title    = tx.counterparty || tx.description;
+          const subtitle = tx.counterparty ? tx.description : null;
+          return (
+            <div onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+              style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 24px", background: hov ? (isDark ? "rgba(255,255,255,0.035)" : "#f8fafc") : "transparent", borderBottom: `1px solid ${isDark ? "rgba(255,255,255,0.04)" : "#f5f5f5"}`, transition: "background 0.12s", cursor: "default" }}>
+              <div style={{ width: 38, height: 38, borderRadius: 11, background: isPos ? "rgba(34,197,94,0.12)" : `${catColor}15`, border: `1px solid ${isPos ? "rgba(34,197,94,0.2)" : `${catColor}25`}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                {isPos ? <ArrowUpRight size={16} color="#22c55e"/> : <ArrowDownRight size={16} color={catColor}/>}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: isDark ? "#f1f5f9" : "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
+                  {subtitle && <span style={{ fontSize: 10, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 120 }}>{subtitle}</span>}
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 6, background: `${catColor}18`, color: catColor, flexShrink: 0 }}>{tx.category}</span>
+                  <span style={{ fontSize: 10, color: C.muted, flexShrink: 0 }}>{tx.date}</span>
+                </div>
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: isDark ? "#f1f5f9" : "#0f172a", fontVariantNumeric: "tabular-nums", flexShrink: 0, letterSpacing: "-0.2px" }}>
+                {isPos ? "+" : "−"}€{Math.abs(tx.amount).toLocaleString("nl-NL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+            </div>
+          );
+        };
+
+        let content = null;
+
+        if (activeDetail === "balance") {
+          const baseTxs = applyFilter(thisTxs);
+          const monthTxs = applySort(baseTxs);
+          const grouped = {};
+          monthTxs.forEach(tx => { const cat = tx.category || "other"; if (!grouped[cat]) grouped[cat] = []; grouped[cat].push(tx); });
+          const groupEntries = Object.entries(grouped).sort((a,b) => b[1].reduce((s,t) => s+Math.abs(t.amount),0) - a[1].reduce((s,t) => s+Math.abs(t.amount),0));
+          content = (
+            <>
+              <ModalHeader title={nl ? "Saldo overzicht" : "Balance overview"} sub={`${monthTxs.length} ${nl ? "transacties" : "transactions"} · ${fmtMonth(latestMonth, nl ? "nl-NL" : "en-US")}`}/>
+              <StatRow items={[
+                { label: nl ? "Inkomsten" : "Income", value: fmt(income), color: "#22c55e" },
+                { label: nl ? "Uitgaven" : "Expenses", value: fmt(expenses), color: "#f43f5e" },
+                { label: nl ? "Saldo" : "Balance", value: (balance < 0 ? "−" : "") + fmt(Math.abs(balance)), color: balance >= 0 ? "#4f8ef7" : "#f43f5e" },
+                { label: nl ? "Transacties" : "Transactions", value: thisTxs.length, color: "#a855f7" },
+              ]}/>
+              <Tabs tabs={[{ id:"list", label: nl?"Lijst":"List" }, { id:"group", label: nl?"Groepen":"Groups" }]} active={detailTab} onChange={setDetailTab}/>
+              <FilterBar showAfBij={true}/>
+              {detailTab === "list" ? (
+                <div>{monthTxs.map(tx => <TxRow key={tx.id} tx={tx}/>)}</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 14, padding: "0 0 8px" }}>
+                  {groupEntries.map(([cat, txs]) => {
+                    const total = txs.reduce((s,t) => s + t.amount, 0);
+                    const catColor = CATEGORY_COLORS[cat] || "#64748b";
+                    return (
+                      <div key={cat} style={{ padding: "0 24px" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <div style={{ width: 10, height: 10, borderRadius: 3, background: catColor }}/>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: isDark ? "#e2e8f0" : "#1e293b" }}>{cat}</span>
+                            <span style={{ fontSize: 10, color: C.muted }}>{txs.length}</span>
+                          </div>
+                          <span style={{ fontSize: 13, fontWeight: 800, color: isDark ? "#f1f5f9" : "#0f172a", fontVariantNumeric: "tabular-nums" }}>{total >= 0 ? "+" : "−"}€{Math.abs(total).toLocaleString("nl-NL",{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+                        </div>
+                        {txs.map(tx => <TxRow key={tx.id} tx={tx}/>)}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          );
+        }
+
+        else if (activeDetail === "d_income") {
+          const base = thisTxs.filter(tx => tx.amount > 0);
+          const incomeTxs = applySort(base);
+          const topSource = base.length ? base.reduce((best, tx) => tx.amount > best.amount ? tx : best, base[0]) : null;
+          content = (
+            <>
+              <ModalHeader title={nl ? "Inkomsten" : "Income"} sub={`${base.length} ${nl ? "transacties" : "transactions"} · ${fmtMonth(latestMonth, nl ? "nl-NL" : "en-US")}`}/>
+              <StatRow items={[
+                { label: nl ? "Totaal" : "Total", value: fmt(income), color: "#22c55e" },
+                { label: nl ? "Transacties" : "Transactions", value: base.length, color: "#4f8ef7" },
+                { label: nl ? "Hoogste" : "Highest", value: topSource ? fmt(topSource.amount) : "—", color: "#a855f7" },
+              ]}/>
+              <FilterBar showAfBij={false}/>
+              <div>{incomeTxs.map(tx => <TxRow key={tx.id} tx={tx}/>)}</div>
+            </>
+          );
+        }
+
+        else if (activeDetail === "d_expenses") {
+          const base = thisTxs.filter(tx => tx.amount < 0);
+          const expenseTxs = applySort(base);
+          const highestExp = base.length ? base.reduce((m,tx) => Math.abs(tx.amount) > Math.abs(m.amount) ? tx : m, base[0]) : null;
+          content = (
+            <>
+              <ModalHeader title={nl ? "Uitgaven" : "Expenses"} sub={`${base.length} ${nl ? "transacties" : "transactions"} · ${fmtMonth(latestMonth, nl ? "nl-NL" : "en-US")}`}/>
+              <StatRow items={[
+                { label: nl ? "Totaal" : "Total", value: fmt(expenses), color: "#f43f5e" },
+                { label: nl ? "Transacties" : "Transactions", value: base.length, color: "#6366f1" },
+                { label: nl ? "Hoogste" : "Highest", value: highestExp ? fmt(Math.abs(highestExp.amount)) : "—", color: "#f59e0b" },
+              ]}/>
+              <FilterBar showAfBij={false}/>
+              <div>{expenseTxs.map(tx => <TxRow key={tx.id} tx={tx}/>)}</div>
+            </>
+          );
+        }
+
+        else if (activeDetail === "spending" || activeDetail === "topcat") {
+          const spendTxs = thisTxs.filter(tx => tx.amount < 0).sort((a,b) => a.amount - b.amount);
+          const cats = {};
+          spendTxs.forEach(tx => { const c = tx.category || "other"; if (!cats[c]) cats[c] = { total: 0, txs: [] }; cats[c].total += Math.abs(tx.amount); cats[c].txs.push(tx); });
+          const catList = Object.entries(cats).sort((a,b) => b[1].total - a[1].total);
+          content = (
+            <>
+              <ModalHeader title={nl ? "Uitgaven verdeling" : "Spending breakdown"} sub={`${spendTxs.length} ${nl?"transacties":"transactions"} · ${fmtMonth(latestMonth, nl?"nl-NL":"en-US")}`}/>
+              <StatRow items={[
+                { label: nl?"Totaal uitgegeven":"Total spent", value: fmt(expenses), color: "#f43f5e" },
+                { label: nl?"Categorieën":"Categories", value: catList.length, color: "#6366f1" },
+                { label: nl?"Hoogste post":"Top category", value: catList[0] ? fmt(catList[0][1].total) : "—", color: "#f59e0b" },
+              ]}/>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {catList.map(([cat, data], i) => {
+                  const color = Object.values(CATEGORY_COLORS)[i % Object.values(CATEGORY_COLORS).length];
+                  const pct = expenses > 0 ? Math.round(data.total / expenses * 100) : 0;
+                  return (
+                    <div key={cat}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <div style={{ width: 10, height: 10, borderRadius: 3, background: color }}/>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: isDark ? "#e2e8f0" : "#1e293b" }}>{t.categories[cat] || cat}</span>
+                          <span style={{ fontSize: 10, color: C.muted }}>{data.txs.length}×</span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: "1px 7px", borderRadius: 10, background: `${color}18`, color }}>{pct}%</span>
+                          <span style={{ fontSize: 13, fontWeight: 800, color: C.text, fontVariantNumeric: "tabular-nums" }}>{fmt(data.total)}</span>
+                        </div>
+                      </div>
+                      <div style={{ height: 4, background: isDark ? "rgba(255,255,255,0.06)" : "#e2e8f0", borderRadius: 2, overflow: "hidden", marginBottom: 8 }}>
+                        <div style={{ height: "100%", width: `${pct}%`, background: `linear-gradient(90deg, ${color}80, ${color})`, borderRadius: 2 }}/>
+                      </div>
+                      {data.txs.map(tx => <TxRow key={tx.id} tx={tx}/>)}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          );
+        }
+
+        else if (activeDetail === "investments") {
+          const totalInvested = investments.reduce((s,inv) => s+(parseFloat(inv.invested)||0), 0);
+          const totalValue = investments.reduce((s,inv) => s+(parseFloat(inv.currentValue)||parseFloat(inv.invested)||0), 0);
+          const totalGain = totalValue - totalInvested;
+          const byType = {};
+          investments.forEach(inv => { if (!byType[inv.type]) byType[inv.type]=0; byType[inv.type]+=(parseFloat(inv.currentValue)||parseFloat(inv.invested)||0); });
+          content = (
+            <>
+              <ModalHeader title={nl?"Investeringen":"Investments"} sub={`${investments.length} ${nl?"posities":"positions"}`}/>
+              <StatRow items={[
+                { label: nl?"Geïnvesteerd":"Invested", value: fmt(totalInvested), color: "#4f8ef7" },
+                { label: nl?"Huidige waarde":"Current value", value: fmt(totalValue), color: "#a855f7" },
+                { label: nl?"Winst/Verlies":"Profit/Loss", value: `${totalGain>=0?"+":""}${fmt(totalGain)}`, color: totalGain>=0?"#22c55e":"#f43f5e" },
+                { label: "ROI", value: `${totalInvested>0?((totalGain/totalInvested)*100).toFixed(1):0}%`, color: "#f59e0b" },
+              ]}/>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {investments.map(inv => {
+                  const val = parseFloat(inv.currentValue) || parseFloat(inv.invested) || 0;
+                  const inv_amount = parseFloat(inv.invested) || 0;
+                  const gain = val - inv_amount;
+                  const gainPct = inv_amount > 0 ? ((gain/inv_amount)*100).toFixed(1) : 0;
+                  const color = INVESTMENT_COLORS[inv.type] || "#64748b";
+                  return (
+                    <div key={inv.id} style={{ padding: "12px 14px", borderRadius: 12, background: isDark ? DK.L2 : "#f8fafc", border: `1px solid ${isDark ? DK.b1 : "#e8ecf1"}`, display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{ width: 38, height: 38, borderRadius: 11, background: `${color}18`, border: `1px solid ${color}30`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        <TrendingUp size={15} color={color}/>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: isDark?"#f1f5f9":"#0f172a" }}>{inv.name}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: "1px 7px", borderRadius: 6, background: `${color}20`, color }}>{inv.type}</span>
+                          {inv.units && <span style={{ fontSize: 10, color: C.muted }}>{inv.units} units</span>}
+                        </div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: isDark?"#f1f5f9":"#0f172a", fontVariantNumeric: "tabular-nums" }}>{fmt(val)}</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: gain>=0?"#22c55e":"#f43f5e", marginTop: 1 }}>{gain>=0?"+":""}{fmt(gain)} ({gain>=0?"▲":"▼"}{Math.abs(gainPct)}%)</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          );
+        }
+
+        else if (activeDetail === "goals") {
+          const totalTarget = goals.reduce((s,g) => s+(g.target||0), 0);
+          const totalCurrent = goals.reduce((s,g) => s+(g.current||0), 0);
+          content = (
+            <>
+              <ModalHeader title={nl?"Spaardoelen":"Savings goals"} sub={`${goals.length} ${nl?"actieve doelen":"active goals"}`}/>
+              <StatRow items={[
+                { label: nl?"Totaal doel":"Total target", value: fmt(totalTarget), color: "#22c55e" },
+                { label: nl?"Opgespaart":"Saved", value: fmt(totalCurrent), color: "#4f8ef7" },
+                { label: nl?"Nog te gaan":"Remaining", value: fmt(Math.max(0,totalTarget-totalCurrent)), color: "#f59e0b" },
+              ]}/>
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {goals.map(goal => {
+                  const pct = Math.min(100, Math.round((goal.current/goal.target)*100));
+                  const remaining = Math.max(0, goal.target - goal.current);
+                  const daysLeft = goal.deadline ? Math.ceil((new Date(goal.deadline) - new Date()) / 86400000) : null;
+                  return (
+                    <div key={goal.id} style={{ padding: "14px 16px", borderRadius: 14, background: isDark?DK.L2:"#f8fafc", border: `1px solid ${isDark?DK.b1:"#e8ecf1"}` }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 }}>
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: isDark?"#f1f5f9":"#0f172a" }}>{goal.name}</div>
+                          {daysLeft !== null && <div style={{ fontSize: 11, color: daysLeft < 30 ? "#f59e0b" : C.muted, marginTop: 2 }}>{daysLeft > 0 ? `${daysLeft} ${nl?"dagen over":"days left"}` : (nl?"Verlopen":"Expired")}</div>}
+                        </div>
+                        <span style={{ fontSize: 13, fontWeight: 800, padding: "3px 10px", borderRadius: 10, background: `${goal.color}18`, color: goal.color }}>{pct}%</span>
+                      </div>
+                      <div style={{ height: 8, background: isDark?"rgba(255,255,255,0.06)":"#e2e8f0", borderRadius: 4, overflow: "hidden", marginBottom: 8 }}>
+                        <div style={{ height: "100%", width: `${pct}%`, background: `linear-gradient(90deg, ${goal.color}80, ${goal.color})`, borderRadius: 4, boxShadow: `0 0 6px ${goal.color}50` }}/>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11 }}>
+                        <span style={{ color: C.muted }}>{nl?"Opgespaart":"Saved"}: <span style={{ color: goal.color, fontWeight: 700 }}>{fmt(goal.current)}</span></span>
+                        <span style={{ color: C.muted }}>{nl?"Doel":"Target"}: <span style={{ color: isDark?"#f1f5f9":"#0f172a", fontWeight: 700 }}>{fmt(goal.target)}</span></span>
+                        <span style={{ color: C.muted }}>{nl?"Nog":"Left"}: <span style={{ color: "#f59e0b", fontWeight: 700 }}>{fmt(remaining)}</span></span>
+                      </div>
+                    </div>
+                  );
+                })}
+                {goals.length === 0 && <div style={{ textAlign: "center", color: C.muted, padding: "24px 0", fontSize: 13 }}>{nl?"Nog geen spaardoelen":"No savings goals yet"}</div>}
+              </div>
+            </>
+          );
+        }
+
+        else if (activeDetail === "fire") {
+          const monthlyExp = expenses || 3000;
+          const yearlyExp = monthlyExp * 12;
+          const fireNum = Math.round(yearlyExp * 25);
+          const wealth = Math.max(0, totalSaldo);
+          const pct = Math.min(100, Math.round(wealth / fireNum * 100));
+          const fireColor = pct >= 75 ? "#22c55e" : pct >= 40 ? "#f59e0b" : "#4f8ef7";
+          const monthlySavings = balance > 0 ? balance : 0;
+          const monthsLeft = monthlySavings > 0 ? Math.ceil((fireNum - wealth) / monthlySavings) : null;
+          const yearsLeft = monthsLeft ? (monthsLeft / 12).toFixed(1) : null;
+          content = (
+            <>
+              <ModalHeader title="FIRE" sub={nl?"Financiële onafhankelijkheid · 4% regel":"Financial independence · 4% rule"}/>
+              <StatRow items={[
+                { label: nl?"FIRE getal":"FIRE number", value: fmtShort(fireNum), color: fireColor },
+                { label: nl?"Huidig vermogen":"Current wealth", value: fmtShort(wealth), color: "#4f8ef7" },
+                { label: nl?"Voortgang":"Progress", value: `${pct}%`, color: fireColor },
+                { label: nl?"Jaren tot FIRE":"Years to FIRE", value: yearsLeft ? `~${yearsLeft}j` : "—", color: "#a855f7" },
+              ]}/>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {[
+                  { label: nl?"Maandelijkse uitgaven":"Monthly expenses", value: fmt(monthlyExp), color: "#f43f5e", desc: nl?"Basis voor FIRE berekening":"Base for FIRE calculation" },
+                  { label: nl?"Jaarlijkse uitgaven":"Yearly expenses", value: fmt(yearlyExp), color: "#f59e0b", desc: "× 12" },
+                  { label: nl?"FIRE getal (× 25)":"FIRE number (× 25)", value: fmt(fireNum), color: fireColor, desc: nl?"Benodigde investering":"Required investment" },
+                  { label: nl?"Huidig vermogen":"Current wealth", value: fmt(wealth), color: "#4f8ef7", desc: nl?"Transactiesaldo":"Transaction balance" },
+                  { label: nl?"Maandelijkse spaaroverschot":"Monthly surplus", value: fmt(monthlySavings), color: "#22c55e", desc: nl?"Inkomsten − uitgaven":"Income − expenses" },
+                ].map(item => (
+                  <div key={item.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: 10, background: isDark?DK.L2:"#f8fafc", border: `1px solid ${isDark?DK.b1:"#e8ecf1"}` }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: isDark?"#e2e8f0":"#1e293b" }}>{item.label}</div>
+                      <div style={{ fontSize: 10, color: C.muted }}>{item.desc}</div>
+                    </div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: item.color, fontVariantNumeric: "tabular-nums" }}>{item.value}</div>
+                  </div>
+                ))}
+              </div>
+            </>
+          );
+        }
+
+        else if (activeDetail === "budget") {
+          const allCats = [...new Set(thisTxs.filter(t => t.amount < 0).map(t => t.category))];
+          const budgetItems = allCats.map(cat => ({
+            cat,
+            thisPeriod: thisTxs.filter(tx => tx.category === cat && tx.amount < 0).reduce((s,tx) => s+Math.abs(tx.amount), 0),
+            lastPeriod: prevTxs.filter(tx => tx.category === cat && tx.amount < 0).reduce((s,tx) => s+Math.abs(tx.amount), 0),
+          })).sort((a,b) => b.thisPeriod - a.thisPeriod);
+          content = (
+            <>
+              <ModalHeader title="Budget status" sub={nl?"Vergelijking met vorige maand":"Comparison with last month"}/>
+              <StatRow items={[
+                { label: nl?"Deze maand":"This month", value: fmt(expenses), color: "#f43f5e" },
+                { label: nl?"Vorige maand":"Last month", value: fmt(prevExpenses), color: "#a855f7" },
+                { label: nl?"Verschil":"Difference", value: `${expenses<=prevExpenses?"-":"+"}${fmt(Math.abs(expenses-prevExpenses))}`, color: expenses<=prevExpenses?"#22c55e":"#f43f5e" },
+              ]}/>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {budgetItems.map(b => {
+                  const pct = b.lastPeriod > 0 ? Math.min(200, b.thisPeriod/b.lastPeriod*100) : 100;
+                  const color = pct >= 110 ? "#f43f5e" : pct >= 90 ? "#f59e0b" : "#22c55e";
+                  const diff = b.thisPeriod - b.lastPeriod;
+                  const catColor = CATEGORY_COLORS[b.cat] || "#64748b";
+                  return (
+                    <div key={b.cat} style={{ padding: "12px 14px", borderRadius: 12, background: isDark?DK.L2:"#f8fafc", border: `1px solid ${isDark?DK.b1:"#e8ecf1"}` }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <div style={{ width: 8, height: 8, borderRadius: 2, background: catColor }}/>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: isDark?"#e2e8f0":"#1e293b" }}>{t.categories[b.cat] || b.cat}</span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: diff>0?"#f43f5e":diff<0?"#22c55e":C.muted }}>{diff>0?"+":""}{fmt(diff)}</span>
+                          <span style={{ fontSize: 12, fontWeight: 800, color: isDark?"#f1f5f9":"#0f172a", fontVariantNumeric: "tabular-nums" }}>{fmt(b.thisPeriod)}</span>
+                        </div>
+                      </div>
+                      {b.lastPeriod > 0 && (
+                        <div style={{ height: 4, background: isDark?"rgba(255,255,255,0.06)":"#e2e8f0", borderRadius: 2, overflow: "hidden" }}>
+                          <div style={{ height: "100%", width: `${Math.min(100, pct)}%`, background: `linear-gradient(90deg, ${color}70, ${color})`, borderRadius: 2 }}/>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {budgetItems.length === 0 && <div style={{ textAlign: "center", color: C.muted, padding: "24px 0", fontSize: 13 }}>{nl?"Geen data beschikbaar":"No data available"}</div>}
+              </div>
+            </>
+          );
+        }
+
+        else if (activeDetail === "cashflow") {
+          const months = [...new Set(transactions.map(tx => tx.date.slice(0,7)))].sort().slice(-12);
+          const locale = nl ? "nl-NL" : "en-US";
+          const rows = months.map(m => ({
+            month: fmtMonth(m, locale),
+            income: transactions.filter(tx => tx.date.startsWith(m) && tx.amount > 0).reduce((s,tx) => s+tx.amount, 0),
+            expenses: Math.abs(transactions.filter(tx => tx.date.startsWith(m) && tx.amount < 0).reduce((s,tx) => s+tx.amount, 0)),
+          })).map(r => ({ ...r, savings: r.income - r.expenses }));
+          const avgSavings = rows.length ? rows.reduce((s,r) => s+r.savings, 0) / rows.length : 0;
+          content = (
+            <>
+              <ModalHeader title="Cashflow trend" sub={nl?`Afgelopen ${rows.length} maanden`:`Last ${rows.length} months`}/>
+              <StatRow items={[
+                { label: nl?"Gem. inkomsten":"Avg income", value: fmt(rows.reduce((s,r) => s+r.income,0)/Math.max(1,rows.length)), color: "#22c55e" },
+                { label: nl?"Gem. uitgaven":"Avg expenses", value: fmt(rows.reduce((s,r) => s+r.expenses,0)/Math.max(1,rows.length)), color: "#f43f5e" },
+                { label: nl?"Gem. gespaard":"Avg saved", value: fmt(avgSavings), color: avgSavings>=0?"#4f8ef7":"#f43f5e" },
+              ]}/>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr style={{ borderBottom: `1px solid ${isDark?"rgba(255,255,255,0.08)":"#e2e6ed"}` }}>
+                      {[nl?"Maand":"Month", nl?"Inkomsten":"Income", nl?"Uitgaven":"Expenses", nl?"Gespaard":"Saved"].map(h => (
+                        <th key={h} style={{ padding: "8px 10px", textAlign: "right", fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...rows].reverse().map((r, i) => (
+                      <tr key={i} style={{ borderBottom: `1px solid ${isDark?"rgba(255,255,255,0.04)":"#f1f5f9"}` }}>
+                        <td style={{ padding: "10px 10px", fontSize: 12, color: C.sub, fontWeight: 600, textAlign: "right" }}>{r.month}</td>
+                        <td style={{ padding: "10px 10px", fontSize: 12, fontWeight: 700, color: "#22c55e", fontVariantNumeric: "tabular-nums", textAlign: "right" }}>{fmt(r.income)}</td>
+                        <td style={{ padding: "10px 10px", fontSize: 12, fontWeight: 700, color: "#f43f5e", fontVariantNumeric: "tabular-nums", textAlign: "right" }}>{fmt(r.expenses)}</td>
+                        <td style={{ padding: "10px 10px", fontSize: 12, fontWeight: 800, color: r.savings>=0?"#4f8ef7":"#f43f5e", fontVariantNumeric: "tabular-nums", textAlign: "right" }}>{r.savings>=0?"+":""}{fmt(r.savings)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          );
+        }
+
+        else if (activeDetail === "debts") {
+          content = (
+            <>
+              <ModalHeader title={nl?"Schulden":"Debts"}/>
+              <div style={{ textAlign: "center", padding: "32px 0", color: C.muted, fontSize: 13 }}>
+                <div style={{ fontSize: 32, marginBottom: 12 }}>💳</div>
+                <div style={{ fontWeight: 700, color: isDark?"#e2e8f0":"#1e293b", marginBottom: 6 }}>{nl?"Schuldbeheer komt binnenkort":"Debt management coming soon"}</div>
+                <div>{nl?"Ga naar Doelen → Schulden om schulden bij te houden.":"Go to Goals → Debts to track your debts."}</div>
+              </div>
+            </>
+          );
+        }
+
+        if (!content) return null;
+        return (
+          <div onClick={e => { if (e.target === e.currentTarget) close(); }}
+            style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.72)", display: "flex", justifyContent: "flex-end" }}>
+            <div onClick={e => e.stopPropagation()} style={{ width: "min(500px, 100vw)", height: "100%", display: "flex", flexDirection: "column", background: isDark ? DK.L1 : "#ffffff", borderLeft: `1px solid ${isDark ? DK.b2 : "#e2e6ed"}`, boxShadow: "-32px 0 80px rgba(0,0,0,0.6)", animation: "slideIn 0.28s cubic-bezier(0.32,0.72,0,1)", overflow: "hidden" }}>
+              <div style={{ flex: 1, overflowY: "auto", paddingBottom: 40 }}>
+                {content}
+              </div>
+            </div>
+          </div>
+        );
+      })(), document.body)}
     </div>
   );
 }
 
-function Overzicht({ transactions, t, accounts, selectedAccount, setSelectedAccount, isDark, accent = "#3b82f6", accentBg = "#eff6ff", setTransactions, onUploadClick, lang = "nl" }) {
+function Overzicht({ transactions, t, accounts, selectedAccount, setSelectedAccount, isDark, accent = "#3b82f6", accentBg = "#eff6ff", setTransactions, onUploadClick, lang = "nl", dataLoaded = false, userPlan = 'normal', onUpgrade }) {
   const [selectedMonth, setSelectedMonth] = useState(null);
   const [drawer, setDrawer] = useState(null);
   const [activeCategory, setActiveCategory] = useState(null);
@@ -1841,8 +2524,48 @@ function Overzicht({ transactions, t, accounts, selectedAccount, setSelectedAcco
     );
   };
 
+  // Show empty state when data is loaded but there are no transactions
+  if (dataLoaded && transactions.length === 0) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 400, gap: 20, textAlign: "center" }}>
+        <div style={{ width: 72, height: 72, borderRadius: 20, background: isDark ? "rgba(79,142,247,0.1)" : "#eff6ff", display: "flex", alignItems: "center", justifyContent: "center", border: `1px solid ${isDark ? "rgba(79,142,247,0.2)" : "rgba(79,142,247,0.3)"}` }}>
+          <Wallet size={32} color="#4f8ef7" style={{ opacity: 0.7 }} />
+        </div>
+        <div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: isDark ? "#f1f5f9" : "#0f172a", marginBottom: 8 }}>
+            {lang === "nl" ? "Geen transacties gevonden" : "No transactions found"}
+          </div>
+          <div style={{ fontSize: 13, color: isDark ? "#475569" : "#94a3b8", maxWidth: 340, lineHeight: 1.6 }}>
+            {lang === "nl"
+              ? "Upload een CSV-bestand van je bank om je financiën te bekijken."
+              : "Upload a CSV file from your bank to see your finances."}
+          </div>
+        </div>
+        {onUploadClick && (
+          <button onClick={onUploadClick} style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 24px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#4f8ef7,#6366f1)", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+            <Upload size={16} />
+            {lang === "nl" ? "CSV Uploaden" : "Upload CSV"}
+          </button>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+      {/* ── Gratis limiet banner ── */}
+      {userPlan === 'normal' && transactions.length > 0 && (
+        <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 16px', borderRadius:12, background:'rgba(245,158,11,0.08)', border:'1px solid rgba(245,158,11,0.25)' }}>
+          <span style={{ fontSize:13 }}>{'★'}</span>
+          <span style={{ fontSize:13, color:'#f59e0b', fontWeight:600 }}>
+            {lang === 'nl' ? 'Gratis plan: je ziet de laatste 3 maanden. Upgrade voor volledige historie.' : 'Free plan: showing last 3 months. Upgrade for full history.'}
+          </span>
+          <button onClick={onUpgrade} style={{ marginLeft:'auto', padding:'5px 12px', borderRadius:8, border:'none', background:'linear-gradient(135deg,#f59e0b,#f97316)', color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' }}>
+            {lang === 'nl' ? 'Upgrade' : 'Upgrade'} {'→'}
+          </button>
+        </div>
+      )}
 
       {/* ── Account selector + Upload button ── */}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
@@ -2019,18 +2742,18 @@ function Overzicht({ transactions, t, accounts, selectedAccount, setSelectedAcco
         />
       )}
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-        {filtered.length === 0 ? (
+        {filtered.length === 0 && !dataLoaded && transactions.length === 0 ? (
           [0,1,2,3].map(i => <SkeletonCard key={i} isDark={isDark} />)
         ) : (
           <>
             <StatCard label={t.dashboard.netWorth} rawValue={allIncome - allExpenses} formatter={fmt} sub={lang === "nl" ? "Gecumuleerd saldo" : "Cumulative balance"} color="#4f8ef7" icon={Wallet} isDark={isDark}
-              onClick={() => setDrawer({ title: lang === "nl" ? "Alle transacties" : "All transactions", subtitle: `${filtered.length} ${t.overzicht.transactions} · ${t.dashboard.allTime}`, transactions: filtered })} />
-            <StatCard label={t.dashboard.totalIncome} rawValue={income} formatter={fmt} sub={monthLabel} color="#22c55e" icon={ArrowUpRight} trend={calcTrend(income, prevIncome)} isDark={isDark}
-              onClick={() => setDrawer({ title: t.general.income, subtitle: `${monthLabel} · ${thisMonthTxs.filter(tx => tx.amount > 0).length} transacties`, transactions: thisMonthTxs.filter(tx => tx.amount > 0) })} />
-            <StatCard label={t.dashboard.totalExpenses} rawValue={expenses} formatter={fmt} sub={monthLabel} color="#f43f5e" icon={ArrowDownRight} trend={calcTrend(expenses, prevExpenses)} isDark={isDark}
-              onClick={() => setDrawer({ title: t.general.expenses, subtitle: `${monthLabel} · ${thisMonthTxs.filter(tx => tx.amount < 0).length} transacties`, transactions: thisMonthTxs.filter(tx => tx.amount < 0) })} />
-            <StatCard label={t.dashboard.monthlyBalance} rawValue={income - expenses} formatter={fmt} sub={monthLabel} color="#a855f7" icon={Activity} trend={calcTrend(income - expenses, prevIncome - prevExpenses)} isDark={isDark}
-              onClick={() => setDrawer({ title: lang === "nl" ? "Maandoverzicht" : "Monthly overview", subtitle: monthLabel, transactions: thisMonthTxs })} />
+              onClick={filtered.length > 0 ? () => setDrawer({ title: lang === "nl" ? "Alle transacties" : "All transactions", subtitle: `${filtered.length} ${t.overzicht.transactions} · ${t.dashboard.allTime}`, transactions: filtered }) : undefined} />
+            <StatCard label={t.dashboard.totalIncome} rawValue={income} formatter={fmt} sub={monthLabel} color="#22c55e" icon={ArrowUpRight} trend={filtered.length > 0 ? calcTrend(income, prevIncome) : undefined} isDark={isDark}
+              onClick={filtered.length > 0 ? () => setDrawer({ title: t.general.income, subtitle: `${monthLabel} · ${thisMonthTxs.filter(tx => tx.amount > 0).length} transacties`, transactions: thisMonthTxs.filter(tx => tx.amount > 0) }) : undefined} />
+            <StatCard label={t.dashboard.totalExpenses} rawValue={expenses} formatter={fmt} sub={monthLabel} color="#f43f5e" icon={ArrowDownRight} trend={filtered.length > 0 ? calcTrend(expenses, prevExpenses) : undefined} isDark={isDark}
+              onClick={filtered.length > 0 ? () => setDrawer({ title: t.general.expenses, subtitle: `${monthLabel} · ${thisMonthTxs.filter(tx => tx.amount < 0).length} transacties`, transactions: thisMonthTxs.filter(tx => tx.amount < 0) }) : undefined} />
+            <StatCard label={t.dashboard.monthlyBalance} rawValue={income - expenses} formatter={fmt} sub={monthLabel} color="#a855f7" icon={Activity} trend={filtered.length > 0 ? calcTrend(income - expenses, prevIncome - prevExpenses) : undefined} isDark={isDark}
+              onClick={filtered.length > 0 ? () => setDrawer({ title: lang === "nl" ? "Maandoverzicht" : "Monthly overview", subtitle: monthLabel, transactions: thisMonthTxs }) : undefined} />
           </>
         )}
       </div>
@@ -2116,21 +2839,28 @@ function Overzicht({ transactions, t, accounts, selectedAccount, setSelectedAcco
         <div style={{ ...card(isDark) }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: isDark ? "#f1f5f9" : "#0f172a", marginBottom: 2 }}>{t.dashboard.incomeVsExpenses}</div>
           <div style={{ fontSize: 11, color: isDark ? "#334155" : "#94a3b8", marginBottom: 14 }}>Klik een balk om die maand te selecteren</div>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={barData} barGap={2} barSize={barData.length > 12 ? 5 : 8}
-              onClick={d => d?.activePayload?.[0]?.payload?.ym && setSelectedMonth(d.activePayload[0].payload.ym)}>
-              <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)"} />
-              <XAxis dataKey="month" tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `€${(v/1000).toFixed(0)}k`} />
-              <Tooltip content={<CustomBarTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
-              <Bar dataKey="income" radius={[3, 3, 0, 0]}>
-                {barData.map(entry => <Cell key={entry.ym} fill={entry.ym === currentMonth ? "#22c55e" : "rgba(34,197,94,0.3)"} />)}
-              </Bar>
-              <Bar dataKey="expenses" radius={[3, 3, 0, 0]}>
-                {barData.map(entry => <Cell key={entry.ym} fill={entry.ym === currentMonth ? "#f43f5e" : "rgba(244,63,94,0.3)"} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          {barData.length === 0 ? (
+            <div style={{ height: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: isDark ? "#334155" : "#94a3b8", fontSize: 13, gap: 8 }}>
+              <BarChart2 size={28} style={{ opacity: 0.3 }} />
+              <span>{lang === 'nl' ? 'Geen data \u2014 upload een CSV om te beginnen' : 'No data \u2014 upload a CSV to get started'}</span>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={barData} barGap={2} barSize={barData.length > 12 ? 5 : 8}
+                onClick={d => d && d.activePayload && d.activePayload[0] && d.activePayload[0].payload && d.activePayload[0].payload.ym && setSelectedMonth(d.activePayload[0].payload.ym)}>
+                <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)"} />
+                <XAxis dataKey="month" tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => "\u20AC" + (v/1000).toFixed(0) + "k"} />
+                <Tooltip content={<CustomBarTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
+                <Bar dataKey="income" radius={[3, 3, 0, 0]}>
+                  {barData.map(entry => <Cell key={entry.ym} fill={entry.ym === currentMonth ? "#22c55e" : "rgba(34,197,94,0.3)"} />)}
+                </Bar>
+                <Bar dataKey="expenses" radius={[3, 3, 0, 0]}>
+                  {barData.map(entry => <Cell key={entry.ym} fill={entry.ym === currentMonth ? "#f43f5e" : "rgba(244,63,94,0.3)"} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 
@@ -2172,9 +2902,12 @@ function Overzicht({ transactions, t, accounts, selectedAccount, setSelectedAcco
 }
 
 // ─── TRANSACTIONS VIEW ─────────────────────────────────────────
-function Transactions({ transactions, setTransactions, t, accounts, setAccounts, isDark, onImportDone, lang = "nl" }) {
+function Transactions({ transactions, setTransactions, t, accounts, setAccounts, isDark, onImportDone, lang = "nl", selectedAccount, setSelectedAccount }) {
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState("");
+  const [catDropOpen, setCatDropOpen] = useState(false);
+  const [txSort, setTxSort] = useState("date_desc");
+  const [txAfBij, setTxAfBij] = useState("all");
   const [showUpload, setShowUpload] = useState(false);
   const [editCat, setEditCat] = useState(null);
   const [inlineCatInput, setInlineCatInput] = useState(null); // tx.id when adding new cat inline
@@ -2207,7 +2940,7 @@ function Transactions({ transactions, setTransactions, t, accounts, setAccounts,
     return null;
   };
 
-  const filtered = [...transactions]
+  const filtered = [...filterByAccount(transactions, accounts, selectedAccount)]
     .filter(tx => {
       const q = search.toLowerCase();
       const matchSearch = !q ||
@@ -2216,15 +2949,21 @@ function Transactions({ transactions, setTransactions, t, accounts, setAccounts,
         (tx.category || "").toLowerCase().includes(q) ||
         (tx.paymentType || "").toLowerCase().includes(q);
       const matchCat = !filterCat || tx.category === filterCat;
+      const matchType = txAfBij === "all" || (txAfBij === "af" ? tx.amount < 0 : tx.amount > 0);
       let matchDate = true;
       if (datePreset !== "all") {
         const range = datePreset === "custom" ? { from: dateFrom, to: dateTo } : getPresetRange(datePreset);
         if (range?.from) matchDate = tx.date >= range.from;
         if (range?.to) matchDate = matchDate && tx.date <= range.to;
       }
-      return matchSearch && matchCat && matchDate;
+      return matchSearch && matchCat && matchDate && matchType;
     })
-    .sort((a, b) => b.date.localeCompare(a.date));
+    .sort((a, b) => {
+      if (txSort === "date_asc")    return a.date.localeCompare(b.date);
+      if (txSort === "amount_desc") return Math.abs(b.amount) - Math.abs(a.amount);
+      if (txSort === "amount_asc")  return Math.abs(a.amount) - Math.abs(b.amount);
+      return b.date.localeCompare(a.date); // date_desc default
+    });
 
   const handleImport = (newTxs, importedAccounts) => {
     if (onImportDone) {
@@ -2253,8 +2992,11 @@ function Transactions({ transactions, setTransactions, t, accounts, setAccounts,
         </div>
       </div>
 
+      {/* Account filter */}
+      <AccountFilterBar accounts={accounts} selectedAccount={selectedAccount} setSelectedAccount={setSelectedAccount} isDark={isDark} />
+
       {/* Filters */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
         <div style={{ flex: 1, minWidth: 200, position: "relative" }}>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t.transactions.search}
             style={{ width: "100%", padding: "10px 16px 10px 40px", background: isDark ? "rgba(255,255,255,0.04)" : "#f8fafc", border: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid #e2e6ed", borderRadius: 12, color: isDark ? "#f1f5f9" : "#0f172a", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
@@ -2262,11 +3004,47 @@ function Transactions({ transactions, setTransactions, t, accounts, setAccounts,
             <Activity size={14} />
           </div>
         </div>
-        <select value={filterCat} onChange={e => setFilterCat(e.target.value)}
-          style={{ padding: "10px 14px", background: isDark ? "rgba(255,255,255,0.04)" : "#f8fafc", border: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid #e2e6ed", borderRadius: 12, color: filterCat ? (isDark ? "#f1f5f9" : "#0f172a") : "#334155", fontSize: 13, cursor: "pointer", outline: "none" }}>
-          <option value="">{t.transactions.filter} — {lang === "en" ? "All" : "Alle"}</option>
-          {Object.keys(CATEGORY_COLORS).map(k => <option key={k} value={k}>{t.categories[k] || k}</option>)}
-        </select>
+        {/* Custom category pill dropdown */}
+        <div style={{ position: "relative" }}>
+          <button onClick={() => setCatDropOpen(p => !p)}
+            style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 14px", background: filterCat ? `${CATEGORY_COLORS[filterCat] || "#64748b"}18` : isDark ? "rgba(255,255,255,0.04)" : "#f8fafc", border: filterCat ? `1px solid ${CATEGORY_COLORS[filterCat] || "#64748b"}50` : isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid #e2e6ed", borderRadius: 12, color: filterCat ? (CATEGORY_COLORS[filterCat] || "#64748b") : isDark ? "#64748b" : "#94a3b8", fontSize: 13, cursor: "pointer", fontWeight: filterCat ? 700 : 500, whiteSpace: "nowrap" }}>
+            {filterCat ? (
+              <>
+                <div style={{ width: 7, height: 7, borderRadius: 2, background: CATEGORY_COLORS[filterCat] || "#64748b", flexShrink: 0 }}/>
+                {t.categories[filterCat] || filterCat}
+                <X size={12} onClick={e => { e.stopPropagation(); setFilterCat(""); setCatDropOpen(false); }} style={{ opacity: 0.7, marginLeft: 2 }}/>
+              </>
+            ) : (
+              <>
+                <Tag size={13} />
+                {lang === "nl" ? "Categorie" : "Category"}
+                <ChevronDown size={12} style={{ opacity: 0.6 }}/>
+              </>
+            )}
+          </button>
+          {catDropOpen && (
+            <>
+              <div style={{ position: "fixed", inset: 0, zIndex: 199 }} onClick={() => setCatDropOpen(false)}/>
+              <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 200, background: isDark ? "#0b1628" : "#ffffff", border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #e2e6ed", borderRadius: 14, padding: "10px 12px", display: "flex", flexWrap: "wrap", gap: 6, width: 260, boxShadow: "0 8px 28px rgba(0,0,0,0.28)" }}>
+                <button onClick={() => { setFilterCat(""); setCatDropOpen(false); }}
+                  style={{ padding: "5px 13px", borderRadius: 20, border: !filterCat ? "1.5px solid #4f8ef7" : `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "#e2e6ed"}`, background: !filterCat ? "rgba(79,142,247,0.15)" : "transparent", color: !filterCat ? "#4f8ef7" : isDark ? "#64748b" : "#94a3b8", fontSize: 12, fontWeight: !filterCat ? 700 : 500, cursor: "pointer" }}>
+                  {lang === "nl" ? "Alle" : "All"}
+                </button>
+                {Object.keys(CATEGORY_COLORS).map(k => {
+                  const color = CATEGORY_COLORS[k] || "#64748b";
+                  const active = filterCat === k;
+                  return (
+                    <button key={k} onClick={() => { setFilterCat(k); setCatDropOpen(false); }}
+                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 20, border: active ? `1.5px solid ${color}` : `1px solid ${color}30`, background: active ? `${color}28` : `${color}12`, color, fontSize: 12, fontWeight: active ? 700 : 500, cursor: "pointer", whiteSpace: "nowrap" }}>
+                      <div style={{ width: 6, height: 6, borderRadius: 2, background: color, flexShrink: 0 }}/>
+                      {t.categories[k] || k}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Date range filters */}
@@ -2300,6 +3078,33 @@ function Transactions({ transactions, setTransactions, t, accounts, setAccounts,
           </div>
         )}
         <span style={{ fontSize: 11, color: isDark ? "#334155" : "#94a3b8", marginLeft: "auto" }}>{filtered.length} transacties</span>
+      </div>
+
+      {/* Af/Bij + Sort bar */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
+        {[
+          { v: "all",  label: lang === "nl" ? "Alle" : "All",        color: "#4f8ef7" },
+          { v: "af",   label: lang === "nl" ? "Uitgaven" : "Expenses", color: "#f43f5e" },
+          { v: "bij",  label: lang === "nl" ? "Inkomsten" : "Income",  color: "#22c55e" },
+        ].map(({ v, label, color }) => (
+          <button key={v} onClick={() => setTxAfBij(v)}
+            style={{ padding: "6px 14px", borderRadius: 20, border: txAfBij === v ? `1.5px solid ${color}` : `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "#e2e6ed"}`, background: txAfBij === v ? `${color}18` : "transparent", color: txAfBij === v ? color : isDark ? "#64748b" : "#94a3b8", fontSize: 12, fontWeight: txAfBij === v ? 700 : 400, cursor: "pointer" }}>
+            {label}
+          </button>
+        ))}
+        <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+          {[
+            { v: "date_desc",   label: lang === "nl" ? "Nieuwste" : "Newest" },
+            { v: "date_asc",    label: lang === "nl" ? "Oudste" : "Oldest" },
+            { v: "amount_desc", label: lang === "nl" ? "Hoog→Laag" : "High→Low" },
+            { v: "amount_asc",  label: lang === "nl" ? "Laag→Hoog" : "Low→High" },
+          ].map(({ v, label }) => (
+            <button key={v} onClick={() => setTxSort(v)}
+              style={{ padding: "6px 12px", borderRadius: 20, border: txSort === v ? `1.5px solid #4f8ef7` : `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "#e2e6ed"}`, background: txSort === v ? "rgba(79,142,247,0.12)" : "transparent", color: txSort === v ? "#4f8ef7" : isDark ? "#64748b" : "#94a3b8", fontSize: 12, fontWeight: txSort === v ? 700 : 400, cursor: "pointer", whiteSpace: "nowrap" }}>
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Table */}
@@ -2386,12 +3191,24 @@ function Transactions({ transactions, setTransactions, t, accounts, setAccounts,
 }
 
 // ─── INVESTMENTS VIEW ──────────────────────────────────────────
-// CoinGecko coin ID mapping (name → coingecko id)
 
+// Default market-price assets — stored in localStorage for persistence
+const DEFAULT_TICKER_ASSETS = [
+  { id: "bitcoin",  label: "Bitcoin",  emoji: "₿",  type: "crypto", color: "#f59e0b", source: "coingecko", cgId: "bitcoin",  yahooSymbol: null  },
+  { id: "ethereum", label: "Ethereum", emoji: "Ξ",  type: "crypto", color: "#6366f1", source: "coingecko", cgId: "ethereum", yahooSymbol: null  },
+  { id: "gold",     label: "Goud",     emoji: "🥇", type: "metal",  color: "#d4af37", source: "metal",    cgId: null,       yahooSymbol: "GC=F" },
+  { id: "silver",   label: "Zilver",   emoji: "🥈", type: "metal",  color: "#94a3b8", source: "metal",    cgId: null,       yahooSymbol: "SI=F" },
+  { id: "aex",      label: "AEX",      emoji: "🇳🇱", type: "index",  color: "#ff6b35", source: "yahoo",    cgId: null,       yahooSymbol: "^AEX" },
+  { id: "nasdaq",   label: "Nasdaq",   emoji: "📈", type: "index",  color: "#22c55e", source: "yahoo",    cgId: null,       yahooSymbol: "^IXIC" },
+];
+
+// Colour palette for auto-assigned colours
+const ASSET_COLORS = ["#4f8ef7","#a855f7","#22c55e","#f59e0b","#f43f5e","#06b6d4","#84cc16","#ec4899","#8b5cf6","#14b8a6"];
+const typeEmoji = { crypto: "🪙", stock: "📊", etf: "🧺", index: "📈", metal: "🥇" };
 
 // ─── FINNHUB KEY (hardcoded) ──────────────────────────────────
 
-function Investments({ t, isDark, useMockData = true, investments, setInvestments, lang = "nl", allTransactions = [], goals = [], setGoals }) {
+function Investments({ t, isDark, useMockData = true, investments, setInvestments, lang = "nl", allTransactions = [], goals = [], setGoals, userPlan = 'normal', onUpgrade }) {
   // Use passed-in state if available, otherwise fall back to local
   const [localInvestments, setLocalInvestments] = useState(useMockData ? MOCK_INVESTMENTS : []);
   const invs = investments !== undefined ? investments : localInvestments;
@@ -2405,11 +3222,56 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
   const [globalLoading, setGlobalLoading] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(null);
 
+  // Ticker autocomplete in Add Investment form
+  const [tickerQuery, setTickerQuery]             = useState("");
+  const [tickerSuggestions, setTickerSuggestions] = useState([]);
+  const [tickerSugLoading, setTickerSugLoading]   = useState(false);
+  const [showTickerDrop, setShowTickerDrop]       = useState(false);
+  const tickerTimer = useRef(null);
+
+  const searchTicker = async (q, type) => {
+    if (!q.trim()) { setTickerSuggestions([]); setShowTickerDrop(false); return; }
+    setTickerSugLoading(true); setShowTickerDrop(true);
+    try {
+      if (type === "crypto") {
+        const res = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(q)}`, { signal: AbortSignal.timeout(8000) });
+        if (res.ok) {
+          const d = await res.json();
+          setTickerSuggestions((d.coins || []).slice(0, 8).map(c => ({ id: c.id, label: c.name, symbol: c.symbol?.toUpperCase(), cgId: c.id, rank: c.market_cap_rank })));
+        }
+      } else {
+        const res = await fetch(`${PROXY}https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=8&newsCount=0`, { signal: AbortSignal.timeout(8000) });
+        if (res.ok) {
+          const d = await res.json();
+          setTickerSuggestions((d.quotes || []).filter(q => ["EQUITY","ETF","INDEX"].includes(q.quoteType)).slice(0, 8).map(q => ({ id: q.symbol, label: q.shortname || q.longname || q.symbol, symbol: q.symbol, exchange: q.exchange })));
+        }
+      }
+    } catch {} finally { setTickerSugLoading(false); }
+  };
+
+  const handleTickerInput = (val, type) => {
+    setTickerQuery(val);
+    setForm(p => ({ ...p, ticker: val }));
+    clearTimeout(tickerTimer.current);
+    tickerTimer.current = setTimeout(() => searchTicker(val, type), 350);
+  };
+
+  const selectTickerSuggestion = (s, type) => {
+    const tickerVal = type === "crypto" ? s.cgId : s.symbol;
+    setForm(p => ({ ...p, ticker: tickerVal, name: p.name || s.label }));
+    setTickerQuery(s.symbol || s.label);
+    setTickerSuggestions([]);
+    setShowTickerDrop(false);
+  };
+
   const closeForm = () => {
     setShowForm(false);
     setFormMode("choose");
     setTxSearch("");
     setSelectedTx(null);
+    setTickerQuery("");
+    setTickerSuggestions([]);
+    setShowTickerDrop(false);
     setForm({ name: "", type: "crypto", invested: "", currentValue: "", ticker: "", units: "", savingsCurrency: "EUR", linkedGoalId: "", address: "", wozValue: "", mortgage: "" });
   };
 
@@ -2427,15 +3289,94 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
   const [periodBaselines, setPeriodBaselines] = useState({});
   const [periodLoading, setPeriodLoading] = useState(false);
   const [fxRates, setFxRates] = useState({});
+  const [portfolioHistory, setPortfolioHistory] = useState([]);
+  const [portfolioHistLoading, setPortfolioHistLoading] = useState(false);
+  const [investmentEvents, setInvestmentEvents] = useState([]);
 
-  const TICKER_ASSETS = [
-    { id: "bitcoin",  label: "Bitcoin",  emoji: "₿",  type: "crypto", color: "#f59e0b" },
-    { id: "ethereum", label: "Ethereum", emoji: "Ξ",  type: "crypto", color: "#6366f1" },
-    { id: "gold",     label: "Goud",     emoji: "🥇", type: "metal",  color: "#d4af37" },
-    { id: "silver",   label: "Zilver",   emoji: "🥈", type: "metal",  color: "#94a3b8" },
-    { id: "aex",      label: "AEX",      emoji: "🇳🇱", type: "stock",  color: "#ff6b35" },
-    { id: "nasdaq",   label: "Nasdaq",   emoji: "📈", type: "stock",  color: "#22c55e" },
+  // ── Widget customisation (market prices + portfolio) ─────────
+  const DEFAULT_INV_WIDGETS = [
+    { id: "market_prices", enabled: true, icon: "📈" },
+    { id: "portfolio",     enabled: true, icon: "💼" },
   ];
+  const [invWidgets, setInvWidgets]   = useState(DEFAULT_INV_WIDGETS);
+  const [invEditMode, setInvEditMode] = useState(false);
+  const [invDragging, setInvDragging] = useState(null);
+  const [invDragOver, setInvDragOver] = useState(null);
+
+  const INV_WIDGET_LABELS = {
+    nl: { market_prices: "Marktprijzen", portfolio: "Investeringen" },
+    en: { market_prices: "Market prices", portfolio: "Investments" },
+  };
+
+  // Portfolio sub-widgets (grafiek, posities, allocatie)
+  const DEFAULT_PF_WIDGETS = [
+    { id: "chart",      enabled: true, icon: "📈" },
+    { id: "positions",  enabled: true, icon: "💼" },
+    { id: "allocation", enabled: true, icon: "🍩" },
+  ];
+  const [pfWidgets, setPfWidgets] = useState(DEFAULT_PF_WIDGETS);
+  const [pfEditMode, setPfEditMode] = useState(false);
+  const [pfDragging, setPfDragging] = useState(null);
+  const [pfDragOver, setPfDragOver] = useState(null);
+  const PF_WIDGET_LABELS = { nl: { chart: "Grafiek", positions: "Posities", allocation: "Allocatie" }, en: { chart: "Chart", positions: "Positions", allocation: "Allocation" } };
+  const pfToggle    = (id) => setPfWidgets(prev => prev.map(w => w.id === id ? { ...w, enabled: !w.enabled } : w));
+  const pfDragStart = (id) => setPfDragging(id);
+  const pfDragOver_ = (e, id) => { e.preventDefault(); setPfDragOver(id); };
+  const pfDrop      = (targetId) => {
+    if (!pfDragging || pfDragging === targetId) { setPfDragging(null); setPfDragOver(null); return; }
+    setPfWidgets(prev => { const arr = [...prev]; const from = arr.findIndex(w => w.id === pfDragging); const to = arr.findIndex(w => w.id === targetId); const [moved] = arr.splice(from, 1); arr.splice(to, 0, moved); return arr; });
+    setPfDragging(null); setPfDragOver(null);
+  };
+  const invToggle = (id) => setInvWidgets(prev => prev.map(w => w.id === id ? { ...w, enabled: !w.enabled } : w));
+  const invDragStart = (id) => setInvDragging(id);
+  const invDragOver_ = (e, id) => { e.preventDefault(); setInvDragOver(id); };
+  const invDrop      = (targetId) => {
+    if (!invDragging || invDragging === targetId) { setInvDragging(null); setInvDragOver(null); return; }
+    setInvWidgets(prev => {
+      const arr = [...prev];
+      const from = arr.findIndex(w => w.id === invDragging);
+      const to   = arr.findIndex(w => w.id === targetId);
+      const [moved] = arr.splice(from, 1);
+      arr.splice(to, 0, moved);
+      return arr;
+    });
+    setInvDragging(null); setInvDragOver(null);
+  };
+
+  // ── Price chart modal ─────────────────────────────────────────
+  const [chartAsset, setChartAsset] = useState(null); // TICKER_ASSETS entry
+  const [chartPeriod, setChartPeriod] = useState("1D");
+  const [chartData, setChartData] = useState([]);
+  const [chartLoading, setChartLoading] = useState(false);
+  const [chartError, setChartError] = useState(null);
+  const CHART_PERIODS = ["1D", "5D", "1M", "6M", "YTD", "1Y", "5Y"];
+
+  // Persist asset list in localStorage
+  const [tickerAssets, setTickerAssets] = useState(() => {
+    try {
+      const saved = localStorage.getItem("dynafy_ticker_assets");
+      return saved ? JSON.parse(saved) : DEFAULT_TICKER_ASSETS;
+    } catch { return DEFAULT_TICKER_ASSETS; }
+  });
+  const TICKER_ASSETS = tickerAssets; // alias for existing references
+
+  const saveTickerAssets = (updated) => {
+    setTickerAssets(updated);
+    try { localStorage.setItem("dynafy_ticker_assets", JSON.stringify(updated)); } catch {}
+  };
+  const addTickerAsset = (asset) => {
+    if (tickerAssets.find(a => a.id === asset.id)) return; // no duplicates
+    saveTickerAssets([...tickerAssets, asset]);
+  };
+  const removeTickerAsset = (id) => saveTickerAssets(tickerAssets.filter(a => a.id !== id));
+
+  // Asset picker modal state
+  const [showAssetPicker, setShowAssetPicker]         = useState(false);
+  const [assetPickerTab, setAssetPickerTab]           = useState("crypto"); // "crypto" | "stock"
+  const [assetSearch, setAssetSearch]                 = useState("");
+  const [assetSearchResults, setAssetSearchResults]   = useState([]);
+  const [assetSearchLoading, setAssetSearchLoading]   = useState(false);
+  const assetSearchTimer = useRef(null);
 
 
   // ── Marktprijzen via gratis publieke APIs ────────────────────────────────
@@ -2520,6 +3461,180 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
     return { price: Math.round(current * 100) / 100, change24h, source: "Yahoo Finance" };
   };
 
+  // ── Chart data fetcher ────────────────────────────────────────
+  // Derived from asset state — updates automatically when assets are added/removed
+  const CHART_CG_IDS = Object.fromEntries(
+    tickerAssets.filter(a => a.source === "coingecko" && a.cgId).map(a => [a.id, a.cgId])
+  );
+  const CHART_YAHOO_SYMBOLS = Object.fromEntries(
+    tickerAssets.filter(a => a.yahooSymbol && a.source !== "coingecko").map(a => [a.id, a.yahooSymbol])
+  );
+  const CHART_PERIOD_PARAMS = {
+    "1D":  { cgDays: 1,    range: "1d",  interval: "5m"  },
+    "5D":  { cgDays: 5,    range: "5d",  interval: "1h"  },
+    "1M":  { cgDays: 30,   range: "1mo", interval: "1d"  },
+    "6M":  { cgDays: 180,  range: "6mo", interval: "1d"  },
+    "YTD": { cgDays: null, range: "ytd", interval: "1d"  },
+    "1Y":  { cgDays: 365,  range: "1y",  interval: "1d"  },
+    "5Y":  { cgDays: 1825, range: "5y",  interval: "1wk" },
+  };
+
+  const fetchChartData = async (asset, period, currency) => {
+    setChartLoading(true);
+    setChartError(null);
+    setChartData([]);
+    const p = CHART_PERIOD_PARAMS[period];
+    const cur = (currency || tickerCurrency).toLowerCase(); // "eur" or "usd"
+    try {
+      let points = [];
+      if (CHART_CG_IDS[asset.id]) {
+        // Crypto via CoinGecko — supports vs_currency
+        const days = period === "YTD"
+          ? Math.max(1, Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 1)) / 86400000))
+          : p.cgDays;
+        const res = await fetch(
+          `https://api.coingecko.com/api/v3/coins/${asset.id}/market_chart?vs_currency=${cur}&days=${days}`,
+          { signal: AbortSignal.timeout(12000) }
+        );
+        if (!res.ok) throw new Error(`CoinGecko fout ${res.status}`);
+        const d = await res.json();
+        points = (d.prices || []).map(([ts, price]) => ({ time: ts, price: Math.round(price * 100) / 100 }));
+      } else {
+        // Stocks/metals/indices via Yahoo Finance
+        const sym = CHART_YAHOO_SYMBOLS[asset.id];
+        if (!sym) throw new Error("Geen symbool beschikbaar");
+        const url = `${PROXY}https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=${p.interval}&range=${p.range}`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
+        if (!res.ok) throw new Error(`Yahoo fout ${res.status}`);
+        const d = await res.json();
+        const result = d.chart?.result?.[0];
+        if (!result) throw new Error("Geen data ontvangen");
+        const timestamps = result.timestamp || [];
+        const closes = result.indicators?.quote?.[0]?.close || [];
+        points = timestamps
+          .map((ts, i) => ({ time: ts * 1000, price: closes[i] != null ? Math.round(closes[i] * 100) / 100 : null }))
+          .filter(pt => pt.price != null);
+      }
+      setChartData(points);
+    } catch (e) {
+      setChartError(e.message);
+    } finally {
+      setChartLoading(false);
+    }
+  };
+
+  const openChart = (asset) => {
+    setChartAsset(asset);
+    setChartPeriod("1D");
+    fetchChartData(asset, "1D");
+  };
+
+  // ── Asset picker search ───────────────────────────────────────
+  const searchCrypto = async (query) => {
+    if (!query.trim()) {
+      // Show top coins by market cap when no query
+      try {
+        setAssetSearchLoading(true);
+        const res = await fetch(
+          "https://api.coingecko.com/api/v3/coins/markets?vs_currency=eur&order=market_cap_desc&per_page=20&page=1&sparkline=false",
+          { signal: AbortSignal.timeout(10000) }
+        );
+        if (res.ok) {
+          const d = await res.json();
+          setAssetSearchResults(d.map(c => ({
+            id: c.id, label: c.name, symbol: c.symbol.toUpperCase(),
+            type: "crypto", source: "coingecko", cgId: c.id, yahooSymbol: null,
+            color: ASSET_COLORS[Math.abs(c.id.charCodeAt(0)) % ASSET_COLORS.length],
+            emoji: "🪙", rank: c.market_cap_rank,
+            price: c.current_price, change: c.price_change_percentage_24h,
+          })));
+        }
+      } catch {} finally { setAssetSearchLoading(false); }
+      return;
+    }
+    setAssetSearchLoading(true);
+    try {
+      const res = await fetch(
+        `https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(query)}`,
+        { signal: AbortSignal.timeout(10000) }
+      );
+      if (res.ok) {
+        const d = await res.json();
+        setAssetSearchResults((d.coins || []).slice(0, 15).map(c => ({
+          id: c.id, label: c.name, symbol: c.symbol?.toUpperCase() || "",
+          type: "crypto", source: "coingecko", cgId: c.id, yahooSymbol: null,
+          color: ASSET_COLORS[Math.abs(c.id.charCodeAt(0)) % ASSET_COLORS.length],
+          emoji: "🪙", rank: c.market_cap_rank,
+        })));
+      }
+    } catch { setAssetSearchResults([]); } finally { setAssetSearchLoading(false); }
+  };
+
+  const searchYahoo = async (query) => {
+    if (!query.trim()) {
+      // Popular presets when no query
+      setAssetSearchResults([
+        { id: "sp500",  label: "S&P 500",     symbol: "^GSPC",  type: "index", source: "yahoo", cgId: null, yahooSymbol: "^GSPC",  color: "#4f8ef7", emoji: "📈" },
+        { id: "dow",    label: "Dow Jones",   symbol: "^DJI",   type: "index", source: "yahoo", cgId: null, yahooSymbol: "^DJI",   color: "#22c55e", emoji: "📈" },
+        { id: "ftse",   label: "FTSE 100",    symbol: "^FTSE",  type: "index", source: "yahoo", cgId: null, yahooSymbol: "^FTSE",  color: "#f59e0b", emoji: "📈" },
+        { id: "dax",    label: "DAX",         symbol: "^GDAXI", type: "index", source: "yahoo", cgId: null, yahooSymbol: "^GDAXI", color: "#a855f7", emoji: "📈" },
+        { id: "aapl",   label: "Apple",       symbol: "AAPL",   type: "stock", source: "yahoo", cgId: null, yahooSymbol: "AAPL",   color: "#6366f1", emoji: "📊" },
+        { id: "msft",   label: "Microsoft",   symbol: "MSFT",   type: "stock", source: "yahoo", cgId: null, yahooSymbol: "MSFT",   color: "#4f8ef7", emoji: "📊" },
+        { id: "nvda",   label: "Nvidia",      symbol: "NVDA",   type: "stock", source: "yahoo", cgId: null, yahooSymbol: "NVDA",   color: "#22c55e", emoji: "📊" },
+        { id: "tsla",   label: "Tesla",       symbol: "TSLA",   type: "stock", source: "yahoo", cgId: null, yahooSymbol: "TSLA",   color: "#f43f5e", emoji: "📊" },
+        { id: "vwce",   label: "VWCE (ETF)",  symbol: "VWCE.AS",type: "etf",   source: "yahoo", cgId: null, yahooSymbol: "VWCE.AS",color: "#14b8a6", emoji: "🧺" },
+        { id: "iwda",   label: "IWDA (ETF)",  symbol: "IWDA.AS",type: "etf",   source: "yahoo", cgId: null, yahooSymbol: "IWDA.AS",color: "#06b6d4", emoji: "🧺" },
+        { id: "asml",   label: "ASML",        symbol: "ASML.AS",type: "stock", source: "yahoo", cgId: null, yahooSymbol: "ASML.AS",color: "#f59e0b", emoji: "📊" },
+      ]);
+      return;
+    }
+    setAssetSearchLoading(true);
+    try {
+      const res = await fetch(
+        `${PROXY}https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=12&newsCount=0&enableFuzzyQuery=true`,
+        { signal: AbortSignal.timeout(10000) }
+      );
+      if (res.ok) {
+        const d = await res.json();
+        const quotes = (d.quotes || []).filter(q =>
+          q.quoteType && ["EQUITY","ETF","INDEX","MUTUALFUND"].includes(q.quoteType)
+        ).slice(0, 12);
+        setAssetSearchResults(quotes.map((q, i) => {
+          const typeMap = { EQUITY: "stock", ETF: "etf", INDEX: "index", MUTUALFUND: "etf" };
+          const emojiMap = { stock: "📊", etf: "🧺", index: "📈" };
+          const t = typeMap[q.quoteType] || "stock";
+          const sym = q.symbol || "";
+          const id = sym.toLowerCase().replace(/[^a-z0-9]/g, "_");
+          return {
+            id, label: q.shortname || q.longname || sym, symbol: sym,
+            type: t, source: "yahoo", cgId: null, yahooSymbol: sym,
+            color: ASSET_COLORS[i % ASSET_COLORS.length],
+            emoji: emojiMap[t] || "📊",
+            exchange: q.exchange,
+          };
+        }));
+      }
+    } catch { setAssetSearchResults([]); } finally { setAssetSearchLoading(false); }
+  };
+
+  const handleAssetSearch = (query) => {
+    setAssetSearch(query);
+    clearTimeout(assetSearchTimer.current);
+    assetSearchTimer.current = setTimeout(() => {
+      if (assetPickerTab === "crypto") searchCrypto(query);
+      else searchYahoo(query);
+    }, 400);
+  };
+
+  const openAssetPicker = (tab = "crypto") => {
+    setAssetPickerTab(tab);
+    setAssetSearch("");
+    setAssetSearchResults([]);
+    setShowAssetPicker(true);
+    // Load defaults immediately
+    setTimeout(() => { if (tab === "crypto") searchCrypto(""); else searchYahoo(""); }, 50);
+  };
+
   const lastTickerFetch = useRef(0);
   const fetchTicker = async (force = false) => {
     const now = Date.now();
@@ -2532,48 +3647,56 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
     let eurusd = 1.1;
     try { const fx = await fetchYahoo("EURUSD=X"); eurusd = fx.price || 1.1; } catch {}
 
-    // 1. Crypto via CoinGecko (EUR + USD in één call)
-    try {
-      const res = await fetch(
-        "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=eur,usd&include_24hr_change=true",
-        { signal: AbortSignal.timeout(8000) }
-      );
-      if (res.ok) {
-        const d = await res.json();
-        if (d.bitcoin)  results.bitcoin  = { priceEur: d.bitcoin.eur,  priceUsd: d.bitcoin.usd,  change24h: d.bitcoin.eur_24h_change,  source: "CoinGecko" };
-        if (d.ethereum) results.ethereum = { priceEur: d.ethereum.eur, priceUsd: d.ethereum.usd, change24h: d.ethereum.eur_24h_change, source: "CoinGecko" };
-      }
-    } catch (e) { console.warn("CoinGecko ticker:", e.message); }
+    // 1. Batch all CoinGecko assets in one call
+    const cgAssets = tickerAssets.filter(a => a.source === "coingecko" && a.cgId);
+    if (cgAssets.length > 0) {
+      try {
+        const ids = cgAssets.map(a => a.cgId).join(",");
+        const res = await fetch(
+          `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=eur,usd&include_24hr_change=true`,
+          { signal: AbortSignal.timeout(8000) }
+        );
+        if (res.ok) {
+          const d = await res.json();
+          cgAssets.forEach(a => {
+            if (d[a.cgId]) results[a.id] = { priceEur: d[a.cgId].eur, priceUsd: d[a.cgId].usd, change24h: d[a.cgId].eur_24h_change, source: "CoinGecko" };
+          });
+        }
+      } catch (e) { console.warn("CoinGecko ticker:", e.message); }
+    }
 
-    // 2. Goud & Zilver via Yahoo Finance futures (GC=F / SI=F in USD)
-    try {
-      const [goldRes, silverRes] = await Promise.all([fetchYahoo("GC=F"), fetchYahoo("SI=F")]);
-      const OZ = 31.1035;
-      results.gold   = { priceUsd: Math.round(goldRes.price   / OZ * 100) / 100, priceEur: Math.round(goldRes.price   / OZ / eurusd * 100) / 100, change24h: goldRes.change24h,   unit: "/gram", source: "Yahoo Finance" };
-      results.silver = { priceUsd: Math.round(silverRes.price / OZ * 100) / 100, priceEur: Math.round(silverRes.price / OZ / eurusd * 100) / 100, change24h: silverRes.change24h, unit: "/gram", source: "Yahoo Finance" };
-    } catch (e) { console.warn("Metals ticker:", e.message); }
+    // 2. Metal assets (oz → gram conversion)
+    const metalAssets = tickerAssets.filter(a => a.source === "metal" && a.yahooSymbol);
+    await Promise.all(metalAssets.map(async a => {
+      try {
+        const r = await fetchYahoo(a.yahooSymbol);
+        const OZ = 31.1035;
+        results[a.id] = { priceUsd: Math.round(r.price / OZ * 100) / 100, priceEur: Math.round(r.price / OZ / eurusd * 100) / 100, change24h: r.change24h, unit: "/gram", source: "Yahoo Finance" };
+      } catch (e) { console.warn(a.label + " ticker:", e.message); results[a.id] = { error: true }; }
+    }));
 
-    // 3. AEX (EUR) & Nasdaq (USD) via Yahoo
-    try {
-      const aexRes = await fetchYahoo("^AEX");
-      results.aex = { priceEur: aexRes.price, priceUsd: Math.round(aexRes.price * eurusd * 100) / 100, change24h: aexRes.change24h, source: "Yahoo Finance" };
-    } catch (e) { console.warn("aex ticker:", e.message); results.aex = { error: true }; }
-    try {
-      const nqRes = await fetchYahoo("^IXIC");
-      results.nasdaq = { priceUsd: nqRes.price, priceEur: Math.round(nqRes.price / eurusd * 100) / 100, change24h: nqRes.change24h, source: "Yahoo Finance" };
-    } catch (e) { console.warn("nasdaq ticker:", e.message); results.nasdaq = { error: true }; }
+    // 3. Yahoo Finance assets (stocks, indices, ETFs)
+    const yahooAssets = tickerAssets.filter(a => a.source === "yahoo" && a.yahooSymbol);
+    await Promise.all(yahooAssets.map(async a => {
+      try {
+        const r = await fetchYahoo(a.yahooSymbol);
+        // Detect if price is EUR-denominated (AEX, Amsterdam stocks) or USD
+        const isEur = a.yahooSymbol.endsWith(".AS") || a.yahooSymbol === "^AEX" || a.type === "etf_eur";
+        results[a.id] = isEur
+          ? { priceEur: r.price, priceUsd: Math.round(r.price * eurusd * 100) / 100, change24h: r.change24h, source: "Yahoo Finance" }
+          : { priceUsd: r.price, priceEur: Math.round(r.price / eurusd * 100) / 100, change24h: r.change24h, source: "Yahoo Finance" };
+      } catch (e) { console.warn(a.label + " ticker:", e.message); results[a.id] = { error: true }; }
+    }));
 
     setTicker(prev => ({
       ...prev,
-      ...Object.fromEntries(
-        ["bitcoin","ethereum","gold","silver","aex","nasdaq"].map(k => [k, results[k] ?? { error: true }])
-      ),
+      ...Object.fromEntries(tickerAssets.map(a => [a.id, results[a.id] ?? { error: true }])),
     }));
     setTickerLoading(false);
     setTickerLastUpdate(tsFmt());
   };
 
-  useEffect(() => { fetchTicker(); }, []);
+  useEffect(() => { fetchTicker(); }, [tickerAssets.map(a => a.id).join(",")]);
 
   const fetchPrice = async (inv) => {
     setPrices(prev => ({ ...prev, [inv.id]: { loading: true, error: null } }));
@@ -2705,6 +3828,107 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
 
   useEffect(() => { fetchPeriodBaselines(invPeriod); }, [invPeriod]);
 
+  // ── Portfolio history grafiek data ──────────────────────────
+  const fetchPortfolioHistory = async (period) => {
+    if (invs.length === 0) { setPortfolioHistory([]); setInvestmentEvents([]); return; }
+    setPortfolioHistLoading(true);
+    try {
+      const cfg = PERIOD_CONFIG[period];
+      const oldestDate = invs.map(i => i.created_at || i.date).filter(Boolean).sort()[0];
+      const maxDays = oldestDate
+        ? Math.min(Math.ceil((Date.now() - new Date(oldestDate)) / 86400000) + 1, 365)
+        : 365;
+      const days      = period === "Max" ? maxDays : cfg?.cgDays || 30;
+      const yhRange   = period === "Max" ? (maxDays <= 30 ? "1mo" : maxDays <= 180 ? "6mo" : "1y") : (cfg?.yhRange || "1mo");
+      const yhInterval= period === "Max" ? (maxDays <= 30 ? "1d" : "1wk") : (cfg?.yhInterval || "1d");
+
+      const seriesList = await Promise.all(invs.map(async (inv) => {
+        const key  = (inv.ticker || inv.name || "").toLowerCase().replace(/[\s-]/g, "");
+        const cgId = COINGECKO_IDS[key];
+        const sym  = YAHOO_SYMBOLS[key] || inv.ticker?.toUpperCase();
+        const units = parseFloat(inv.units) || 1;
+        // Datum waarop investering is toegevoegd — vóór deze datum telt hij mee als €0
+        const addedDate = (inv.created_at || inv.date)?.split("T")[0] || null;
+        try {
+          if (cgId) {
+            const res = await fetch(`https://api.coingecko.com/api/v3/coins/${cgId}/market_chart?vs_currency=eur&days=${days}`, { signal: AbortSignal.timeout(10000) });
+            if (res.ok) {
+              const data = await res.json();
+              const points = (data.prices || []).map(([ts, price]) => {
+                const date = new Date(ts).toISOString().split("T")[0];
+                // Vóór aankoopdatum: waarde = 0
+                return { date, value: addedDate && date < addedDate ? 0 : price * units };
+              });
+              return { id: inv.id, addedDate, points };
+            }
+          } else if (sym) {
+            const url = `${PROXY}https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=${yhInterval}&range=${yhRange}`;
+            const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+            if (res.ok) {
+              const data = await res.json();
+              const result = data.chart?.result?.[0];
+              if (result) {
+                const timestamps = result.timestamp || [];
+                const closes = result.indicators?.quote?.[0]?.close || [];
+                const points = timestamps.map((ts, i) => {
+                  const date = new Date(ts * 1000).toISOString().split("T")[0];
+                  return { date, value: addedDate && date < addedDate ? 0 : (closes[i] || 0) * units };
+                }).filter(p => p.value >= 0);
+                return { id: inv.id, addedDate, points };
+              }
+            }
+          }
+        } catch {}
+        // Fallback: vaste waarde (spaargeld, vastgoed) — ook hier pas vanaf aankoopdatum
+        const today = new Date().toISOString().split("T")[0];
+        const start = new Date(Date.now() - days * 86400000).toISOString().split("T")[0];
+        const val   = inv.currentValue || inv.invested || 0;
+        const fallbackPoints = addedDate
+          ? [{ date: start, value: 0 }, { date: addedDate, value: val }, { date: today, value: val }]
+          : [{ date: start, value: val }, { date: today, value: val }];
+        return { id: inv.id, addedDate, points: fallbackPoints };
+      }));
+
+      // Alle unieke datums verzamelen en sorteren
+      const allDatesSet = new Set();
+      seriesList.forEach(s => s?.points?.forEach(p => allDatesSet.add(p.date)));
+      const allDates = [...allDatesSet].sort();
+      if (allDates.length === 0) { setPortfolioHistory([]); return; }
+
+      // Per datum: som van alle investeringen
+      // Vóór aankoopdatum van een investering = 0, ná aankoopdatum = laatste bekende prijs × units
+      const lastKnown = {};
+      const aggregated = allDates.map(date => {
+        let total = 0;
+        seriesList.forEach(s => {
+          if (!s) return;
+          // Vóór aankoopdatum: deze investering bestaat niet → €0
+          if (s.addedDate && date < s.addedDate) return;
+          const pt = s.points.find(p => p.date === date);
+          if (pt !== undefined) { lastKnown[s.id] = pt.value; total += pt.value; }
+          else if (lastKnown[s.id] !== undefined) total += lastKnown[s.id];
+        });
+        return { date, value: Math.round(total * 100) / 100 };
+      });
+
+      setPortfolioHistory(aggregated);
+
+      // Investment events voor markers
+      const events = invs.map(inv => {
+        const rawDate = inv.created_at || inv.date;
+        const eventDate = rawDate ? rawDate.split("T")[0] : null;
+        if (!eventDate) return null;
+        const nearest = aggregated.find(p => p.date >= eventDate) || aggregated[aggregated.length - 1];
+        return { date: eventDate, value: nearest?.value || 0, name: inv.name, invested: inv.invested, units: inv.units, type: inv.type, color: INVESTMENT_COLORS[inv.type] || "#4f8ef7" };
+      }).filter(Boolean).filter(e => aggregated.some(p => p.date <= e.date));
+
+      setInvestmentEvents(events);
+    } catch (e) { console.error("Portfolio history:", e); }
+    finally { setPortfolioHistLoading(false); }
+  };
+
+  useEffect(() => { fetchPortfolioHistory(invPeriod); }, [invPeriod, invs.map(i => i.id).join(",")]);
+
   // Live FX rates via open.er-api.com (supports GHS, AED, MAD + all ECB currencies)
   const fetchFxRates = async () => {
     try {
@@ -2759,6 +3983,7 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
       invested, currentValue: finalCurrentValue,
       ticker: isRealEstate ? undefined : form.ticker,
       units: (isSavings || isRealEstate) ? null : units,
+      created_at: new Date().toISOString(),
       ...(isSavings && cur !== "EUR" ? { savingsCurrency: cur, savingsAmount } : {}),
       ...(form.linkedGoalId ? { linkedGoalId: parseInt(form.linkedGoalId) } : {}),
       ...(isRealEstate ? { address: form.address, wozValue: parseFloat(form.wozValue) || 0, mortgage: parseFloat(form.mortgage) || 0 } : {})
@@ -2814,13 +4039,22 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
     <div>
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
 
-      {/* ── Add Investment Form (inline, no overlay) ── */}
-      {showForm && (
-        <div style={{ ...card(isDark), marginBottom: 20, border: isDark ? "1px solid rgba(79,142,247,0.3)" : "1px solid #93c5fd", position: "relative" }}>
-          <button onClick={closeForm} style={{ position: "absolute", top: 16, right: 16, width: 30, height: 30, borderRadius: 8, background: isDark ? "rgba(255,255,255,0.06)" : "#f1f5f9", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "#e2e6ed"}`, color: isDark ? "#64748b" : "#64748b", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <X size={14} />
-          </button>
-          <div style={{ fontSize: 17, fontWeight: 800, color: isDark ? "#f1f5f9" : "#0f172a", marginBottom: 4 }}>{t.investments.addInvestment}</div>
+      {/* ── Add Investment Form — modal via portal ── */}
+      {showForm && createPortal(
+        <>
+          <div onClick={closeForm} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", zIndex: 9200, animation: "fadeIn 0.2s ease" }}/>
+          <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(680px,95vw)", zIndex: 9201, pointerEvents: "none" }}>
+          <div style={{ maxHeight: "90vh", overflowY: "auto", background: isDark ? "#0f172a" : "#fff",
+            borderRadius: 20, border: `1px solid ${isDark ? "rgba(79,142,247,0.3)" : "#93c5fd"}`,
+            boxShadow: isDark ? "0 32px 96px rgba(0,0,0,0.8)" : "0 24px 64px rgba(0,0,0,0.18)",
+            padding: "28px 28px 24px", pointerEvents: "auto",
+            animation: "popIn 0.25s cubic-bezier(0.34,1.56,0.64,1) both" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 4 }}>
+            <div style={{ fontSize: 20, fontWeight: 800, color: isDark ? "#f1f5f9" : "#0f172a" }}>{t.investments.addInvestment}</div>
+            <button onClick={closeForm} style={{ width: 32, height: 32, borderRadius: 10, background: isDark ? "rgba(255,255,255,0.06)" : "#f1f5f9", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: isDark ? "#94a3b8" : "#64748b", flexShrink: 0 }}>
+              <X size={16}/>
+            </button>
+          </div>
           <div style={{ fontSize: 12, color: isDark ? "#334155" : "#94a3b8", marginBottom: 20 }}>{lang === "nl" ? "Voeg een aandeel, crypto of andere investering toe" : "Add a stock, crypto or other investment"}</div>
 
           {/* ── STEP 1: Choose method ── */}
@@ -2918,12 +4152,44 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
                   <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
                     placeholder={form.type === "crypto" ? "Bitcoin" : form.type === "stocks" ? "Apple" : form.type === "metals" ? "Goud" : form.type === "savings" ? "ING Spaarrekening" : form.type === "real_estate" ? "Woning Amsterdam" : "Naam"} style={inputStyle} />
                 </div>
-                {form.type !== "savings" && form.type !== "real_estate" && (
-                  <div>
-                    <label style={labelStyle}>Ticker {form.type === "crypto" ? "(CoinGecko ID)" : form.type === "metals" ? "(metaalnaam)" : "(beurssymbool)"}</label>
-                    <input value={form.ticker} onChange={e => setForm(p => ({ ...p, ticker: e.target.value }))}
-                      placeholder={form.type === "crypto" ? "bitcoin" : form.type === "metals" ? "goud / zilver" : "AAPL"}
-                      style={{ ...inputStyle, fontFamily: "monospace", fontSize: 13 }} />
+                {form.type !== "savings" && form.type !== "real_estate" && form.type !== "metals" && (
+                  <div style={{ position: "relative" }}>
+                    <label style={labelStyle}>
+                      Ticker {form.type === "crypto" ? "(CoinGecko ID)" : "(beurssymbool)"}
+                      <span style={{ fontWeight: 400, opacity: 0.6, marginLeft: 6 }}>— {lang === "nl" ? "zoek & selecteer" : "search & select"}</span>
+                    </label>
+                    <div style={{ position: "relative" }}>
+                      <Search size={13} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: isDark ? "#475569" : "#94a3b8", pointerEvents: "none" }}/>
+                      <input
+                        value={tickerQuery}
+                        onChange={e => handleTickerInput(e.target.value, form.type === "crypto" ? "crypto" : "stock")}
+                        onFocus={() => { if (tickerSuggestions.length) setShowTickerDrop(true); }}
+                        onBlur={() => setTimeout(() => setShowTickerDrop(false), 150)}
+                        placeholder={form.type === "crypto" ? (lang === "nl" ? "Zoek bijv. Bitcoin, Solana..." : "Search e.g. Bitcoin, Solana...") : (lang === "nl" ? "Zoek bijv. AAPL, ASML..." : "Search e.g. AAPL, ASML...")}
+                        style={{ ...inputStyle, paddingLeft: 34, fontFamily: "monospace", fontSize: 13 }}
+                      />
+                      {tickerSugLoading && <RefreshCw size={12} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", animation: "spin 1s linear infinite", color: "#4f8ef7" }}/>}
+                    </div>
+                    {showTickerDrop && tickerSuggestions.length > 0 && (
+                      <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100,
+                        background: isDark ? "#1e293b" : "#fff", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "#e2e6ed"}`,
+                        borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.25)", overflow: "hidden", marginTop: 4 }}>
+                        {tickerSuggestions.map(s => (
+                          <div key={s.id} onMouseDown={() => selectTickerSuggestion(s, form.type === "crypto" ? "crypto" : "stock")}
+                            style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", cursor: "pointer", borderBottom: `1px solid ${isDark ? "rgba(255,255,255,0.05)" : "#f1f5f9"}` }}
+                            onMouseEnter={e => e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.05)" : "#f8fafc"}
+                            onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                            <span style={{ fontSize: 11, fontWeight: 800, color: "#4f8ef7", fontFamily: "monospace", minWidth: 44 }}>{s.symbol}</span>
+                            <span style={{ fontSize: 12, color: isDark ? "#94a3b8" : "#475569", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.label}</span>
+                            {s.rank && <span style={{ fontSize: 10, color: isDark ? "#475569" : "#94a3b8" }}>#{s.rank}</span>}
+                            {s.exchange && <span style={{ fontSize: 10, color: isDark ? "#475569" : "#94a3b8" }}>{s.exchange}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {form.ticker && (
+                      <div style={{ fontSize: 11, color: "#22c55e", marginTop: 4 }}>✓ {form.type === "crypto" ? "CoinGecko ID" : "Symbool"}: <span style={{ fontFamily: "monospace" }}>{form.ticker}</span></div>
+                    )}
                   </div>
                 )}
               </div>
@@ -2999,7 +4265,6 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
                   <div>
                     <label style={labelStyle}>
                       {lang === "nl" ? "Aantal" : "Amount"} {form.type === "metals" ? "gram" : form.type === "crypto" ? "coins" : "aandelen"}
-                      {(form.type === "crypto" || form.type === "metals" || form.type === "stocks") && <span style={{ color: "#f59e0b", fontWeight: 700, marginLeft: 6 }}>← live prijs</span>}
                     </label>
                     <input type="number" value={form.units} onChange={e => setForm(p => ({ ...p, units: e.target.value }))}
                       placeholder={form.type === "crypto" ? "bijv. 0.05" : form.type === "metals" ? "bijv. 10" : "bijv. 10"} style={inputStyle} />
@@ -3055,11 +4320,27 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
                         : (lang === "nl" ? "Vul WOZ-waarde in" : "Enter WOZ value above")}
                     </div>
                   </>
+                ) : form.ticker ? (
+                  /* Ticker ingevuld → waarde wordt automatisch opgehaald, veld niet nodig */
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", borderRadius: 12,
+                    background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)" }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(34,197,94,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <Check size={13} color="#22c55e"/>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "#22c55e" }}>
+                        {lang === "nl" ? "Waarde automatisch berekend" : "Value calculated automatically"}
+                      </div>
+                      <div style={{ fontSize: 11, color: isDark ? "#475569" : "#94a3b8", marginTop: 1 }}>
+                        {lang === "nl" ? `Gebaseerd op ticker "${form.ticker}" × aantal eenheden` : `Based on ticker "${form.ticker}" × number of units`}
+                      </div>
+                    </div>
+                  </div>
                 ) : (
                   <>
-                    <label style={labelStyle}>{lang === "nl" ? "Huidige waarde (€)" : "Current value (€)"} <span style={{ fontWeight: 400, opacity: 0.6, textTransform: "none" }}>— {lang === "nl" ? "laat leeg voor automatisch" : "leave empty for auto"}</span></label>
+                    <label style={labelStyle}>{lang === "nl" ? "Huidige waarde (€)" : "Current value (€)"} <span style={{ fontWeight: 400, opacity: 0.6, textTransform: "none" }}>— {lang === "nl" ? "geen ticker? vul handmatig in" : "no ticker? enter manually"}</span></label>
                     <input type="number" value={form.currentValue} onChange={e => setForm(p => ({ ...p, currentValue: e.target.value }))}
-                      placeholder={lang === "nl" ? "Wordt automatisch ingevuld na prijsupdate" : "Auto-filled after price update"} style={inputStyle} />
+                      placeholder={lang === "nl" ? "bijv. 1500,00" : "e.g. 1500.00"} style={inputStyle} />
                   </>
                 )}
               </div>
@@ -3069,290 +4350,809 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
                 <button onClick={addInvestment}
                   disabled={!form.name || (form.type === "real_estate" ? !form.wozValue : !form.invested)}
                   style={{ ...pillBtn(), flex: 2, opacity: (form.name && (form.type === "real_estate" ? form.wozValue : form.invested)) ? 1 : 0.45 }}>
-                  <Plus size={15} /> {lang === "nl" ? "Toevoegen" : "Add"}
+                  <Plus size={15} /> {lang === "nl" ? "Toevoegen" : "Add Investment"}
                 </button>
               </div>
             </div>
           )}
-        </div>
+          </div>{/* end modal inner */}
+          </div>{/* end modal centering wrapper */}
+        </>,
+        document.body
       )}
 
 
 
-      {/* ── Market Ticker ── */}
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: isDark ? "#334155" : "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-            {lang === "nl" ? "Marktprijzen" : "Market prices"} {tickerLastUpdate ? `· ${lang === "nl" ? "bijgewerkt" : "updated"} ${tickerLastUpdate}` : ""}
-          </div>
-          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-            {/* EUR / USD toggle */}
-            <div style={{ display: "flex", borderRadius: 20, border: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid #e2e6ed", overflow: "hidden" }}>
-              {[["EUR","€"],["USD","$"]].map(([cur, sym]) => (
-                <button key={cur} onClick={() => setTickerCurrency(cur)}
-                  style={{ padding: "4px 10px", border: "none", cursor: "pointer", fontSize: 11, fontWeight: 700,
-                    background: tickerCurrency === cur ? (isDark ? "rgba(255,255,255,0.1)" : "#e2e6ed") : "transparent",
-                    color: tickerCurrency === cur ? (isDark ? "#f1f5f9" : "#0f172a") : (isDark ? "#475569" : "#94a3b8") }}>
-                  {sym} {cur}
-                </button>
-              ))}
-            </div>
-            <button onClick={() => fetchTicker(true)} disabled={tickerLoading}
-              style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 20, background: "transparent", border: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid #e2e6ed", color: isDark ? "#475569" : "#94a3b8", cursor: tickerLoading ? "wait" : "pointer", fontSize: 11, fontWeight: 600 }}>
-              <RefreshCw size={11} style={{ animation: tickerLoading ? "spin 1s linear infinite" : "none" }} />
-              {tickerLoading ? "Laden..." : "Vernieuwen"}
-            </button>
-          </div>
-        </div>
-        {/* Row 1: Goud, Zilver, Bitcoin */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 10 }}>
-          {TICKER_ASSETS.slice(0, 3).map(asset => {
-            const d = ticker[asset.id];
-            const change = d?.change24h ? parseFloat(d.change24h) : null;
-            const isPos = change !== null && change >= 0;
-            return (
-              <div key={asset.id} style={{ ...card(isDark), padding: "14px 16px", borderLeft: `3px solid ${asset.color}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ width: 34, height: 34, borderRadius: 10, background: `${asset.color}18`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>
-                    {asset.emoji}
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: isDark ? "#94a3b8" : "#475569" }}>{asset.label}</div>
-                    {d?.unit && <div style={{ fontSize: 10, color: isDark ? "#334155" : "#94a3b8" }}>{d.unit}</div>}
-                  </div>
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  {tickerLoading && !d ? (
-                    <div style={{ fontSize: 13, color: isDark ? "#334155" : "#94a3b8" }}>···</div>
-                  ) : d?.error ? (
-                    <div style={{ fontSize: 11, color: "#f43f5e" }}>—</div>
-                  ) : (
-                    <>
-                      <div style={{ fontSize: 15, fontWeight: 800, color: isDark ? "#f1f5f9" : "#0f172a", fontFamily: "'DM Mono', monospace" }}>{tickerCurrency === "USD" ? (d?.priceUsd ? `$ ${d.priceUsd.toLocaleString("en-US", {minimumFractionDigits:2,maximumFractionDigits:2})}` : "···") : (d?.priceEur ? fmt(d.priceEur) : "···")}</div>
-                      {change !== null && (
-                        <div style={{ fontSize: 11, fontWeight: 700, color: isPos ? "#22c55e" : "#f43f5e", marginTop: 2 }}>
-                          {isPos ? "▲" : "▼"} {Math.abs(change).toFixed(2)}%
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        {/* Row 2: AEX, Ethereum, Nasdaq */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
-          {TICKER_ASSETS.slice(3, 6).map(asset => {
-            const d = ticker[asset.id];
-            const change = d?.change24h ? parseFloat(d.change24h) : null;
-            const isPos = change !== null && change >= 0;
-            return (
-              <div key={asset.id} style={{ ...card(isDark), padding: "14px 16px", borderLeft: `3px solid ${asset.color}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ width: 34, height: 34, borderRadius: 10, background: `${asset.color}18`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>
-                    {asset.emoji}
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: isDark ? "#94a3b8" : "#475569" }}>{asset.label}</div>
-                    {asset.type === "stock" && <div style={{ fontSize: 10, color: isDark ? "#334155" : "#94a3b8" }}>index</div>}
-                  </div>
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  {tickerLoading && !d ? (
-                    <div style={{ fontSize: 13, color: isDark ? "#334155" : "#94a3b8" }}>···</div>
-                  ) : d?.error ? (
-                    <div style={{ fontSize: 11, color: "#f43f5e" }}>—</div>
-                  ) : (
-                    <>
-                      <div style={{ fontSize: 15, fontWeight: 800, color: isDark ? "#f1f5f9" : "#0f172a", fontFamily: "'DM Mono', monospace" }}>{tickerCurrency === "USD" ? (d?.priceUsd ? `$ ${d.priceUsd.toLocaleString("en-US", {minimumFractionDigits:2,maximumFractionDigits:2})}` : "···") : (d?.priceEur ? fmt(d.priceEur) : "···")}</div>
-                      {change !== null && (
-                        <div style={{ fontSize: 11, fontWeight: 700, color: isPos ? "#22c55e" : "#f43f5e", marginTop: 2 }}>
-                          {isPos ? "▲" : "▼"} {Math.abs(change).toFixed(2)}%
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+      {/* ── Page header ── */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
         <div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: isDark ? "#f1f5f9" : "#0f172a" }}>{t.investments.title}</div>
-          {lastRefresh && <div style={{ fontSize: 11, color: isDark ? "#334155" : "#94a3b8", marginTop: 2 }}>Laatste update: {lastRefresh}</div>}
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={fetchAllPrices} disabled={globalLoading}
-            style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 18px", background: "rgba(79,142,247,0.12)", border: "1px solid rgba(79,142,247,0.3)", borderRadius: 50, color: "#4f8ef7", cursor: globalLoading ? "wait" : "pointer", fontSize: 12, fontWeight: 700, boxShadow: "0 2px 12px rgba(79,142,247,0.15)" }}>
-            <RefreshCw size={14} style={{ animation: globalLoading ? "spin 1s linear infinite" : "none" }} />
-            {globalLoading ? "Laden..." : "Prijzen vernieuwen"}
-          </button>
-          <button onClick={() => setShowForm(true)} style={{ ...pillBtn(), fontSize: 13 }}>
-            <Plus size={15} /> {t.investments.addInvestment}
-          </button>
-        </div>
-      </div>
-      {/* Period filter */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
-        {["1D","5D","1M","6M","YTD","1Y","5Y","Max"].map(p => (
-          <button key={p} onClick={() => setInvPeriod(p)}
-            style={{ padding: "4px 12px", borderRadius: 20, border: invPeriod === p ? "none" : `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "#e2e6ed"}`,
-              background: invPeriod === p ? "#4f8ef7" : "transparent",
-              color: invPeriod === p ? "#fff" : (isDark ? "#64748b" : "#94a3b8"),
-              fontSize: 12, fontWeight: 700, cursor: "pointer", transition: "all 0.15s" }}>
-            {p}
-          </button>
-        ))}
-        {periodLoading && <span style={{ fontSize: 11, color: isDark ? "#334155" : "#94a3b8" }}>Laden...</span>}
-        {hiddenInvs.size > 0 && <span style={{ fontSize: 11, color: "#f59e0b", marginLeft: 4 }}>{hiddenInvs.size} positie{hiddenInvs.size > 1 ? "s" : ""} verborgen</span>}
-      </div>
-      <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 20 }}>
-        <StatCard label={t.investments.portfolio} rawValue={totalCurrent} formatter={fmt} color="#4f8ef7" icon={TrendingUp} trend={parseFloat(roi)} isDark={isDark} />
-        <StatCard label={invPeriod === "Max" ? t.investments.totalInvested : `Waarde ${invPeriod} geleden`} rawValue={totalInvested} formatter={fmt} color="#a855f7" icon={PiggyBank} isDark={isDark} />
-        <StatCard label={invPeriod === "Max" ? t.investments.totalProfit : `Winst/verlies ${invPeriod}`} rawValue={totalProfit} formatter={fmt} color={totalProfit >= 0 ? "#22c55e" : "#f43f5e"} icon={Target} trend={parseFloat(roi)} isDark={isDark} />
-        <StatCard label={`ROI ${invPeriod}`} rawValue={parseFloat(roi)} formatter={v => v.toFixed(1) + "%"} color="#f59e0b" icon={BarChart2} isDark={isDark} />
-      </div>
-
-      {/* Positions + Allocation */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-        <div style={{ ...card(isDark) }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: isDark ? "#f1f5f9" : "#0f172a", marginBottom: enriched.length === 0 ? 0 : 16 }}>Posities</div>
-          {enriched.length === 0 && (
-            <EmptyState type="investments" isDark={isDark}
-              title={lang === "nl" ? "Nog geen posities" : "No positions yet"}
-              subtitle={lang === "nl" ? "Voeg je crypto, aandelen, spaargeld of vastgoed toe om je portfolio te volgen." : "Add your crypto, stocks, savings or real estate to track your portfolio."}
-              action={() => setFormMode("choose")} actionLabel={lang === "nl" ? "Investering toevoegen" : "Add investment"} />
-          )}
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {enriched.map(inv => {
-              const profit = inv.liveValue - inv.invested;
-              const pct = inv.invested > 0 ? ((profit / inv.invested) * 100).toFixed(1) : "0.0";
-              const color = INVESTMENT_COLORS[inv.type] || "#64748b";
-              const liveD = inv.liveData;
-              const isLoading = liveD?.loading;
-              const hasLive = liveD?.price && !liveD?.error;
-
-              const isHidden = hiddenInvs.has(inv.id);
-              const toggleHide = () => setHiddenInvs(prev => { const n = new Set(prev); n.has(inv.id) ? n.delete(inv.id) : n.add(inv.id); return n; });
-              return (
-                <div key={inv.id} style={{ padding: "12px 14px", background: isDark ? "rgba(255,255,255,0.03)" : "#f8fafc", borderRadius: 12, border: `1px solid ${hasLive ? "rgba(34,197,94,0.15)" : "rgba(255,255,255,0.05)"}`, opacity: isHidden ? 0.35 : 1, transition: "opacity 0.2s" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div style={{ width: 36, height: 36, borderRadius: 10, background: `${color}20`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color, flexShrink: 0 }}>
-                        {inv.name.slice(0, 2).toUpperCase()}
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: isDark ? "#f1f5f9" : "#0f172a" }}>{inv.name}</div>
-                        <div style={{ fontSize: 11, color: isDark ? "#64748b" : "#64748b" }}>
-                          {inv.type === "real_estate" ? (
-                            inv.address && <span style={{ color: "#94a3b8" }}>{inv.address} · </span>
-                          ) : (
-                            inv.ticker && <span style={{ fontFamily: "monospace", color: "#475569" }}>{inv.ticker.toUpperCase()} · </span>
-                          )}
-                          {t.investments.types[inv.type]}{inv.units && inv.type === 'metals' ? ` · ${inv.units} gram` : ''}
-                          {inv.type === "real_estate" && inv.wozValue > 0 && (
-                            <span style={{ marginLeft: 6, padding: "1px 6px", background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 6, color: "#818cf8", fontSize: 10, fontWeight: 700 }}>
-                              WOZ {fmt(inv.wozValue)}{inv.mortgage > 0 ? ` − hyp. ${fmt(inv.mortgage)}` : ""}
-                            </span>
-                          )}
-                          {inv.savingsCurrency && inv.savingsCurrency !== "EUR" && (
-                            <span style={{ marginLeft: 6, padding: "1px 6px", background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.2)", borderRadius: 6, color: "#22c55e", fontSize: 10, fontWeight: 700 }}>
-                              {inv.savingsAmount?.toLocaleString()} {inv.savingsCurrency} · {fxRates[inv.savingsCurrency] ? `1=${fmt(fxRates[inv.savingsCurrency])}` : "koers laden..."}
-                            </span>
-                          )}
-                          {inv.linkedGoalId && (() => { const g = goals.find(g => g.id === inv.linkedGoalId); return g ? (
-                            <span style={{ marginLeft: 6, padding: "1px 6px", background: `${g.color}18`, border: `1px solid ${g.color}40`, borderRadius: 6, color: g.color, fontSize: 10, fontWeight: 700 }}>
-                              🎯 {g.name}
-                            </span>
-                          ) : null; })()}
-                        </div>
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      {/* Hide toggle */}
-                      <button onClick={toggleHide}
-                        style={{ width: 28, height: 28, borderRadius: 8, background: isHidden ? "rgba(245,158,11,0.1)" : "rgba(255,255,255,0.05)", border: isHidden ? "1px solid rgba(245,158,11,0.3)" : "1px solid rgba(255,255,255,0.08)", cursor: "pointer", color: isHidden ? "#f59e0b" : "#475569", display: "flex", alignItems: "center", justifyContent: "center" }}
-                        title={isHidden ? "Toon positie" : "Verberg positie"}>
-                        {isHidden ? <EyeOff size={12} /> : <Eye size={12} />}
-                      </button>
-                      {/* Live fetch button */}
-                      <button onClick={() => fetchPrice(inv)} disabled={isLoading}
-                        style={{ width: 28, height: 28, borderRadius: 8, background: hasLive ? "rgba(34,197,94,0.1)" : "rgba(255,255,255,0.05)", border: hasLive ? "1px solid rgba(34,197,94,0.25)" : "1px solid rgba(255,255,255,0.08)", cursor: isLoading ? "wait" : "pointer", color: hasLive ? "#22c55e" : "#475569", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <RefreshCw size={12} style={{ animation: isLoading ? "spin 1s linear infinite" : "none" }} />
-                      </button>
-                      {/* Delete */}
-                      <button onClick={() => removeInvestment(inv.id)}
-                        style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(244,63,94,0.07)", border: "1px solid rgba(244,63,94,0.15)", cursor: "pointer", color: "#f43f5e", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <Trash2 size={12} />
-                      </button>
-                      <div style={{ textAlign: "right" }}>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: isDark ? "#f1f5f9" : "#0f172a", fontFamily: "'DM Mono', monospace" }}>{fmt(inv.liveValue)}</div>
-                        <div style={{ fontSize: 11, fontWeight: 600, color: profit >= 0 ? "#22c55e" : "#f43f5e" }}>
-                          {profit >= 0 ? "+" : ""}{fmt(profit)} ({pct}%)
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  {/* Live price bar */}
-                  {liveD && !isLoading && (
-                    <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.04)", display: "flex", alignItems: "center", gap: 12, fontSize: 11 }}>
-                      {liveD.error ? (
-                        <span style={{ color: "#f43f5e" }}>⚠ {liveD.error}</span>
-                      ) : (
-                        <>
-                          <span style={{ color: isDark ? "#64748b" : "#64748b" }}>Live prijs:</span>
-                          <span style={{ color: isDark ? "#f1f5f9" : "#0f172a", fontFamily: "monospace", fontWeight: 700 }}>{fmt(liveD.price)}</span>
-                          {liveD.change24h && (
-                            <span style={{ color: parseFloat(liveD.change24h) >= 0 ? "#22c55e" : "#f43f5e", fontWeight: 600 }}>
-                              {parseFloat(liveD.change24h) >= 0 ? "▲" : "▼"} {Math.abs(liveD.change24h)}% (24u)
-                            </span>
-                          )}
-                          <span style={{ color: isDark ? "#334155" : "#94a3b8", marginLeft: "auto" }}>🕐 {liveD.lastUpdated}</span>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+          <div style={{ fontSize: 22, fontWeight: 800, color: isDark ? "#f1f5f9" : "#0f172a", letterSpacing: "-0.5px" }}>
+            {lang === "nl" ? "Investeringen" : "Investments"}
+          </div>
+          <div style={{ fontSize: 12, color: isDark ? "#475569" : "#94a3b8", marginTop: 2 }}>
+            {invs.length} {lang === "nl" ? "posities" : "positions"} · {lang === "nl" ? "Live marktdata" : "Live market data"}
           </div>
         </div>
+        <button onClick={() => setInvEditMode(e => !e)}
+          style={{ display: "flex", alignItems: "center", gap: 7, padding: "8px 16px", borderRadius: 20,
+            border: invEditMode ? "1px solid #4f8ef7" : `1px solid ${isDark ? "rgba(255,255,255,0.10)" : "#e2e6ed"}`,
+            background: invEditMode ? "rgba(79,142,247,0.12)" : isDark ? "rgba(255,255,255,0.04)" : "#f8fafc",
+            color: invEditMode ? "#4f8ef7" : isDark ? "#64748b" : "#94a3b8",
+            fontSize: 12, fontWeight: 700, cursor: "pointer", transition: "all 0.15s" }}>
+          <Sliders size={13}/> {invEditMode ? (lang === "nl" ? "Klaar" : "Done") : (lang === "nl" ? "Aanpassen" : "Customize")}
+        </button>
+      </div>
 
-        <div style={{ ...card(isDark) }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: isDark ? "#f1f5f9" : "#0f172a", marginBottom: 16 }}>{t.investments.allocation}</div>
-          <ResponsiveContainer width="100%" height={200}>
-            <PieChart>
-              <Pie data={allocationData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={4} dataKey="value">
-                {allocationData.map(entry => <Cell key={entry.name} fill={INVESTMENT_COLORS[entry.name] || "#64748b"} stroke="transparent" />)}
-              </Pie>
-              <Tooltip contentStyle={{ background: isDark ? DK.L2 : "#ffffff", border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #e2e6ed", borderRadius: 10, fontSize: 12 }} itemStyle={{ color: isDark ? "#f1f5f9" : "#0f172a" }} formatter={v => fmt(v)} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {allocationData.map(d => (
-              <div key={d.name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 12 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: 2, background: INVESTMENT_COLORS[d.name] || "#64748b" }} />
-                  <span style={{ color: isDark ? "#94a3b8" : "#475569", textTransform: "capitalize" }}>{t.investments.types[d.name]}</span>
-                </div>
-                <span style={{ color: isDark ? "#f1f5f9" : "#0f172a", fontFamily: "'DM Mono', monospace", fontWeight: 600 }}>{fmt(d.value)}</span>
-              </div>
+      {/* ── Edit mode: widget picker ── */}
+      {invEditMode && (
+        <div style={{ ...card(isDark), marginBottom: 16, border: "1px solid rgba(79,142,247,0.3)", background: isDark ? DK.L1 : "#fafbff" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(79,142,247,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Sliders size={13} color="#4f8ef7"/>
+            </div>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: isDark ? "#f1f5f9" : "#0f172a" }}>{lang === "nl" ? "Widgets beheren" : "Manage widgets"}</div>
+              <div style={{ fontSize: 11, color: isDark ? "#64748b" : "#94a3b8" }}>{lang === "nl" ? "Zet aan/uit · sleep om de volgorde te wijzigen" : "Toggle on/off · drag to reorder"}</div>
+            </div>
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {invWidgets.map(w => (
+              <button key={w.id} onClick={() => invToggle(w.id)}
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 13px", borderRadius: 20,
+                  border: w.enabled ? "1.5px solid #4f8ef7" : `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "#e2e6ed"}`,
+                  background: w.enabled ? "rgba(79,142,247,0.10)" : "transparent",
+                  color: w.enabled ? "#4f8ef7" : isDark ? "#64748b" : "#94a3b8",
+                  fontSize: 12, fontWeight: w.enabled ? 700 : 400, cursor: "pointer", transition: "all 0.15s" }}>
+                <span style={{ fontSize: 13 }}>{w.icon}</span>
+                {(INV_WIDGET_LABELS[lang] || INV_WIDGET_LABELS.nl)[w.id]}
+                {w.enabled && <Check size={11}/>}
+              </button>
             ))}
           </div>
         </div>
-      </div>
+      )}
+
+      {/* ── Chart modal portal — outside widget containers ── */}
+      {chartAsset && createPortal((() => {
+        const first = chartData[0]?.price;
+        const last  = chartData[chartData.length - 1]?.price;
+        const periodChangePct = (first && last && !chartLoading)
+          ? ((last - first) / first) * 100
+          : null;
+        const d = ticker[chartAsset.id];
+        const tickerChange = d?.change24h ? parseFloat(d.change24h) : null;
+        const displayChange = chartPeriod === "1D" && tickerChange != null
+          ? tickerChange
+          : periodChangePct;
+        const isUp = displayChange !== null && displayChange >= 0;
+        const price = tickerCurrency === "USD" ? d?.priceUsd : d?.priceEur;
+        const source = CHART_CG_IDS[chartAsset.id] ? "CoinGecko" : "Yahoo Finance";
+        const periodLabel = chartPeriod === "1D" ? (lang === "nl" ? "vandaag" : "today")
+          : chartPeriod === "YTD" ? "YTD"
+          : chartPeriod === "5D" ? (lang === "nl" ? "5 dagen" : "5 days")
+          : chartPeriod === "1M" ? (lang === "nl" ? "1 maand" : "1 month")
+          : chartPeriod === "6M" ? (lang === "nl" ? "6 maanden" : "6 months")
+          : chartPeriod === "1Y" ? (lang === "nl" ? "1 jaar" : "1 year")
+          : (lang === "nl" ? "5 jaar" : "5 years");
+
+        const fmtTime = (ts) => {
+          const dt = new Date(ts);
+          if (chartPeriod === "1D") return dt.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" });
+          if (chartPeriod === "5D") return dt.toLocaleDateString("nl-NL", { weekday: "short", day: "numeric", month: "short" });
+          if (chartPeriod === "5Y") return dt.toLocaleDateString("nl-NL", { month: "short", year: "2-digit" });
+          return dt.toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
+        };
+        const displayed = chartData.length > 200
+          ? chartData.filter((_, i) => i % Math.ceil(chartData.length / 200) === 0)
+          : chartData;
+        const lineColor = (periodChangePct ?? 0) >= 0 ? "#22c55e" : "#f43f5e";
+        const isUSD = tickerCurrency === "USD";
+        const chartFmt = (v) => isUSD
+          ? `$ ${Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+          : new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" }).format(v);
+        const chartFmtShort = (v) => isUSD
+          ? `$${Math.abs(v) >= 1000 ? (Math.abs(v)/1000).toFixed(1)+"k" : Math.abs(v).toFixed(0)}`
+          : `€${Math.abs(v) >= 1000 ? (Math.abs(v)/1000).toFixed(1)+"k" : Math.abs(v).toFixed(0)}`;
+
+        return (
+          <>
+            <div onClick={() => setChartAsset(null)}
+              style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)", zIndex: 9000, animation: "fadeIn 0.2s ease" }}/>
+            <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)",
+              width: "min(800px, 94vw)", zIndex: 9001, pointerEvents: "none" }}>
+            <div style={{ maxHeight: "90vh", overflowY: "auto",
+              background: isDark ? DK.L2 : "#fff",
+              borderRadius: R.xl, border: `1px solid ${isDark ? DK.b1 : "#e8ecf1"}`,
+              boxShadow: isDark ? "0 32px 96px rgba(0,0,0,0.75)" : "0 24px 64px rgba(0,0,0,0.18)",
+              padding: "28px 28px 24px", pointerEvents: "auto",
+              animation: "popIn 0.25s cubic-bezier(0.34,1.56,0.64,1) both" }}>
+
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                  <div style={{ width: 48, height: 48, borderRadius: 14, background: `${chartAsset.color}18`, border: `1px solid ${chartAsset.color}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>
+                    {chartAsset.emoji}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 20, fontWeight: 900, color: isDark ? "#f1f5f9" : "#0f172a", letterSpacing: "-0.5px" }}>{chartAsset.label}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
+                      {price && (
+                        <span style={{ fontSize: 22, fontWeight: 800, color: isDark ? "#f1f5f9" : "#0f172a", fontVariantNumeric: "tabular-nums" }}>
+                          {tickerCurrency === "USD" ? `$ ${price.toLocaleString("en-US", {minimumFractionDigits:2,maximumFractionDigits:2})}` : fmt(price)}
+                        </span>
+                      )}
+                      {displayChange !== null && !chartLoading && (
+                        <span style={{ fontSize: 13, fontWeight: 700, padding: "3px 10px", borderRadius: 20,
+                          background: isUp ? "rgba(34,197,94,0.13)" : "rgba(244,63,94,0.13)",
+                          color: isUp ? "#22c55e" : "#f43f5e" }}>
+                          {isUp ? "▲" : "▼"} {Math.abs(displayChange).toFixed(2)}% {periodLabel}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                  <div style={{ display: "flex", borderRadius: 10, overflow: "hidden", border: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "#e2e6ed"}` }}>
+                    {["EUR","USD"].map(cur => (
+                      <button key={cur} onClick={() => {
+                          setTickerCurrency(cur);
+                          fetchChartData(chartAsset, chartPeriod, cur);
+                        }}
+                        style={{ padding: "5px 10px", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, transition: "all 0.15s",
+                          background: tickerCurrency === cur ? (isDark ? "rgba(255,255,255,0.12)" : "#e2e6ed") : "transparent",
+                          color: tickerCurrency === cur ? (isDark ? "#f1f5f9" : "#0f172a") : (isDark ? "#475569" : "#94a3b8") }}>
+                        {cur === "EUR" ? "€" : "$"}
+                      </button>
+                    ))}
+                  </div>
+                  <button onClick={() => setChartAsset(null)}
+                    style={{ width: 32, height: 32, borderRadius: 10, background: isDark ? "rgba(255,255,255,0.06)" : "#f1f5f9", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: isDark ? "#94a3b8" : "#64748b" }}>
+                    <X size={16}/>
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 4, marginBottom: 18 }}>
+                {CHART_PERIODS.map(p => (
+                  <button key={p} onClick={() => { setChartPeriod(p); fetchChartData(chartAsset, p); }}
+                    style={{ padding: "5px 13px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, transition: "all 0.15s",
+                      background: chartPeriod === p ? chartAsset.color : isDark ? "rgba(255,255,255,0.05)" : "#f1f5f9",
+                      color: chartPeriod === p ? "#fff" : isDark ? "#64748b" : "#94a3b8" }}>
+                    {p}
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ height: 280, position: "relative" }}>
+                {chartLoading ? (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", gap: 10, color: isDark ? "#475569" : "#94a3b8" }}>
+                    <RefreshCw size={16} style={{ animation: "spin 1s linear infinite" }}/>
+                    <span style={{ fontSize: 13 }}>{lang === "nl" ? "Grafiek laden..." : "Loading chart..."}</span>
+                  </div>
+                ) : chartError ? (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", flexDirection: "column", gap: 8 }}>
+                    <AlertCircle size={24} color="#f43f5e"/>
+                    <div style={{ fontSize: 13, color: isDark ? "#64748b" : "#94a3b8" }}>{lang === "nl" ? "Kon grafiek niet laden" : "Could not load chart"}</div>
+                    <div style={{ fontSize: 11, color: isDark ? "#334155" : "#94a3b8" }}>{chartError}</div>
+                  </div>
+                ) : displayed.length > 1 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={displayed} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
+                      <defs>
+                        <linearGradient id="priceChartGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%"  stopColor={lineColor} stopOpacity={0.18}/>
+                          <stop offset="95%" stopColor={lineColor} stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <XAxis dataKey="time" tickFormatter={fmtTime} tick={{ fill: isDark ? "#475569" : "#94a3b8", fontSize: 10 }} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={60}/>
+                      <YAxis domain={["auto","auto"]} tickFormatter={v => chartFmtShort(v)} tick={{ fill: isDark ? "#475569" : "#94a3b8", fontSize: 10 }} axisLine={false} tickLine={false} width={60}/>
+                      <Tooltip labelFormatter={fmtTime} formatter={v => [chartFmt(v), chartAsset.label]}
+                        contentStyle={{ background: isDark ? DK.L3 : "#fff", border: `1px solid ${isDark ? DK.b1 : "#e2e6ed"}`, borderRadius: 10, fontSize: 12 }}
+                        cursor={{ stroke: lineColor, strokeWidth: 1, strokeDasharray: "4 2" }}/>
+                      <Area type="monotone" dataKey="price" stroke={lineColor} strokeWidth={2} fill="url(#priceChartGrad)" dot={false} activeDot={{ r: 4, fill: lineColor, stroke: isDark ? DK.L2 : "#fff", strokeWidth: 2 }}/>
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: isDark ? "#475569" : "#94a3b8", fontSize: 13 }}>
+                    {lang === "nl" ? "Geen data beschikbaar" : "No data available"}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ marginTop: 12, fontSize: 10, color: isDark ? "#334155" : "#94a3b8", display: "flex", justifyContent: "space-between" }}>
+                <span>{lang === "nl" ? `Bron: ${source}` : `Source: ${source}`}</span>
+                <span>{lang === "nl" ? "Indicatief · geen financieel advies" : "Indicative · not financial advice"}</span>
+              </div>
+            </div>
+            </div>
+          </>
+        );
+      })(), document.body)}
+
+      {/* ── Asset picker modal ── */}
+      {showAssetPicker && createPortal(
+        <>
+          <div onClick={() => setShowAssetPicker(false)}
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", zIndex: 9100, animation: "fadeIn 0.2s ease" }}/>
+          <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(680px,95vw)", zIndex: 9101, pointerEvents: "none" }}>
+          <div style={{ maxHeight: "85vh", display: "flex", flexDirection: "column", background: isDark ? "#0f172a" : "#fff",
+            borderRadius: 20, border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "#e2e6ed"}`,
+            boxShadow: isDark ? "0 32px 96px rgba(0,0,0,0.8)" : "0 24px 64px rgba(0,0,0,0.18)",
+            pointerEvents: "auto", animation: "popIn 0.25s cubic-bezier(0.34,1.56,0.64,1) both" }}>
+
+            {/* Header */}
+            <div style={{ padding: "20px 24px 0", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+              <div>
+                <div style={{ fontSize: 17, fontWeight: 800, color: isDark ? "#f1f5f9" : "#0f172a" }}>{lang === "nl" ? "Activa beheren" : "Manage assets"}</div>
+                <div style={{ fontSize: 12, color: isDark ? "#64748b" : "#94a3b8", marginTop: 2 }}>{lang === "nl" ? "Voeg toe of verwijder marktprijzen" : "Add or remove market prices"}</div>
+              </div>
+              <button onClick={() => setShowAssetPicker(false)}
+                style={{ width: 32, height: 32, borderRadius: 10, background: isDark ? "rgba(255,255,255,0.06)" : "#f1f5f9", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: isDark ? "#94a3b8" : "#64748b" }}>
+                <X size={16}/>
+              </button>
+            </div>
+
+            {/* Current assets */}
+            <div style={{ padding: "14px 24px 0", flexShrink: 0 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: isDark ? "#475569" : "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                {lang === "nl" ? "Actief" : "Active"} ({tickerAssets.length})
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {tickerAssets.map(a => (
+                  <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 8px 4px 10px", borderRadius: 20,
+                    background: `${a.color}18`, border: `1px solid ${a.color}40`, fontSize: 12, fontWeight: 600, color: a.color }}>
+                    <span>{a.emoji}</span> {a.label}
+                    <button onClick={() => removeTickerAsset(a.id)}
+                      style={{ width: 16, height: 16, borderRadius: "50%", background: "rgba(244,63,94,0.15)", border: "none", cursor: "pointer", color: "#f43f5e", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, flexShrink: 0 }}>
+                      <X size={10}/>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Tabs */}
+            <div style={{ padding: "14px 24px 0", display: "flex", gap: 4, flexShrink: 0 }}>
+              {[["crypto","🪙 Crypto"],["stock","📊 " + (lang === "nl" ? "Aandelen & ETF" : "Stocks & ETF")]].map(([tab, label]) => (
+                <button key={tab} onClick={() => {
+                    setAssetPickerTab(tab);
+                    setAssetSearch("");
+                    setAssetSearchResults([]);
+                    setTimeout(() => { if (tab === "crypto") searchCrypto(""); else searchYahoo(""); }, 50);
+                  }}
+                  style={{ padding: "7px 14px", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700,
+                    background: assetPickerTab === tab ? "#4f8ef7" : isDark ? "rgba(255,255,255,0.05)" : "#f1f5f9",
+                    color: assetPickerTab === tab ? "#fff" : isDark ? "#64748b" : "#94a3b8" }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Search */}
+            <div style={{ padding: "12px 24px 0", flexShrink: 0 }}>
+              <div style={{ position: "relative" }}>
+                <Search size={14} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: isDark ? "#475569" : "#94a3b8", pointerEvents: "none" }}/>
+                <input
+                  autoFocus
+                  value={assetSearch}
+                  onChange={e => handleAssetSearch(e.target.value)}
+                  placeholder={assetPickerTab === "crypto" ? (lang === "nl" ? "Zoek crypto bijv. Solana, XRP..." : "Search crypto e.g. Solana, XRP...") : (lang === "nl" ? "Zoek aandeel bijv. Apple, ASML..." : "Search stock e.g. Apple, ASML...")}
+                  style={{ width: "100%", padding: "9px 12px 9px 36px", borderRadius: 10, border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "#e2e6ed"}`, background: isDark ? "rgba(255,255,255,0.05)" : "#f8fafc", color: isDark ? "#f1f5f9" : "#0f172a", fontSize: 13, outline: "none", boxSizing: "border-box" }}
+                />
+                {assetSearchLoading && <RefreshCw size={13} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", animation: "spin 1s linear infinite", color: "#4f8ef7" }}/>}
+              </div>
+            </div>
+
+            {/* Results */}
+            <div style={{ overflowY: "auto", padding: "10px 24px 20px", flex: 1 }}>
+              {assetSearchResults.length === 0 && !assetSearchLoading && (
+                <div style={{ textAlign: "center", padding: "24px 0", color: isDark ? "#475569" : "#94a3b8", fontSize: 13 }}>
+                  {assetSearch ? (lang === "nl" ? "Geen resultaten" : "No results") : (lang === "nl" ? "Laden..." : "Loading...")}
+                </div>
+              )}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {assetSearchResults.map(result => {
+                  const already = tickerAssets.find(a => a.id === result.id);
+                  return (
+                    <div key={result.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 12,
+                      background: isDark ? "rgba(255,255,255,0.03)" : "#f8fafc",
+                      border: already ? `1px solid ${result.color}40` : `1px solid ${isDark ? "rgba(255,255,255,0.06)" : "#e8ecf1"}`,
+                      transition: "background 0.15s" }}>
+                      {/* Icon */}
+                      <div style={{ width: 36, height: 36, borderRadius: 10, background: `${result.color}18`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, flexShrink: 0 }}>
+                        {result.emoji}
+                      </div>
+                      {/* Info */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: isDark ? "#f1f5f9" : "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{result.label}</div>
+                        <div style={{ fontSize: 11, color: isDark ? "#475569" : "#94a3b8", display: "flex", gap: 8 }}>
+                          <span style={{ fontFamily: "monospace" }}>{result.symbol}</span>
+                          {result.rank && <span>#{result.rank}</span>}
+                          {result.exchange && <span>{result.exchange}</span>}
+                          <span style={{ padding: "0 5px", borderRadius: 4, background: isDark ? "rgba(255,255,255,0.05)" : "#e8ecf1", textTransform: "uppercase", fontSize: 9, fontWeight: 700 }}>{result.type}</span>
+                          {result.price && <span style={{ color: result.change >= 0 ? "#22c55e" : "#f43f5e" }}>€{result.price.toLocaleString("nl-NL",{minimumFractionDigits:2,maximumFractionDigits:2})} {result.change != null ? `${result.change >= 0 ? "▲" : "▼"}${Math.abs(result.change).toFixed(1)}%` : ""}</span>}
+                        </div>
+                      </div>
+                      {/* Add/Added button */}
+                      <button
+                        onClick={() => { if (!already) { addTickerAsset(result); setTimeout(() => fetchTicker(true), 100); } }}
+                        disabled={!!already}
+                        style={{ padding: "6px 14px", borderRadius: 20, border: "none", cursor: already ? "default" : "pointer", fontSize: 12, fontWeight: 700, flexShrink: 0, transition: "all 0.15s",
+                          background: already ? `${result.color}18` : "#4f8ef7",
+                          color: already ? result.color : "#fff" }}>
+                        {already ? <><Check size={11}/> {lang === "nl" ? "Actief" : "Active"}</> : <><Plus size={11}/> {lang === "nl" ? "Toevoegen" : "Add"}</>}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+          </div>
+        </>,
+        document.body
+      )}
+
+      {/* ── Widget list (in drag-reorderable order) ── */}
+      {invWidgets.filter(w => w.enabled).map(w => (
+        <div key={w.id}
+          draggable={invEditMode}
+          onDragStart={() => invDragStart(w.id)}
+          onDragOver={e => invDragOver_(e, w.id)}
+          onDrop={() => invDrop(w.id)}
+          onDragEnd={() => { setInvDragging(null); setInvDragOver(null); }}
+          style={{
+            marginBottom: 24,
+            opacity: invDragging === w.id ? 0.4 : 1,
+            outline: invDragOver === w.id && invDragging !== w.id ? "2px dashed #4f8ef7" : "none",
+            outlineOffset: 4,
+            borderRadius: 16,
+            cursor: invEditMode ? "grab" : "default",
+            transition: "opacity 0.15s",
+          }}>
+          {invEditMode && (
+            <div style={{ fontSize: 10, fontWeight: 600, color: isDark ? "#475569" : "#94a3b8", textAlign: "center", marginBottom: 4,
+              letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+              <span>⠿</span> {lang === "nl" ? "Sleep om te verplaatsen" : "Drag to move"}
+            </div>
+          )}
+
+          {/* ── MARKET PRICES widget ── */}
+          {w.id === "market_prices" && (
+            <div style={{ ...card(isDark), padding: "18px 20px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                <div style={{ width: 32, height: 32, borderRadius: 9, background: "rgba(79,142,247,0.12)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <TrendingUp size={15} color="#4f8ef7"/>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: isDark ? "#f1f5f9" : "#0f172a", textTransform: "uppercase", letterSpacing: "0.09em" }}>
+                    {lang === "nl" ? "Marktprijzen" : "Market prices"}
+                  </div>
+                  {tickerLastUpdate && <div style={{ fontSize: 10, color: isDark ? "#64748b" : "#94a3b8", marginTop: 1 }}>{lang === "nl" ? "bijgewerkt" : "updated"} {tickerLastUpdate}</div>}
+                </div>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <div style={{ display: "flex", borderRadius: 20, border: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid #e2e6ed", overflow: "hidden" }}>
+                    {[["EUR","€"],["USD","$"]].map(([cur, sym]) => (
+                      <button key={cur} onClick={() => setTickerCurrency(cur)}
+                        style={{ padding: "4px 10px", border: "none", cursor: "pointer", fontSize: 11, fontWeight: 700,
+                          background: tickerCurrency === cur ? (isDark ? "rgba(255,255,255,0.1)" : "#e2e6ed") : "transparent",
+                          color: tickerCurrency === cur ? (isDark ? "#f1f5f9" : "#0f172a") : (isDark ? "#475569" : "#94a3b8") }}>
+                        {sym} {cur}
+                      </button>
+                    ))}
+                  </div>
+                  <button onClick={() => fetchTicker(true)} disabled={tickerLoading}
+                    style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 20, background: "transparent", border: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid #e2e6ed", color: isDark ? "#475569" : "#94a3b8", cursor: tickerLoading ? "wait" : "pointer", fontSize: 11, fontWeight: 600 }}>
+                    <RefreshCw size={11} style={{ animation: tickerLoading ? "spin 1s linear infinite" : "none" }} />
+                    {tickerLoading ? "Laden..." : "Vernieuwen"}
+                  </button>
+                  <button onClick={() => openAssetPicker("crypto")}
+                    style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 20, background: "transparent", border: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid #e2e6ed", color: isDark ? "#475569" : "#94a3b8", cursor: "pointer", fontSize: 11, fontWeight: 600 }}>
+                    <Sliders size={11}/> {lang === "nl" ? "Activa" : "Assets"}
+                  </button>
+                </div>
+              </div>
+              {/* Asset grid — altijd gelijke rijen */}
+              <div style={{ display: "grid", gridTemplateColumns: `repeat(${(() => { const n = TICKER_ASSETS.length; return n <= 2 ? n : n === 3 ? 3 : n === 4 ? 2 : n % 3 === 0 ? 3 : n % 4 === 0 ? 4 : n % 2 === 0 ? Math.min(n/2,4) : n <= 5 ? 3 : 4; })()}, 1fr)`, gap: 10 }}>
+                {TICKER_ASSETS.map(asset => {
+                  const d = ticker[asset.id];
+                  const change = d?.change24h ? parseFloat(d.change24h) : null;
+                  const isPos = change !== null && change >= 0;
+                  const hasChart = CHART_CG_IDS[asset.id] || CHART_YAHOO_SYMBOLS[asset.id];
+                    return (
+                      <div key={asset.id}
+                        onClick={() => hasChart && !d?.error && openChart(asset)}
+                        style={{ ...card(isDark), padding: "14px 16px", borderLeft: `3px solid ${asset.color}`,
+                          display: "flex", alignItems: "center", justifyContent: "space-between",
+                          cursor: hasChart && !d?.error ? "pointer" : "default",
+                          transition: "transform 0.15s, box-shadow 0.15s" }}
+                        onMouseEnter={e => { if (hasChart && !d?.error) { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = isDark ? `0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px ${asset.color}30` : `0 8px 24px rgba(0,0,0,0.12), 0 0 0 1px ${asset.color}30`; } }}
+                        onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = ""; }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <div style={{ width: 34, height: 34, borderRadius: 10, background: `${asset.color}18`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>
+                            {asset.emoji}
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: isDark ? "#94a3b8" : "#475569" }}>{asset.label}</div>
+                            <div style={{ fontSize: 10, color: isDark ? "#334155" : "#94a3b8" }}>{d?.unit || (asset.type === "stock" ? "index" : asset.type)}</div>
+                          </div>
+                        </div>
+                        <div style={{ textAlign: "right" }}>
+                          {tickerLoading && !d ? (
+                            <div style={{ fontSize: 13, color: isDark ? "#334155" : "#94a3b8" }}>···</div>
+                          ) : d?.error ? (
+                            <div style={{ fontSize: 11, color: "#f43f5e" }}>—</div>
+                          ) : (
+                            <>
+                              <div style={{ fontSize: 15, fontWeight: 800, color: isDark ? "#f1f5f9" : "#0f172a", fontVariantNumeric: "tabular-nums" }}>
+                                {tickerCurrency === "USD" ? (d?.priceUsd ? `$ ${d.priceUsd.toLocaleString("en-US", {minimumFractionDigits:2,maximumFractionDigits:2})}` : "···") : (d?.priceEur ? fmt(d.priceEur) : "···")}
+                              </div>
+                              {change !== null && (
+                                <div style={{ fontSize: 11, fontWeight: 700, color: isPos ? "#22c55e" : "#f43f5e", marginTop: 2 }}>
+                                  {isPos ? "▲" : "▼"} {Math.abs(change).toFixed(2)}%
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                    );
+                  })}
+              </div>
+            </div>
+          )}
+
+          {/* ── PORTFOLIO widget ── */}
+          {w.id === "portfolio" && (
+            <div style={{ ...card(isDark), padding: "18px 20px" }}>
+              {/* Widget header */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                <div style={{ width: 32, height: 32, borderRadius: 9, background: "rgba(168,85,247,0.12)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <PiggyBank size={15} color="#a855f7"/>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: isDark ? "#f1f5f9" : "#0f172a", textTransform: "uppercase", letterSpacing: "0.09em" }}>
+                    {lang === "nl" ? "Portfolio" : "Portfolio"}
+                  </div>
+                  {lastRefresh && <div style={{ fontSize: 10, color: isDark ? "#64748b" : "#94a3b8", marginTop: 1 }}>Laatste update: {lastRefresh}</div>}
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={fetchAllPrices} disabled={globalLoading}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 14px", background: "rgba(79,142,247,0.10)", border: "1px solid rgba(79,142,247,0.25)", borderRadius: 20, color: "#4f8ef7", cursor: globalLoading ? "wait" : "pointer", fontSize: 11, fontWeight: 700 }}>
+                    <RefreshCw size={12} style={{ animation: globalLoading ? "spin 1s linear infinite" : "none" }} />
+                    {globalLoading ? "Laden..." : "Vernieuwen"}
+                  </button>
+                  {(({ normal: 0, premium: 1, zzp_premium: 2, zzp_diamond: 3 }[userPlan] ?? 0) < 1) ? (
+                    <button onClick={() => onUpgrade?.()} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 16px", borderRadius: 20, border: "1px solid rgba(245,158,11,0.4)", background: "rgba(245,158,11,0.08)", color: "#f59e0b", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                      <Zap size={13}/> {lang === "nl" ? "Upgrade om toe te voegen" : "Upgrade to add"}
+                    </button>
+                  ) : (
+                    <button onClick={() => setShowForm(true)} style={{ ...pillBtn(), fontSize: 12, padding: "7px 16px" }}>
+                      <Plus size={13} /> {lang === "nl" ? "Investering toevoegen" : "Add Investment"}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Period filter */}
+              <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+                {["1D","5D","1M","6M","YTD","1Y","5Y","Max"].map(p => (
+                  <button key={p} onClick={() => setInvPeriod(p)}
+                    style={{ padding: "4px 12px", borderRadius: 20, border: invPeriod === p ? "none" : `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "#e2e6ed"}`,
+                      background: invPeriod === p ? "#4f8ef7" : "transparent",
+                      color: invPeriod === p ? "#fff" : (isDark ? "#64748b" : "#94a3b8"),
+                      fontSize: 12, fontWeight: 700, cursor: "pointer", transition: "all 0.15s" }}>
+                    {p}
+                  </button>
+                ))}
+                {periodLoading && <span style={{ fontSize: 11, color: isDark ? "#334155" : "#94a3b8" }}>Laden...</span>}
+                {hiddenInvs.size > 0 && <span style={{ fontSize: 11, color: "#f59e0b", marginLeft: 4 }}>{hiddenInvs.size} positie{hiddenInvs.size > 1 ? "s" : ""} verborgen</span>}
+              </div>
+
+              {/* StatCards */}
+              <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 20 }}>
+                <StatCard label={t.investments.portfolio} rawValue={totalCurrent} formatter={fmt} color="#4f8ef7" icon={TrendingUp} trend={parseFloat(roi)} isDark={isDark} />
+                <StatCard label={invPeriod === "Max" ? t.investments.totalInvested : `Waarde ${invPeriod} geleden`} rawValue={totalInvested} formatter={fmt} color="#a855f7" icon={PiggyBank} isDark={isDark} />
+                <StatCard label={invPeriod === "Max" ? t.investments.totalProfit : `Winst/verlies ${invPeriod}`} rawValue={totalProfit} formatter={fmt} color={totalProfit >= 0 ? "#22c55e" : "#f43f5e"} icon={Target} trend={parseFloat(roi)} isDark={isDark} />
+                <StatCard label={`ROI ${invPeriod}`} rawValue={parseFloat(roi)} formatter={v => v.toFixed(1) + "%"} color="#f59e0b" icon={BarChart2} isDark={isDark} />
+              </div>
+
+              {/* Portfolio sub-widget customize bar */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: pfEditMode ? 12 : 8 }}>
+                <button onClick={() => setPfEditMode(m => !m)}
+                  style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "all 0.15s",
+                    border: pfEditMode ? "1px solid #4f8ef7" : `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "#e2e6ed"}`,
+                    background: pfEditMode ? "rgba(79,142,247,0.12)" : "transparent",
+                    color: pfEditMode ? "#4f8ef7" : isDark ? "#64748b" : "#94a3b8" }}>
+                  <Sliders size={11}/> {pfEditMode ? (lang === "nl" ? "Klaar" : "Done") : (lang === "nl" ? "Aanpassen" : "Customize")}
+                </button>
+              </div>
+              {pfEditMode && (
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14, padding: "10px 14px", background: isDark ? "rgba(79,142,247,0.06)" : "#eff6ff", borderRadius: 12, border: "1px solid rgba(79,142,247,0.15)" }}>
+                  {pfWidgets.map(w => (
+                    <button key={w.id} onClick={() => pfToggle(w.id)}
+                      style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all 0.15s",
+                        border: w.enabled ? "1px solid #4f8ef7" : `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "#e2e6ed"}`,
+                        background: w.enabled ? "rgba(79,142,247,0.15)" : "transparent",
+                        color: w.enabled ? "#4f8ef7" : isDark ? "#475569" : "#94a3b8" }}>
+                      <span>{w.icon}</span> {(PF_WIDGET_LABELS[lang] || PF_WIDGET_LABELS.nl)[w.id]}
+                    </button>
+                  ))}
+                  <span style={{ fontSize: 11, color: isDark ? "#334155" : "#94a3b8", display: "flex", alignItems: "center", marginLeft: 4 }}>⠿ {lang === "nl" ? "Sleep om te verplaatsen" : "Drag to reorder"}</span>
+                </div>
+              )}
+
+              {/* Portfolio sub-widgets */}
+              {pfWidgets.filter(w => w.enabled).map(w => (
+                <div key={w.id}
+                  draggable={pfEditMode}
+                  onDragStart={() => pfDragStart(w.id)}
+                  onDragOver={e => pfDragOver_(e, w.id)}
+                  onDrop={() => pfDrop(w.id)}
+                  onDragEnd={() => { setPfDragging(null); setPfDragOver(null); }}
+                  style={{ marginBottom: 14, opacity: pfDragging === w.id ? 0.4 : 1, outline: pfDragOver === w.id && pfDragging !== w.id ? "2px dashed #4f8ef7" : "none", outlineOffset: 4, borderRadius: 16, cursor: pfEditMode ? "grab" : "default", transition: "opacity 0.15s" }}>
+
+                  {/* GRAFIEK sub-widget */}
+                  {w.id === "chart" && (portfolioHistLoading || portfolioHistory.length > 1) && (() => {
+                    const first = portfolioHistory[0]?.value;
+                    const last  = portfolioHistory[portfolioHistory.length - 1]?.value;
+                    // Als startwaarde < 5% van eindwaarde → niet zinvol (grote cash injectie), toon —
+                    const pctRaw = first > 0 ? ((last - first) / first * 100) : 0;
+                    const pctMeaningful = first > 0 && first >= last * 0.05;
+                    const pct   = pctMeaningful ? pctRaw : null;
+                    const isPos = (pct ?? 0) >= 0;
+                    const lineColor = isPos ? "#22c55e" : "#f43f5e";
+                    return (
+                      <div style={{ background: isDark ? DK.L2 : "#f8fafc", borderRadius: 16, border: `1px solid ${isDark ? DK.b1 : "#e8ecf1"}`, padding: "18px 20px 14px" }}>
+                        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 }}>
+                          <div>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: isDark ? "#475569" : "#94a3b8", letterSpacing: "0.5px", textTransform: "uppercase" }}>
+                              {lang === "nl" ? "Portfolio waarde" : "Portfolio value"}
+                            </div>
+                            {!portfolioHistLoading && portfolioHistory.length > 1 && (
+                              <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginTop: 4 }}>
+                                <span style={{ fontSize: 22, fontWeight: 800, color: isDark ? "#f1f5f9" : "#0f172a" }}>{fmt(last)}</span>
+                                <span style={{ fontSize: 13, fontWeight: 700, color: pct !== null ? lineColor : (isDark ? "#475569" : "#94a3b8") }}>
+                                  {pct !== null ? `${isPos ? "▲" : "▼"} ${Math.abs(pct).toFixed(1)}%` : "—"} <span style={{ fontSize: 11, fontWeight: 500, color: isDark ? "#475569" : "#94a3b8" }}>({invPeriod})</span>
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        {portfolioHistLoading ? (
+                          <div style={{ height: 180, display: "flex", alignItems: "center", justifyContent: "center", color: isDark ? "#334155" : "#94a3b8", fontSize: 12 }}>Grafiek laden...</div>
+                        ) : (
+                          <ResponsiveContainer width="100%" height={180}>
+                            <AreaChart data={portfolioHistory} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                              <defs>
+                                <linearGradient id="pfGrad" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="5%"  stopColor={lineColor} stopOpacity={0.22}/>
+                                  <stop offset="95%" stopColor={lineColor} stopOpacity={0}/>
+                                </linearGradient>
+                              </defs>
+                              <XAxis dataKey="date" tick={{ fontSize: 10, fill: isDark ? "#334155" : "#94a3b8" }} tickLine={false} axisLine={false}
+                                interval="preserveStartEnd"
+                                tickFormatter={d => new Date(d).toLocaleDateString("nl-NL", { day: "numeric", month: "short" })} />
+                              <YAxis tick={{ fontSize: 10, fill: isDark ? "#334155" : "#94a3b8" }} tickLine={false} axisLine={false} width={58}
+                                tickFormatter={v => v >= 1000 ? `€${(v/1000).toFixed(0)}k` : `€${v}`}
+                                domain={["auto","auto"]} />
+                              <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "rgba(255,255,255,0.04)" : "#f1f5f9"} vertical={false} />
+                              <Tooltip content={({ active, payload, label }) => {
+                                if (!active || !payload?.length) return null;
+                                const events = investmentEvents.filter(e => e.date === label);
+                                return (
+                                  <div style={{ background: isDark ? "#0c1929" : "#fff", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "#e2e6ed"}`, borderRadius: 10, padding: "10px 14px", fontSize: 12, minWidth: 160 }}>
+                                    <div style={{ color: isDark ? "#64748b" : "#94a3b8", fontSize: 11, marginBottom: 5 }}>
+                                      {new Date(label).toLocaleDateString("nl-NL", { weekday: "short", day: "numeric", month: "long", year: "numeric" })}
+                                    </div>
+                                    <div style={{ fontWeight: 800, color: isDark ? "#f1f5f9" : "#0f172a", fontSize: 15 }}>{fmt(payload[0].value)}</div>
+                                    {events.map((ev, i) => (
+                                      <div key={i} style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${isDark ? "rgba(255,255,255,0.06)" : "#f1f5f9"}` }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                          <div style={{ width: 8, height: 8, borderRadius: "50%", background: ev.color, flexShrink: 0 }}/>
+                                          <span style={{ color: ev.color, fontWeight: 700 }}>{ev.name}</span>
+                                          <span style={{ color: isDark ? "#475569" : "#94a3b8" }}>toegevoegd</span>
+                                        </div>
+                                        <div style={{ color: isDark ? "#334155" : "#94a3b8", fontSize: 11, marginTop: 2 }}>
+                                          {fmt(ev.invested)} geïnvesteerd{ev.units ? ` · ${ev.units} units` : ""}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                );
+                              }} />
+                              <Area type="monotone" dataKey="value" stroke={lineColor} strokeWidth={2} fill="url(#pfGrad)"
+                                dot={(props) => {
+                                  const ev = investmentEvents.find(e => e.date === props.payload?.date);
+                                  if (!ev) return <g key={props.key}/>;
+                                  return (
+                                    <g key={props.key}>
+                                      <circle cx={props.cx} cy={props.cy} r={8} fill={ev.color} fillOpacity={0.15} stroke={ev.color} strokeWidth={1.5}/>
+                                      <circle cx={props.cx} cy={props.cy} r={4} fill={ev.color} stroke={isDark ? "#0c1929" : "#fff"} strokeWidth={2}/>
+                                    </g>
+                                  );
+                                }}
+                                activeDot={{ r: 4, strokeWidth: 2, stroke: isDark ? "#0c1929" : "#fff" }}
+                              />
+                            </AreaChart>
+                          </ResponsiveContainer>
+                        )}
+                        {investmentEvents.length > 0 && (
+                          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 10, paddingTop: 10, borderTop: `1px solid ${isDark ? "rgba(255,255,255,0.05)" : "#f1f5f9"}` }}>
+                            {investmentEvents.map((e, i) => (
+                              <div key={i} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: isDark ? "#64748b" : "#94a3b8" }}>
+                                <div style={{ width: 7, height: 7, borderRadius: "50%", background: e.color, flexShrink: 0 }}/>
+                                <span style={{ color: e.color, fontWeight: 700 }}>{e.name}</span>
+                                <span>{new Date(e.date).toLocaleDateString("nl-NL", { day: "numeric", month: "short", year: "numeric" })}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {/* POSITIES + ALLOCATIE sub-widgets in grid als beide aan */}
+                  {(w.id === "positions" || w.id === "allocation") && (() => {
+                    const bothOn = pfWidgets.find(x => x.id === "positions")?.enabled && pfWidgets.find(x => x.id === "allocation")?.enabled;
+                    // Only render when it's the first of the pair (positions), to avoid duplicate grid
+                    if (w.id === "allocation" && bothOn) return null;
+                    return (
+                      <div style={{ display: "grid", gridTemplateColumns: bothOn ? "1fr 1fr" : "1fr", gap: 14 }}>
+                        {pfWidgets.filter(x => (x.id === "positions" || x.id === "allocation") && x.enabled).map(sub => (
+                          <div key={sub.id} style={{ background: isDark ? DK.L2 : "#f8fafc", borderRadius: 12, border: `1px solid ${isDark ? DK.b1 : "#e8ecf1"}`, padding: "16px" }}>
+                            {sub.id === "positions" && (
+                              <>
+                                <div style={{ fontSize: 14, fontWeight: 700, color: isDark ? "#f1f5f9" : "#0f172a", marginBottom: enriched.length === 0 ? 0 : 16 }}>Posities</div>
+                                {enriched.length === 0 && (
+                                  <EmptyState type="investments" isDark={isDark}
+                                    title={lang === "nl" ? "Nog geen posities" : "No positions yet"}
+                                    subtitle={lang === "nl" ? "Voeg je crypto, aandelen, spaargeld of vastgoed toe om je portfolio te volgen." : "Add your crypto, stocks, savings or real estate to track your portfolio."}
+                                    action={() => setFormMode("choose")} actionLabel={lang === "nl" ? "Investering toevoegen" : "Add investment"} />
+                                )}
+                                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                  {enriched.map(inv => {
+                      const profit = inv.liveValue - inv.invested;
+                      const pct = inv.invested > 0 ? ((profit / inv.invested) * 100).toFixed(1) : "0.0";
+                      const color = INVESTMENT_COLORS[inv.type] || "#64748b";
+                      const liveD = inv.liveData;
+                      const isLoading = liveD?.loading;
+                      const hasLive = liveD?.price && !liveD?.error;
+                      const isHidden = hiddenInvs.has(inv.id);
+                      const toggleHide = () => setHiddenInvs(prev => { const n = new Set(prev); n.has(inv.id) ? n.delete(inv.id) : n.add(inv.id); return n; });
+                      return (
+                        <div key={inv.id} style={{ padding: "12px 14px", background: isDark ? "rgba(255,255,255,0.03)" : "#fff", borderRadius: 12, border: `1px solid ${hasLive ? "rgba(34,197,94,0.15)" : isDark ? "rgba(255,255,255,0.05)" : "#e8ecf1"}`, opacity: isHidden ? 0.35 : 1, transition: "opacity 0.2s" }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                              <div style={{ width: 36, height: 36, borderRadius: 10, background: `${color}20`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color, flexShrink: 0 }}>
+                                {inv.name.slice(0, 2).toUpperCase()}
+                              </div>
+                              <div>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: isDark ? "#f1f5f9" : "#0f172a" }}>{inv.name}</div>
+                                <div style={{ fontSize: 11, color: isDark ? "#64748b" : "#64748b" }}>
+                                  {inv.type === "real_estate" ? (
+                                    inv.address && <span style={{ color: "#94a3b8" }}>{inv.address} · </span>
+                                  ) : (
+                                    inv.ticker && <span style={{ fontFamily: "monospace", color: "#475569" }}>{inv.ticker.toUpperCase()} · </span>
+                                  )}
+                                  {t.investments.types[inv.type]}{inv.units && inv.type === 'metals' ? ` · ${inv.units} gram` : ''}
+                                  {inv.type === "real_estate" && inv.wozValue > 0 && (
+                                    <span style={{ marginLeft: 6, padding: "1px 6px", background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 6, color: "#818cf8", fontSize: 10, fontWeight: 700 }}>
+                                      WOZ {fmt(inv.wozValue)}{inv.mortgage > 0 ? ` − hyp. ${fmt(inv.mortgage)}` : ""}
+                                    </span>
+                                  )}
+                                  {inv.savingsCurrency && inv.savingsCurrency !== "EUR" && (
+                                    <span style={{ marginLeft: 6, padding: "1px 6px", background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.2)", borderRadius: 6, color: "#22c55e", fontSize: 10, fontWeight: 700 }}>
+                                      {inv.savingsAmount?.toLocaleString()} {inv.savingsCurrency} · {fxRates[inv.savingsCurrency] ? `1=${fmt(fxRates[inv.savingsCurrency])}` : "koers laden..."}
+                                    </span>
+                                  )}
+                                  {inv.linkedGoalId && (() => { const g = goals.find(g => g.id === inv.linkedGoalId); return g ? (
+                                    <span style={{ marginLeft: 6, padding: "1px 6px", background: `${g.color}18`, border: `1px solid ${g.color}40`, borderRadius: 6, color: g.color, fontSize: 10, fontWeight: 700 }}>
+                                      🎯 {g.name}
+                                    </span>
+                                  ) : null; })()}
+                                </div>
+                              </div>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <button onClick={toggleHide}
+                                style={{ width: 28, height: 28, borderRadius: 8, background: isHidden ? "rgba(245,158,11,0.1)" : "rgba(255,255,255,0.05)", border: isHidden ? "1px solid rgba(245,158,11,0.3)" : "1px solid rgba(255,255,255,0.08)", cursor: "pointer", color: isHidden ? "#f59e0b" : "#475569", display: "flex", alignItems: "center", justifyContent: "center" }}
+                                title={isHidden ? "Toon positie" : "Verberg positie"}>
+                                {isHidden ? <EyeOff size={12} /> : <Eye size={12} />}
+                              </button>
+                              <button onClick={() => fetchPrice(inv)} disabled={isLoading}
+                                style={{ width: 28, height: 28, borderRadius: 8, background: hasLive ? "rgba(34,197,94,0.1)" : "rgba(255,255,255,0.05)", border: hasLive ? "1px solid rgba(34,197,94,0.25)" : "1px solid rgba(255,255,255,0.08)", cursor: isLoading ? "wait" : "pointer", color: hasLive ? "#22c55e" : "#475569", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                <RefreshCw size={12} style={{ animation: isLoading ? "spin 1s linear infinite" : "none" }} />
+                              </button>
+                              <button onClick={() => removeInvestment(inv.id)}
+                                style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(244,63,94,0.07)", border: "1px solid rgba(244,63,94,0.15)", cursor: "pointer", color: "#f43f5e", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                <Trash2 size={12} />
+                              </button>
+                              <div style={{ textAlign: "right" }}>
+                                <div style={{ fontSize: 14, fontWeight: 700, color: isDark ? "#f1f5f9" : "#0f172a", fontFamily: "'DM Mono', monospace" }}>{fmt(inv.liveValue)}</div>
+                                <div style={{ fontSize: 11, fontWeight: 600, color: profit >= 0 ? "#22c55e" : "#f43f5e" }}>
+                                  {profit >= 0 ? "+" : ""}{fmt(profit)} ({pct}%)
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          {liveD && !isLoading && (
+                            <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${isDark ? "rgba(255,255,255,0.04)" : "#f1f5f9"}`, display: "flex", alignItems: "center", gap: 12, fontSize: 11 }}>
+                              {liveD.error ? (
+                                <span style={{ color: "#f43f5e" }}>⚠ {liveD.error}</span>
+                              ) : (
+                                <>
+                                  <span style={{ color: isDark ? "#f1f5f9" : "#0f172a", fontFamily: "monospace", fontWeight: 700 }}>{fmt(liveD.price)}</span>
+                                  {liveD.change24h && (
+                                    <span style={{ color: parseFloat(liveD.change24h) >= 0 ? "#22c55e" : "#f43f5e", fontWeight: 600 }}>
+                                      {parseFloat(liveD.change24h) >= 0 ? "▲" : "▼"} {Math.abs(liveD.change24h)}% (24u)
+                                    </span>
+                                  )}
+                                  <span style={{ color: isDark ? "#334155" : "#94a3b8", marginLeft: "auto" }}>🕐 {liveD.lastUpdated}</span>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+              {sub.id === "allocation" && (
+                <>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: isDark ? "#f1f5f9" : "#0f172a", marginBottom: 16 }}>{t.investments.allocation}</div>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                      <Pie data={allocationData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={4} dataKey="value">
+                        {allocationData.map(entry => <Cell key={entry.name} fill={INVESTMENT_COLORS[entry.name] || "#64748b"} stroke="transparent" />)}
+                      </Pie>
+                      <Tooltip contentStyle={{ background: isDark ? DK.L2 : "#ffffff", border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #e2e6ed", borderRadius: 10, fontSize: 12 }} itemStyle={{ color: isDark ? "#f1f5f9" : "#0f172a" }} formatter={v => fmt(v)} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {allocationData.map(d => (
+                      <div key={d.name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 12 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <div style={{ width: 8, height: 8, borderRadius: 2, background: INVESTMENT_COLORS[d.name] || "#64748b" }} />
+                          <span style={{ color: isDark ? "#94a3b8" : "#475569", textTransform: "capitalize" }}>{t.investments.types[d.name]}</span>
+                        </div>
+                        <span style={{ color: isDark ? "#f1f5f9" : "#0f172a", fontFamily: "'DM Mono', monospace", fontWeight: 600 }}>{fmt(d.value)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      );
+    })()}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+
+
+      {/* Empty state when all widgets off */}
+      {invWidgets.filter(w => w.enabled).length === 0 && (
+        <div style={{ ...card(isDark), textAlign: "center", padding: "56px 24px" }}>
+          <div style={{ width: 56, height: 56, borderRadius: 16, background: isDark ? "rgba(255,255,255,0.05)" : "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", fontSize: 26 }}>📭</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: isDark ? "#f1f5f9" : "#0f172a", marginBottom: 6 }}>{lang === "nl" ? "Geen widgets actief" : "No widgets active"}</div>
+          <div style={{ fontSize: 13, color: isDark ? "#64748b" : "#94a3b8", marginBottom: 20 }}>{lang === "nl" ? "Klik op 'Aanpassen' om widgets te activeren." : "Click 'Customize' to activate widgets."}</div>
+          <button onClick={() => setInvEditMode(true)} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 22px", borderRadius: 20, background: "linear-gradient(135deg,#4f8ef7,#6366f1)", border: "none", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+            <Sliders size={14}/> {lang === "nl" ? "Pagina aanpassen" : "Customize page"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
 
 // ─── INSIGHTS VIEW ─────────────────────────────────────────────
-function Insights({ transactions, t, isDark, recurringItems = [], lang = "nl" }) {
+function Insights({ transactions, t, isDark, recurringItems = [], lang = "nl", accounts = [], selectedAccount, setSelectedAccount }) {
   const today = new Date().toISOString().slice(0, 10);
   const C = {
     text: isDark ? "#f1f5f9" : "#0f172a",
@@ -3363,24 +5163,25 @@ function Insights({ transactions, t, isDark, recurringItems = [], lang = "nl" })
   };
 
   const reminderAlerts = recurringItems.filter(r => r.remindDate && r.remindDate <= today);
+  const txFiltered = useMemo(() => filterByAccount(transactions, accounts, selectedAccount), [transactions, accounts, selectedAccount]);
 
   // ── Core calculations ─────────────────────────────────────────
   const { currentMonth, prevMonth, prev2Month, thisMonthTxs, lastMonthTxs, prev2Txs, allMonths } = useMemo(() => {
-    if (!transactions.length) return { currentMonth: "", prevMonth: "", prev2Month: "", thisMonthTxs: [], lastMonthTxs: [], prev2Txs: [], allMonths: [] };
-    const latestDate = transactions.reduce((best, tx) => tx.date > best ? tx.date : best, "");
+    if (!txFiltered.length) return { currentMonth: "", prevMonth: "", prev2Month: "", thisMonthTxs: [], lastMonthTxs: [], prev2Txs: [], allMonths: [] };
+    const latestDate = txFiltered.reduce((best, tx) => tx.date > best ? tx.date : best, "");
     const cur = latestDate.slice(0, 7);
     const [cy, cm] = cur.split("-").map(Number);
     const prev = `${cy}-${String(cm - 1 > 0 ? cm - 1 : 12).padStart(2,"0")}`.replace(/(\d{4})-0/, (_, y) => `${Number(y)-1}-0`);
     const prev2 = `${cy}-${String(cm - 2 > 0 ? cm - 2 : 12).padStart(2,"0")}`.replace(/(\d{4})-0/, (_, y) => `${Number(y)-1}-0`);
-    const months = [...new Set(transactions.map(tx => tx.date.slice(0,7)))].sort();
+    const months = [...new Set(txFiltered.map(tx => tx.date.slice(0,7)))].sort();
     return {
       currentMonth: cur, prevMonth: prev, prev2Month: prev2,
-      thisMonthTxs: transactions.filter(tx => tx.date.startsWith(cur)),
-      lastMonthTxs: transactions.filter(tx => tx.date.startsWith(prev)),
-      prev2Txs:     transactions.filter(tx => tx.date.startsWith(prev2)),
+      thisMonthTxs: txFiltered.filter(tx => tx.date.startsWith(cur)),
+      lastMonthTxs: txFiltered.filter(tx => tx.date.startsWith(prev)),
+      prev2Txs:     txFiltered.filter(tx => tx.date.startsWith(prev2)),
       allMonths:    months,
     };
-  }, [transactions]);
+  }, [txFiltered]);
 
   const sum = (txs, cat, sign) => txs
     .filter(tx => (!cat || tx.category === cat) && (sign === "+" ? tx.amount > 0 : sign === "-" ? tx.amount < 0 : true))
@@ -3426,7 +5227,7 @@ function Insights({ transactions, t, isDark, recurringItems = [], lang = "nl" })
         expenses: Math.round(txs.filter(tx => tx.amount < 0).reduce((s,tx) => s + Math.abs(tx.amount), 0)),
       };
     });
-  }, [transactions, allMonths]);
+  }, [txFiltered, allMonths]);
 
   // ── Alerts ─────────────────────────────────────────────────
   const alerts = useMemo(() => {
@@ -3507,6 +5308,9 @@ function Insights({ transactions, t, isDark, recurringItems = [], lang = "nl" })
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
+      {/* Account filter */}
+      <AccountFilterBar accounts={accounts} selectedAccount={selectedAccount} setSelectedAccount={setSelectedAccount} isDark={isDark} />
+
       {/* ── Reminders ── */}
       {reminderAlerts.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -3525,7 +5329,7 @@ function Insights({ transactions, t, isDark, recurringItems = [], lang = "nl" })
       )}
 
       {/* ── Row 1: Health score + KPIs ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "210px 1fr", gap: 16 }}>
+      <div className="ins-top-grid" style={{ display: "grid", gridTemplateColumns: "210px 1fr", gap: 16 }}>
 
         {/* ── SCORE CARD ── */}
         <div style={{ ...pCard, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "28px 20px", position: "relative", overflow: "hidden" }}>
@@ -3564,7 +5368,7 @@ function Insights({ transactions, t, isDark, recurringItems = [], lang = "nl" })
         </div>
 
         {/* ── KPI GRID ── */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div className="ins-kpi-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           {[
             { label: t.general.income,   value: fmt(income),            Icon: TrendingUp,     color: "#4f8ef7",
               pct: prevIncome   ? Math.round((income   - prevIncome)   / prevIncome   * 100) : null, invertBad: false,
@@ -3630,7 +5434,7 @@ function Insights({ transactions, t, isDark, recurringItems = [], lang = "nl" })
       )}
 
       {/* ── Row 2: Category breakdown + Biggest expenses ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div className="grid-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
 
         {/* Category breakdown */}
         <div style={{ ...pCard }}>
@@ -3764,19 +5568,98 @@ function Insights({ transactions, t, isDark, recurringItems = [], lang = "nl" })
   );
 }
 
+// ─── SHARED: ACCOUNT FILTER BAR + HELPER ──────────────────────
+function filterByAccount(transactions, accounts, selectedAccount) {
+  if (!selectedAccount) return transactions;
+  const acc = accounts.find(a => a.id === selectedAccount);
+  if (!acc) return transactions;
+  return transactions.filter(tx =>
+    tx.account === acc.name ||
+    tx.account_id === selectedAccount ||
+    tx.accountId === selectedAccount
+  );
+}
+
+function AccountFilterBar({ accounts = [], selectedAccount, setSelectedAccount, isDark }) {
+  if (!accounts.length) return null;
+  const border = isDark ? "rgba(255,255,255,0.08)" : "#e2e6ed";
+  const btn = (active) => ({
+    display: "flex", alignItems: "center", gap: 7, padding: "7px 14px", borderRadius: 10, cursor: "pointer",
+    border: active ? "1px solid rgba(79,142,247,0.5)" : `1px solid ${border}`,
+    background: active ? "rgba(79,142,247,0.12)" : isDark ? "rgba(255,255,255,0.03)" : "#f8fafc",
+    color: active ? "#4f8ef7" : isDark ? "#475569" : "#64748b",
+    fontSize: 12, fontWeight: active ? 700 : 500, transition: "all 0.15s", whiteSpace: "nowrap",
+  });
+  return (
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 14, padding: "10px 14px", borderRadius: 12, background: isDark ? "rgba(255,255,255,0.02)" : "#f8fafc", border: `1px solid ${border}` }}>
+      <span style={{ fontSize: 11, fontWeight: 700, color: isDark ? "#334155" : "#94a3b8", textTransform: "uppercase", letterSpacing: "0.07em", marginRight: 4 }}>Rekening:</span>
+      <button onClick={() => setSelectedAccount(null)} style={btn(!selectedAccount)}>
+        <Wallet size={12}/> Alle
+        <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 5, background: !selectedAccount ? "rgba(79,142,247,0.2)" : isDark ? "rgba(255,255,255,0.06)" : "#e2e8f0", color: !selectedAccount ? "#4f8ef7" : isDark ? "#475569" : "#64748b", fontWeight: 700 }}>{accounts.length}</span>
+      </button>
+      {accounts.map(acc => {
+        const active = selectedAccount === acc.id;
+        return (
+          <button key={acc.id} onClick={() => setSelectedAccount(active ? null : acc.id)} style={btn(active)}>
+            <CreditCard size={12}/> {acc.name}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── SETTINGS VIEW ─────────────────────────────────────────────
 // ─── REKENINGEN VIEW ──────────────────────────────────────────
-function RekeningenView({ accounts, setAccounts, onDeleteAccount, isDark, t, onUploadClick, lang = "nl" }) {
+function RekeningenView({ accounts, setAccounts, onDeleteAccount, isDark, t, onUploadClick, lang = "nl", userPlan = 'normal', onUpgrade, hasCompanyProfile = false, transactions = [], setTransactions }) {
   const [categories, setCategories] = useState(Object.keys(CATEGORY_COLORS));
   const [newCat, setNewCat] = useState("");
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [newAccName, setNewAccName] = useState("");
   const [newAccIban, setNewAccIban] = useState("");
-  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [deleteModal, setDeleteModal] = useState(null); // { acc }
+  const [migrateTarget, setMigrateTarget] = useState("");
   const [editAccId, setEditAccId] = useState(null);
   const [editAccName, setEditAccName] = useState("");
+  const [editAccIban, setEditAccIban] = useState("");
   const [editCatName, setEditCatName] = useState(null);
   const [editCatValue, setEditCatValue] = useState("");
+
+  // ── Delete helpers ──────────────────────────────────────────
+  const accTxCount = (accId) => transactions.filter(tx => tx.account_id === accId || tx.accountId === accId).length;
+
+  const exportAccCsv = (acc) => {
+    const txs = transactions.filter(tx => tx.account_id === acc.id || tx.accountId === acc.id);
+    if (!txs.length) { alert('Geen transacties voor deze rekening.'); return; }
+    const header = 'Datum,Omschrijving,Bedrag,Categorie,Type';
+    const rows = txs.map(tx => `"${tx.date}","${tx.description?.replace(/"/g,'""')}",${tx.amount},"${tx.category}","${tx.type}"`);
+    const csv = [header, ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `${acc.name}-transacties.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const doDelete = (acc, withTx = true) => {
+    onDeleteAccount(acc.id);
+    if (withTx && setTransactions) {
+      setTransactions(prev => prev.filter(tx => tx.account_id !== acc.id && tx.accountId !== acc.id));
+    }
+    setDeleteModal(null);
+  };
+
+  const doMigrate = (acc) => {
+    if (!migrateTarget) return;
+    if (setTransactions) {
+      setTransactions(prev => prev.map(tx =>
+        (tx.account_id === acc.id || tx.accountId === acc.id)
+          ? { ...tx, account_id: migrateTarget, accountId: migrateTarget }
+          : tx
+      ));
+    }
+    onDeleteAccount(acc.id);
+    setDeleteModal(null); setMigrateTarget("");
+  };
 
   const C = {
     text: isDark ? "#f1f5f9" : "#0f172a",
@@ -3786,8 +5669,17 @@ function RekeningenView({ accounts, setAccounts, onDeleteAccount, isDark, t, onU
     rowBg: isDark ? "rgba(255,255,255,0.03)" : "#f8fafc",
   };
 
+  const PLAN_LEVELS_REK = { normal: 0, premium: 1, zzp_premium: 2, zzp_diamond: 3 };
+  const planLevelRek = PLAN_LEVELS_REK[userPlan] ?? 0;
+  const isGratisRek = planLevelRek < 1;
+  const isZZPPlanRek = planLevelRek >= 2; // zzp_premium of zzp_diamond
+  const atAccountLimit = isGratisRek && accounts.length >= 1;
+  // Zonder ZZP abonnement: OF rekening OF bedrijf — niet beide
+  const gratisHasCompanyConflict = !isZZPPlanRek && hasCompanyProfile && accounts.length === 0;
+
   const addAccount = () => {
     if (!newAccName.trim()) return;
+    if (atAccountLimit || gratisHasCompanyConflict) { onUpgrade?.(); return; }
     setAccounts(prev => [...prev, { id: Date.now(), name: newAccName.trim(), iban: newAccIban.trim() || "—" }]);
     setNewAccName(""); setNewAccIban(""); setShowAddAccount(false);
   };
@@ -3799,6 +5691,26 @@ function RekeningenView({ accounts, setAccounts, onDeleteAccount, isDark, t, onU
     <div>
       <div style={{ fontSize: 20, fontWeight: 700, color: C.text, marginBottom: 4 }}>{pageTitle}</div>
       <div style={{ fontSize: 13, color: C.muted, marginBottom: 24 }}>{pageSubtitle}</div>
+
+      {/* Gratis OR conflict: heeft al een bedrijfsprofiel */}
+      {gratisHasCompanyConflict && (
+        <div style={{ display:'flex', alignItems:'flex-start', gap:12, padding:'14px 16px', borderRadius:14, background:'rgba(245,158,11,0.08)', border:'1px solid rgba(245,158,11,0.3)', marginBottom:20 }}>
+          <span style={{ fontSize:18, flexShrink:0 }}>🏢</span>
+          <div style={{ flex:1 }}>
+            <div style={{ fontSize:13, fontWeight:700, color:'#f59e0b', marginBottom:3 }}>
+              {lang === 'nl' ? 'Je hebt al een bedrijfsprofiel' : 'You already have a company profile'}
+            </div>
+            <div style={{ fontSize:12, color:C.muted, lineHeight:1.6 }}>
+              {lang === 'nl'
+                ? 'Om bankrekeningen én een bedrijfsprofiel te combineren heb je minimaal ZZP Premium nodig. Verwijder eerst je bedrijf of upgrade naar ZZP Premium.'
+                : 'To combine bank accounts and a company profile you need at least ZZP Premium. Remove your company first or upgrade to ZZP Premium.'}
+            </div>
+          </div>
+          <button onClick={onUpgrade} style={{ padding:'7px 14px', borderRadius:10, border:'none', background:'linear-gradient(135deg,#a855f7,#6366f1)', color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap', flexShrink:0 }}>
+            {lang === 'nl' ? 'ZZP Premium ★' : 'ZZP Premium ★'}
+          </button>
+        </div>
+      )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
@@ -3816,9 +5728,15 @@ function RekeningenView({ accounts, setAccounts, onDeleteAccount, isDark, t, onU
                 </button>
               )}
               {!showAddAccount && (
-                <button onClick={() => setShowAddAccount(true)} style={{ ...pillBtn(), fontSize: 13, padding: "9px 18px" }}>
+                <button onClick={() => atAccountLimit ? onUpgrade?.() : setShowAddAccount(true)} style={{ ...pillBtn(), fontSize: 13, padding: "9px 18px", opacity: atAccountLimit ? 0.7 : 1 }}>
                   <Plus size={14} /> {lang === "nl" ? "Rekening toevoegen" : "Add account"}
+                  {atAccountLimit && <span style={{ fontSize:10, background:'rgba(255,255,255,0.2)', padding:'2px 6px', borderRadius:6, marginLeft:4 }}>★ Premium</span>}
                 </button>
+              )}
+              {atAccountLimit && (
+                <div style={{ fontSize:11, color:'#f59e0b', marginTop:6, textAlign:'right' }}>
+                  {lang === "nl" ? "Gratis: max 1 rekening \u2014 upgrade voor meer" : "Free: max 1 account \u2014 upgrade for more"}
+                </div>
               )}
             </div>
           </div>
@@ -3839,40 +5757,39 @@ function RekeningenView({ accounts, setAccounts, onDeleteAccount, isDark, t, onU
                   </div>
                   <div>
                     {editAccId === acc.id ? (
-                      <input autoFocus value={editAccName} onChange={e => setEditAccName(e.target.value)}
-                        onKeyDown={e => { if (e.key === "Enter") { setAccounts(prev => prev.map(a => a.id === acc.id ? {...a, name: editAccName} : a)); setEditAccId(null); } if (e.key === "Escape") setEditAccId(null); }}
-                        style={{ fontSize: 14, fontWeight: 600, padding: "2px 8px", background: isDark ? "rgba(255,255,255,0.06)" : "#fff", border: `1.5px solid ${accent || "#4f8ef7"}`, borderRadius: 8, color: C.text, outline: "none", width: "100%" }} />
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <input autoFocus value={editAccName} onChange={e => setEditAccName(e.target.value)}
+                          placeholder="Naam"
+                          onKeyDown={e => { if (e.key === "Escape") setEditAccId(null); }}
+                          style={{ fontSize: 14, fontWeight: 600, padding: "4px 8px", background: isDark ? "rgba(255,255,255,0.06)" : "#fff", border: "1.5px solid #4f8ef7", borderRadius: 8, color: C.text, outline: "none", width: 180 }} />
+                        <input value={editAccIban} onChange={e => setEditAccIban(e.target.value)}
+                          placeholder="IBAN"
+                          style={{ fontSize: 12, padding: "3px 8px", background: isDark ? "rgba(255,255,255,0.06)" : "#fff", border: `1px solid ${C.border}`, borderRadius: 8, color: C.muted, outline: "none", width: 180, fontFamily: "monospace" }} />
+                        <div style={{ display: "flex", gap: 6, marginTop: 2 }}>
+                          <button onClick={() => { setAccounts(prev => prev.map(a => a.id === acc.id ? { ...a, name: editAccName, iban: editAccIban || a.iban } : a)); setEditAccId(null); }}
+                            style={{ padding: "3px 10px", background: "#4f8ef7", border: "none", borderRadius: 6, color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Opslaan</button>
+                          <button onClick={() => setEditAccId(null)}
+                            style={{ padding: "3px 10px", background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.muted, fontSize: 11, cursor: "pointer" }}>Annuleer</button>
+                        </div>
+                      </div>
                     ) : (
                       <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{acc.name}</div>
                     )}
-                    <div style={{ fontSize: 11, color: C.muted, fontFamily: "'DM Mono', monospace" }}>{acc.iban}</div>
+                    {editAccId !== acc.id && <div style={{ fontSize: 11, color: C.muted, fontFamily: "'DM Mono', monospace" }}>{acc.iban}</div>}
                   </div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 20, background: "rgba(34,197,94,0.12)", color: "#22c55e", fontWeight: 700 }}>{lang === "nl" ? "Actief" : "Active"}</span>
-                  <button onClick={() => { setEditAccId(acc.id); setEditAccName(acc.name); }}
+                  <button onClick={() => { setEditAccId(acc.id); setEditAccName(acc.name); setEditAccIban(acc.iban === "—" ? "" : acc.iban); }}
                     style={{ width: 28, height: 28, borderRadius: 8, background: C.rowBg, border: `1px solid ${C.border}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: C.muted }}>
                     <Edit2 size={12} />
                   </button>
-                  {deleteConfirm === acc.id ? (
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <button onClick={() => { onDeleteAccount(acc.id); setDeleteConfirm(null); }}
-                        style={{ padding: "5px 12px", background: "rgba(244,63,94,0.15)", border: "1px solid rgba(244,63,94,0.3)", borderRadius: 8, color: "#f43f5e", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>
-                        Verwijder
-                      </button>
-                      <button onClick={() => setDeleteConfirm(null)}
-                        style={{ padding: "5px 12px", background: C.rowBg, border: `1px solid ${C.border}`, borderRadius: 8, color: C.muted, cursor: "pointer", fontSize: 11 }}>
-                        Annuleer
-                      </button>
-                    </div>
-                  ) : (
-                    <button onClick={() => setDeleteConfirm(acc.id)}
-                      style={{ width: 30, height: 30, borderRadius: 8, background: "rgba(244,63,94,0.07)", border: "1px solid rgba(244,63,94,0.15)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#f43f5e" }}
-                      onMouseEnter={e => e.currentTarget.style.background = "rgba(244,63,94,0.18)"}
-                      onMouseLeave={e => e.currentTarget.style.background = "rgba(244,63,94,0.07)"}>
-                      <Trash2 size={13} />
-                    </button>
-                  )}
+                  <button onClick={() => { setDeleteModal({ acc }); setMigrateTarget(""); }}
+                    style={{ width: 30, height: 30, borderRadius: 8, background: "rgba(244,63,94,0.07)", border: "1px solid rgba(244,63,94,0.15)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#f43f5e" }}
+                    onMouseEnter={e => e.currentTarget.style.background = "rgba(244,63,94,0.18)"}
+                    onMouseLeave={e => e.currentTarget.style.background = "rgba(244,63,94,0.07)"}>
+                    <Trash2 size={13} />
+                  </button>
                 </div>
               </div>
             ))}
@@ -3973,20 +5890,269 @@ function RekeningenView({ accounts, setAccounts, onDeleteAccount, isDark, t, onU
         </div>
 
       </div>
+
+      {/* ── Delete account modal ── */}
+      {deleteModal && createPortal(
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ ...card(isDark), maxWidth: 440, width: "100%", borderRadius: 20, padding: 28, boxShadow: "0 24px 80px rgba(0,0,0,0.5)" }}>
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 12, background: "rgba(244,63,94,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Trash2 size={18} color="#f43f5e" />
+              </div>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: C.text }}>Rekening verwijderen</div>
+                <div style={{ fontSize: 12, color: C.muted }}>{deleteModal.acc.name} · {deleteModal.acc.iban}</div>
+              </div>
+            </div>
+
+            {/* Tx count */}
+            {accTxCount(deleteModal.acc.id) > 0 ? (
+              <div style={{ padding: "10px 14px", borderRadius: 10, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)", fontSize: 13, color: "#f59e0b", marginBottom: 20 }}>
+                ⚠️ Deze rekening heeft <strong>{accTxCount(deleteModal.acc.id)} transacties</strong>. Kies wat je ermee wilt doen:
+              </div>
+            ) : (
+              <div style={{ padding: "10px 14px", borderRadius: 10, background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)", fontSize: 13, color: "#22c55e", marginBottom: 20 }}>
+                ✓ Geen transacties gekoppeld aan deze rekening.
+              </div>
+            )}
+
+            {/* Options */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {/* Verwijder + transacties */}
+              <button onClick={() => doDelete(deleteModal.acc, true)} style={{ padding: "13px 16px", borderRadius: 12, border: "1px solid rgba(244,63,94,0.3)", background: "rgba(244,63,94,0.08)", color: "#f43f5e", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 10, textAlign: "left" }}>
+                <Trash2 size={15} style={{ flexShrink: 0 }} />
+                <div>
+                  <div>Verwijder rekening + transacties</div>
+                  <div style={{ fontSize: 11, fontWeight: 400, opacity: 0.75, marginTop: 2 }}>Alle {accTxCount(deleteModal.acc.id)} transacties worden permanent verwijderd</div>
+                </div>
+              </button>
+
+              {/* Exporteer */}
+              <button onClick={() => { exportAccCsv(deleteModal.acc); }} style={{ padding: "13px 16px", borderRadius: 12, border: "1px solid rgba(79,142,247,0.3)", background: "rgba(79,142,247,0.06)", color: "#4f8ef7", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 10, textAlign: "left" }}>
+                <Download size={15} style={{ flexShrink: 0 }} />
+                <div>
+                  <div>Exporteer transacties als CSV</div>
+                  <div style={{ fontSize: 11, fontWeight: 400, opacity: 0.75, marginTop: 2 }}>Download eerst, dan kun je de rekening nog verwijderen</div>
+                </div>
+              </button>
+
+              {/* Migreer */}
+              {accounts.filter(a => a.id !== deleteModal.acc.id).length > 0 && (
+                <div style={{ padding: "13px 16px", borderRadius: 12, border: "1px solid rgba(168,85,247,0.3)", background: "rgba(168,85,247,0.06)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                    <RefreshCw size={15} color="#a855f7" style={{ flexShrink: 0 }} />
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#a855f7" }}>Migreer naar andere rekening</div>
+                  </div>
+                  <select value={migrateTarget} onChange={e => setMigrateTarget(e.target.value)}
+                    style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.border}`, background: isDark ? "rgba(255,255,255,0.06)" : "#f8fafc", color: C.text, fontSize: 13, outline: "none", marginBottom: 8 }}>
+                    <option value="">Kies een rekening...</option>
+                    {accounts.filter(a => a.id !== deleteModal.acc.id).map(a => (
+                      <option key={a.id} value={a.id}>{a.name}</option>
+                    ))}
+                  </select>
+                  <button onClick={() => doMigrate(deleteModal.acc)} disabled={!migrateTarget}
+                    style={{ width: "100%", padding: "8px", borderRadius: 8, border: "none", background: migrateTarget ? "#a855f7" : (isDark ? "rgba(255,255,255,0.08)" : "#e2e8f0"), color: migrateTarget ? "#fff" : C.muted, fontSize: 13, fontWeight: 700, cursor: migrateTarget ? "pointer" : "default" }}>
+                    Transacties verplaatsen & rekening verwijderen
+                  </button>
+                </div>
+              )}
+
+              {/* Annuleer */}
+              <button onClick={() => { setDeleteModal(null); setMigrateTarget(""); }} style={{ padding: "11px", borderRadius: 12, border: `1px solid ${C.border}`, background: "transparent", color: C.muted, fontSize: 13, cursor: "pointer", marginTop: 4 }}>
+                Annuleren
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
 
-function SettingsView({ lang, setLang, t, accounts, setAccounts, onDeleteAccount, theme, setTheme, isDark, onReset }) {
+function SettingsView({ lang, setLang, t, accounts, setAccounts, onDeleteAccount, theme, setTheme, isDark, onReset, user, userPlan = 'normal', currency = 'EUR', setCurrency, onNavigate }) {
   const [newCat, setNewCat] = useState("");
   const [confirmReset, setConfirmReset] = useState(false);
   const [resetSel, setResetSel] = useState([]);
   const C = { text: isDark ? "#f1f5f9" : "#0f172a", muted: isDark ? "#64748b" : "#64748b", border: isDark ? "rgba(255,255,255,0.08)" : "#e2e6ed" };
 
+  // Naam wijzigen
+  const [displayName, setDisplayName] = useState(user?.user_metadata?.full_name || user?.user_metadata?.display_name || "");
+  const [nameLoading, setNameLoading] = useState(false);
+  const [nameMsg, setNameMsg] = useState(null);
+
+  const handleChangeName = async () => {
+    if (!displayName.trim()) { setNameMsg({ text: "Naam mag niet leeg zijn.", ok: false }); return; }
+    setNameLoading(true); setNameMsg(null);
+    const { error: authErr } = await supabase.auth.updateUser({ data: { full_name: displayName.trim() } });
+    const { error: profileErr } = await supabase.from('profiles').update({ display_name: displayName.trim() }).eq('id', user.id);
+    setNameLoading(false);
+    if (authErr || profileErr) { setNameMsg({ text: "Fout bij opslaan. Probeer opnieuw.", ok: false }); }
+    else { setNameMsg({ text: "Naam succesvol bijgewerkt!", ok: true }); }
+  };
+
+  // Wachtwoord wijzigen
+  const [pwNew, setPwNew] = useState("");
+  const [pwConfirm, setPwConfirm] = useState("");
+  const [pwLoading, setPwLoading] = useState(false);
+  const [pwMsg, setPwMsg] = useState(null); // { text, ok }
+  const [pwShow, setPwShow] = useState(false);
+
+  // E-mail wijzigen
+  const [emailNew, setEmailNew] = useState("");
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [emailMsg, setEmailMsg] = useState(null);
+
+  const handleChangeEmail = async () => {
+    if (!emailNew || !emailNew.includes("@")) { setEmailMsg({ text: "Voer een geldig e-mailadres in.", ok: false }); return; }
+    setEmailLoading(true); setEmailMsg(null);
+    const { error } = await supabase.auth.updateUser({ email: emailNew });
+    setEmailLoading(false);
+    if (error) { setEmailMsg({ text: `Fout: ${error.message}`, ok: false }); }
+    else { setEmailMsg({ text: "Bevestigingsmail verstuurd naar het nieuwe adres.", ok: true }); setEmailNew(""); }
+  };
+
+  // Account verwijderen
+  const [deleteStep, setDeleteStep] = useState(0); // 0=idle, 1=confirm, 2=deleting
+  const [deleteMsg, setDeleteMsg] = useState(null);
+
+  const handleDeleteAccount = async () => {
+    setDeleteStep(2); setDeleteMsg(null);
+    try {
+      // Delete all user data from Supabase tables
+      await Promise.all([
+        supabase.from('transactions').delete().eq('user_id', user.id),
+        supabase.from('investments').delete().eq('user_id', user.id),
+        supabase.from('goals').delete().eq('user_id', user.id),
+        supabase.from('recurring').delete().eq('user_id', user.id),
+        supabase.from('invoices').delete().eq('user_id', user.id),
+        supabase.from('costs').delete().eq('user_id', user.id),
+        supabase.from('bonnen').delete().eq('user_id', user.id),
+      ]);
+      // Mark profile as deleted
+      await supabase.from('profiles').update({ deleted: true, deleted_at: new Date().toISOString() }).eq('id', user.id);
+      await supabase.auth.signOut();
+    } catch (err) {
+      setDeleteStep(1);
+      setDeleteMsg("Er is iets misgegaan. Probeer het opnieuw of neem contact op.");
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (pwNew.length < 6) { setPwMsg({ text: "Wachtwoord moet minimaal 6 tekens zijn.", ok: false }); return; }
+    if (pwNew !== pwConfirm) { setPwMsg({ text: "Wachtwoorden komen niet overeen.", ok: false }); return; }
+    setPwLoading(true);
+    setPwMsg(null);
+    const { error } = await supabase.auth.updateUser({ password: pwNew });
+    setPwLoading(false);
+    if (error) {
+      setPwMsg({ text: `Fout: ${error.message}`, ok: false });
+    } else {
+      setPwMsg({ text: "Wachtwoord succesvol gewijzigd!", ok: true });
+      setPwNew(""); setPwConfirm("");
+    }
+  };
+
   return (
     <div>
       <div style={{ fontSize: 20, fontWeight: 700, color: isDark ? "#f1f5f9" : "#0f172a", marginBottom: 20 }}>{t.settings.title}</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+        {/* Naam wijzigen */}
+        <div style={{ ...card(isDark) }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 4 }}>👤 Naam wijzigen</div>
+          <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>Wijzig je weergavenaam in de app.</div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <input
+              type="text"
+              placeholder="Jouw naam"
+              value={displayName}
+              onChange={e => { setDisplayName(e.target.value); setNameMsg(null); }}
+              style={{ flex: 1, padding: "11px 14px", borderRadius: 10,
+                border: `1px solid ${C.border}`, background: isDark ? "rgba(255,255,255,0.05)" : "#f8fafc",
+                color: C.text, fontSize: 14, outline: "none" }}
+            />
+            <button
+              onClick={handleChangeName}
+              disabled={nameLoading}
+              style={{ padding: "11px 20px", borderRadius: 10, border: "none", cursor: "pointer",
+                background: "linear-gradient(135deg,#4f8ef7,#6366f1)", color: "#fff",
+                fontSize: 14, fontWeight: 700, opacity: nameLoading ? 0.6 : 1 }}>
+              {nameLoading ? "..." : "Opslaan"}
+            </button>
+          </div>
+          {nameMsg && (
+            <div style={{ marginTop: 10, fontSize: 12, fontWeight: 600,
+              color: nameMsg.ok ? "#22c55e" : "#ef4444" }}>
+              {nameMsg.text}
+            </div>
+          )}
+        </div>
+
+        {/* Wachtwoord wijzigen */}
+        <div style={{ ...card(isDark) }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 4 }}>🔒 Wachtwoord wijzigen</div>
+          <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>Kies een nieuw wachtwoord voor je account.</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {/* Nieuw wachtwoord */}
+            <div style={{ position: "relative" }}>
+              <input
+                type={pwShow ? "text" : "password"}
+                placeholder="Nieuw wachtwoord"
+                value={pwNew}
+                onChange={e => { setPwNew(e.target.value); setPwMsg(null); }}
+                style={{ width: "100%", padding: "11px 42px 11px 14px", borderRadius: 10,
+                  border: `1px solid ${C.border}`, background: isDark ? "rgba(255,255,255,0.05)" : "#f8fafc",
+                  color: C.text, fontSize: 14, outline: "none", boxSizing: "border-box" }}
+              />
+              <button onClick={() => setPwShow(s => !s)}
+                style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
+                  background: "none", border: "none", cursor: "pointer", color: C.muted, padding: 0 }}>
+                {pwShow ? <EyeOff size={15}/> : <Eye size={15}/>}
+              </button>
+            </div>
+            {/* Bevestig wachtwoord */}
+            <div style={{ position: "relative" }}>
+              <input
+                type={pwShow ? "text" : "password"}
+                placeholder="Bevestig nieuw wachtwoord"
+                value={pwConfirm}
+                onChange={e => { setPwConfirm(e.target.value); setPwMsg(null); }}
+                style={{ width: "100%", padding: "11px 14px", borderRadius: 10,
+                  border: `1px solid ${pwConfirm && pwNew !== pwConfirm ? "#f43f5e" : pwConfirm && pwNew === pwConfirm ? "#22c55e" : C.border}`,
+                  background: isDark ? "rgba(255,255,255,0.05)" : "#f8fafc",
+                  color: C.text, fontSize: 14, outline: "none", boxSizing: "border-box" }}
+              />
+              {pwConfirm && (
+                <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
+                  fontSize: 14, color: pwNew === pwConfirm ? "#22c55e" : "#f43f5e" }}>
+                  {pwNew === pwConfirm ? "✓" : "✗"}
+                </span>
+              )}
+            </div>
+            {/* Feedback */}
+            {pwMsg && (
+              <div style={{ fontSize: 13, padding: "9px 12px", borderRadius: 8,
+                background: pwMsg.ok ? "rgba(34,197,94,0.1)" : "rgba(244,63,94,0.1)",
+                border: `1px solid ${pwMsg.ok ? "#22c55e" : "#f43f5e"}40`,
+                color: pwMsg.ok ? "#22c55e" : "#f43f5e" }}>
+                {pwMsg.ok ? "✓" : "✗"} {pwMsg.text}
+              </div>
+            )}
+            {/* Knop */}
+            <button
+              onClick={handleChangePassword}
+              disabled={pwLoading || !pwNew || !pwConfirm}
+              style={{ padding: "11px", borderRadius: 10, border: "none",
+                background: (!pwNew || !pwConfirm || pwLoading) ? (isDark ? "rgba(255,255,255,0.08)" : "#e2e8f0") : "linear-gradient(135deg,#4f8ef7,#6366f1)",
+                color: (!pwNew || !pwConfirm || pwLoading) ? C.muted : "#fff",
+                fontSize: 14, fontWeight: 700, cursor: (!pwNew || !pwConfirm || pwLoading) ? "default" : "pointer",
+                transition: "all 0.15s" }}>
+              {pwLoading ? "Bezig..." : "Wachtwoord opslaan"}
+            </button>
+          </div>
+        </div>
 
         {/* Theme */}
         <div style={{ ...card(isDark) }}>
@@ -4057,6 +6223,7 @@ function SettingsView({ lang, setLang, t, accounts, setAccounts, onDeleteAccount
                   { key: "goals",        label: lang === "nl" ? "Spaardoelen" : "Saving goals" },
                   { key: "debts",        label: lang === "nl" ? "Schulden" : "Debt" },
                   { key: "budgets",      label: "Budgetten" },
+                  { key: "zzp",          label: lang === "nl" ? "ZZP data (facturen, kosten, bonnen, bedrijfsprofiel)" : "ZZP data (invoices, costs, receipts, company profile)" },
                   { key: "all",          label: "Alles (reset naar beginstand)" },
                 ].map(opt => {
                   const checked = resetSel.includes(opt.key);
@@ -4094,6 +6261,193 @@ function SettingsView({ lang, setLang, t, accounts, setAccounts, onDeleteAccount
           )}
         </div>
 
+        {/* ── Valuta ── */}
+        <div style={{ ...card(isDark) }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+            <div style={{ width: 30, height: 30, borderRadius: 9, background: "rgba(245,158,11,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <DollarSign size={14} color="#f59e0b" />
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Valuta</div>
+          </div>
+          <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>Kies de valuta voor weergave in de app.</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
+            {[
+              { code: "EUR", symbol: "€", label: "Euro" },
+              { code: "USD", symbol: "$", label: "Dollar" },
+              { code: "GBP", symbol: "£", label: "Pond" },
+              { code: "CHF", symbol: "Fr", label: "Frank" },
+              { code: "JPY", symbol: "¥", label: "Yen" },
+              { code: "DKK", symbol: "kr", label: "Kroon" },
+            ].map(cur => {
+              const active = currency === cur.code;
+              return (
+                <button key={cur.code} onClick={() => setCurrency && setCurrency(cur.code)} style={{
+                  padding: "10px 8px", borderRadius: 10, cursor: "pointer", transition: "all 0.15s",
+                  border: active ? "2px solid #f59e0b" : `1px solid ${C.border}`,
+                  background: active ? "rgba(245,158,11,0.1)" : isDark ? "rgba(255,255,255,0.02)" : "#f8fafc",
+                  display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+                }}>
+                  <span style={{ fontSize: 18, fontWeight: 800, color: active ? "#f59e0b" : C.text, fontFamily: "'DM Mono', monospace" }}>{cur.symbol}</span>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: active ? "#f59e0b" : C.muted }}>{cur.code}</span>
+                  <span style={{ fontSize: 9, color: C.muted }}>{cur.label}</span>
+                  {active && <Check size={10} color="#f59e0b" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── E-mail wijzigen ── */}
+        <div style={{ ...card(isDark) }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+            <div style={{ width: 30, height: 30, borderRadius: 9, background: "rgba(79,142,247,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Mail size={14} color="#4f8ef7" />
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>E-mailadres wijzigen</div>
+              {user?.email && <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>Huidig: {user.email}</div>}
+            </div>
+          </div>
+          <div style={{ fontSize: 12, color: C.muted, marginBottom: 14 }}>Er wordt een bevestigingsmail gestuurd naar het nieuwe adres.</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <input
+              type="email"
+              placeholder="Nieuw e-mailadres"
+              value={emailNew}
+              onChange={e => { setEmailNew(e.target.value); setEmailMsg(null); }}
+              style={{ width: "100%", padding: "11px 14px", borderRadius: 10, border: `1px solid ${C.border}`,
+                background: isDark ? "rgba(255,255,255,0.05)" : "#f8fafc", color: C.text,
+                fontSize: 14, outline: "none", boxSizing: "border-box" }}
+            />
+            {emailMsg && (
+              <div style={{ fontSize: 13, padding: "9px 12px", borderRadius: 8,
+                background: emailMsg.ok ? "rgba(34,197,94,0.1)" : "rgba(244,63,94,0.1)",
+                border: `1px solid ${emailMsg.ok ? "#22c55e" : "#f43f5e"}40`,
+                color: emailMsg.ok ? "#22c55e" : "#f43f5e" }}>
+                {emailMsg.ok ? "✓" : "✗"} {emailMsg.text}
+              </div>
+            )}
+            <button onClick={handleChangeEmail} disabled={emailLoading || !emailNew}
+              style={{ padding: "11px", borderRadius: 10, border: "none",
+                background: (!emailNew || emailLoading) ? (isDark ? "rgba(255,255,255,0.08)" : "#e2e8f0") : "linear-gradient(135deg,#4f8ef7,#6366f1)",
+                color: (!emailNew || emailLoading) ? C.muted : "#fff",
+                fontSize: 14, fontWeight: 700, cursor: (!emailNew || emailLoading) ? "default" : "pointer" }}>
+              {emailLoading ? "Bezig..." : "Bevestigingsmail versturen"}
+            </button>
+          </div>
+        </div>
+
+        {/* ── Abonnement overzicht ── */}
+        {(() => {
+          const PLAN_LEVELS = { normal: 0, premium: 1, zzp_premium: 2, zzp_diamond: 3 };
+          const planLevel = PLAN_LEVELS[userPlan] ?? 0;
+          const planMeta = {
+            normal:      { label: "Gratis",       color: "#64748b", icon: "🆓", price: "€0 / maand" },
+            premium:     { label: "Premium",      color: "#4f8ef7", icon: "⭐", price: "€7,99 / maand" },
+            zzp_premium: { label: "ZZP Premium",  color: "#a855f7", icon: "💼", price: "€14,99 / maand" },
+            zzp_diamond: { label: "ZZP Diamond",  color: "#f59e0b", icon: "💎", price: "€24,99 / maand" },
+          };
+          const meta = planMeta[userPlan] || planMeta.normal;
+          const features = {
+            normal:      ["Dashboard & overzicht", "Bankrekeningen koppelen", "Max. 3 maanden transacties", "1 spaardoel"],
+            premium:     ["Alles van Gratis", "Onbeperkte transactiegeschiedenis", "AI-categorisatie", "Onbeperkte spaardoelen", "Investeringsmodule"],
+            zzp_premium: ["Alles van Premium", "ZZP Dashboard", "Facturen aanmaken", "Kosten & bonnen bijhouden", "BTW-overzicht"],
+            zzp_diamond: ["Alles van ZZP Premium", "Meerdere bedrijfsprofielen", "Prioriteit support", "Geavanceerde rapportages"],
+          };
+          const planFeatures = features[userPlan] || features.normal;
+          return (
+            <div style={{ ...card(isDark) }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                <div style={{ width: 30, height: 30, borderRadius: 9, background: `${meta.color}18`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <CreditCard size={14} color={meta.color} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Abonnement</div>
+                </div>
+              </div>
+              {/* Huidig plan badge */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderRadius: 12,
+                background: `${meta.color}10`, border: `1px solid ${meta.color}30`, marginBottom: 14 }}>
+                <div>
+                  <div style={{ fontSize: 13, color: C.muted, marginBottom: 2 }}>Huidig plan</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: meta.color }}>{meta.icon} {meta.label}</div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 2 }}>Prijs</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: C.text, fontFamily: "'DM Mono', monospace" }}>{meta.price}</div>
+                </div>
+              </div>
+              {/* Features */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
+                {planFeatures.map((f, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: C.text }}>
+                    <Check size={12} color={meta.color} style={{ flexShrink: 0 }} />
+                    {f}
+                  </div>
+                ))}
+              </div>
+              {/* Upgrade knop als niet diamond */}
+              {planLevel < 3 && (
+                <button onClick={() => onNavigate && onNavigate("pricing")} style={{
+                  width: "100%", padding: "11px", borderRadius: 10, border: "none", cursor: "pointer",
+                  background: "linear-gradient(135deg, #4f8ef7, #a855f7)",
+                  color: "#fff", fontSize: 14, fontWeight: 700 }}>
+                  ⚡ {planLevel === 0 ? "Upgrade naar Premium" : "Bekijk hogere plannen"}
+                </button>
+              )}
+              {planLevel === 3 && (
+                <div style={{ textAlign: "center", fontSize: 12, color: meta.color, fontWeight: 700 }}>
+                  💎 Je zit op het hoogste plan!
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* ── Account verwijderen ── */}
+        <div style={{ ...card(isDark), border: "1px solid rgba(244,63,94,0.15)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+            <div style={{ width: 30, height: 30, borderRadius: 9, background: "rgba(244,63,94,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <UserX size={14} color="#f43f5e" />
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#f43f5e" }}>Account verwijderen</div>
+          </div>
+          <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>
+            Alle data wordt permanent verwijderd. Dit kan <strong style={{ color: "#f43f5e" }}>niet</strong> ongedaan worden gemaakt.
+          </div>
+          {deleteStep === 0 && (
+            <button onClick={() => setDeleteStep(1)} style={{ padding: "10px 20px", borderRadius: 50,
+              border: "1px solid rgba(244,63,94,0.4)", background: "rgba(244,63,94,0.08)",
+              color: "#f43f5e", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+              Account verwijderen
+            </button>
+          )}
+          {deleteStep === 1 && (
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#f43f5e", marginBottom: 12, padding: "10px 12px",
+                borderRadius: 8, background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.2)" }}>
+                ⚠️ Weet je het zeker? Al je gegevens worden permanent verwijderd en je wordt uitgelogd.
+              </div>
+              {deleteMsg && <div style={{ fontSize: 12, color: "#f43f5e", marginBottom: 10 }}>{deleteMsg}</div>}
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => { setDeleteStep(0); setDeleteMsg(null); }} style={{ flex: 1, padding: "10px", borderRadius: 50,
+                  border: `1px solid ${C.border}`, background: "transparent", color: C.muted, fontSize: 13, cursor: "pointer" }}>
+                  Annuleren
+                </button>
+                <button onClick={handleDeleteAccount} style={{ flex: 2, padding: "10px", borderRadius: 50,
+                  background: "#f43f5e", border: "none", color: "#fff", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
+                  Ja, verwijder alles
+                </button>
+              </div>
+            </div>
+          )}
+          {deleteStep === 2 && (
+            <div style={{ textAlign: "center", padding: "12px", color: C.muted, fontSize: 13 }}>
+              ⏳ Bezig met verwijderen…
+            </div>
+          )}
+        </div>
+
         {/* About */}
         <div style={{ ...card(isDark), textAlign: "center" }}>
           <div style={{ fontSize: 13, color: isDark ? "#334155" : "#94a3b8" }}>Dynafy • MVP v1.0 • Built for ZZP'ers & freelancers in 🇳🇱</div>
@@ -4109,13 +6463,14 @@ function SettingsView({ lang, setLang, t, accounts, setAccounts, onDeleteAccount
 }
 
 // ─── CALIBRATE VIEW ───────────────────────────────────────────
-function Calibrate({ transactions, setTransactions, t, isDark, lang }) {
+function Calibrate({ transactions, setTransactions, t, isDark, lang, accounts = [], selectedAccount, setSelectedAccount }) {
   const [search, setSearch] = useState("");
   const [pendingRules, setPendingRules] = useState({});
   const [applied, setApplied] = useState({});
   const [showOnlyUncategorized, setShowOnlyUncategorized] = useState(false);
   const [addingCatForGroup, setAddingCatForGroup] = useState(null);
   const [inlineNewCat, setInlineNewCat] = useState("");
+  const [catDropGroup, setCatDropGroup] = useState(null); // key of group whose cat dropdown is open
   const [showCatManager, setShowCatManager] = useState(false);
   const [cats, setCats] = useState(Object.keys(CATEGORY_COLORS));
   const [newCatName, setNewCatName] = useState("");
@@ -4125,7 +6480,7 @@ function Calibrate({ transactions, setTransactions, t, isDark, lang }) {
   // Group transactions by normalized description, count frequency
   const groups = useMemo(() => {
     const map = {};
-    transactions.forEach(tx => {
+    filterByAccount(transactions, accounts, selectedAccount).forEach(tx => {
       const key = tx.description.trim().toLowerCase();
       if (!map[key]) {
         map[key] = {
@@ -4213,11 +6568,14 @@ function Calibrate({ transactions, setTransactions, t, isDark, lang }) {
         )}
       </div>
 
+      {/* Account filter */}
+      <AccountFilterBar accounts={accounts} selectedAccount={selectedAccount} setSelectedAccount={setSelectedAccount} isDark={isDark} />
+
       {/* Stats bar */}
       <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
         {[
           { label: t.calibrate.unique, value: groups.length, color: "#4f8ef7" },
-          { label: t.calibrate.total, value: transactions.length, color: "#a855f7" },
+          { label: t.calibrate.total, value: filterByAccount(transactions, accounts, selectedAccount).length, color: "#a855f7" },
           { label: t.calibrate.uncategorized, value: groups.filter(g => g.category === "other").length, color: "#f59e0b" },
         ].map(s => (
           <div key={s.label} style={{ ...card(isDark), flex: 1, minWidth: 130, padding: "12px 16px" }}>
@@ -4420,22 +6778,36 @@ function Calibrate({ transactions, setTransactions, t, isDark, lang }) {
                       style={{ flexShrink: 0, width: 28, height: 28, borderRadius: 7, background: "transparent", border: `1px solid ${isDark ? "rgba(255,255,255,0.12)" : "#e2e6ed"}`, color: isDark ? "#64748b" : "#94a3b8", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
                   </div>
                 ) : (
-                  <select
-                    value={currentCat}
-                    onChange={e => {
-                      if (e.target.value === "__new__") {
-                        setAddingCatForGroup(g.key); setInlineNewCat("");
-                      } else {
-                        setPending(g.key, e.target.value);
-                      }
-                    }}
-                    style={{ width: "100%", padding: "7px 10px", background: `${CATEGORY_COLORS[currentCat] || "#334155"}15`, border: `1px solid ${CATEGORY_COLORS[currentCat] || "#334155"}40`, borderRadius: 9, color: CATEGORY_COLORS[currentCat] || "#64748b", fontSize: 12, fontWeight: 600, cursor: "pointer", outline: "none" }}>
-                    {cats.map(k => (
-                      <option key={k} value={k}>{t.categories[k] || k}</option>
-                    ))}
-                    <option disabled>──────────</option>
-                    <option value="__new__">+ Nieuwe categorie...</option>
-                  </select>
+                  <div style={{ position: "relative" }}>
+                    <button onClick={() => setCatDropGroup(catDropGroup === g.key ? null : g.key)}
+                      style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 9, background: `${CATEGORY_COLORS[currentCat] || "#334155"}18`, border: `1px solid ${CATEGORY_COLORS[currentCat] || "#334155"}45`, color: CATEGORY_COLORS[currentCat] || "#64748b", fontSize: 12, fontWeight: 700, cursor: "pointer", width: "100%", whiteSpace: "nowrap", overflow: "hidden" }}>
+                      <div style={{ width: 6, height: 6, borderRadius: 2, background: "currentColor", flexShrink: 0 }}/>
+                      <span style={{ flex: 1, textAlign: "left", overflow: "hidden", textOverflow: "ellipsis" }}>{t.categories[currentCat] || currentCat}</span>
+                      <ChevronDown size={11} style={{ flexShrink: 0, opacity: 0.6 }}/>
+                    </button>
+                    {catDropGroup === g.key && (
+                      <>
+                        <div style={{ position: "fixed", inset: 0, zIndex: 299 }} onClick={() => setCatDropGroup(null)}/>
+                        <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 300, background: isDark ? "#0b1628" : "#ffffff", border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #e2e6ed", borderRadius: 12, padding: "8px 10px", display: "flex", flexWrap: "wrap", gap: 5, width: 220, boxShadow: "0 8px 24px rgba(0,0,0,0.3)" }}>
+                          {cats.map(k => {
+                            const color = CATEGORY_COLORS[k] || "#64748b";
+                            const active = currentCat === k;
+                            return (
+                              <button key={k} onClick={() => { setPending(g.key, k); setCatDropGroup(null); }}
+                                style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 20, border: active ? `1.5px solid ${color}` : `1px solid ${color}30`, background: active ? `${color}28` : `${color}12`, color, fontSize: 11, fontWeight: active ? 700 : 500, cursor: "pointer", whiteSpace: "nowrap" }}>
+                                <div style={{ width: 5, height: 5, borderRadius: 1, background: color, flexShrink: 0 }}/>
+                                {t.categories[k] || k}
+                              </button>
+                            );
+                          })}
+                          <button onClick={() => { setCatDropGroup(null); setAddingCatForGroup(g.key); setInlineNewCat(""); }}
+                            style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 20, border: `1px solid rgba(79,142,247,0.3)`, background: "rgba(79,142,247,0.1)", color: "#4f8ef7", fontSize: 11, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
+                            <Plus size={10}/> {lang === "nl" ? "Nieuwe..." : "New..."}
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -4474,6 +6846,16 @@ function detectRecurring(transactions) {
   const results = [];
   const usedTxIds = new Set(); // track which txs are already in a group
 
+  // Determine the 2 most recent COMPLETE calendar months in the dataset.
+  // The current (latest) month may be incomplete, so we skip it and look at
+  // the previous full month + the one before that as the recency window.
+  const latestDate = transactions.reduce((best, tx) => tx.date > best ? tx.date : best, "");
+  const latestMonth = latestDate.slice(0, 7); // e.g. "2026-03" — may be incomplete
+  const [ly, lm] = latestMonth.split("-").map(Number);
+  const m1 = lm - 1 > 0 ? lm - 1 : 12;
+  const y1 = lm - 1 > 0 ? ly : ly - 1;
+  const prevMonth = `${y1}-${String(m1).padStart(2, "0")}`; // e.g. "2026-02" (last complete month)
+
   // ── Pass 1: Group by counterparty (most reliable) ──────────────
   const byCounterparty = {};
   transactions.filter(tx => tx.amount < 0 && tx.category !== "income").forEach(tx => {
@@ -4484,25 +6866,32 @@ function detectRecurring(transactions) {
   });
 
   Object.entries(byCounterparty).forEach(([key, txs]) => {
-    const months = new Set(txs.map(tx => tx.date.slice(0, 7)));
+    const allAmounts = txs.map(tx => Math.abs(tx.amount)).sort((a, b) => a - b);
+    // Use median as reference to filter out one-off payments (e.g. betalingsregelingen)
+    const mid = Math.floor(allAmounts.length / 2);
+    const median = allAmounts.length % 2 !== 0
+      ? allAmounts[mid]
+      : (allAmounts[mid - 1] + allAmounts[mid]) / 2;
+    if (median > 5000) return;
+    // Keep only transactions within 30% of the median (core recurring group)
+    const coreTxs = txs.filter(tx => Math.abs(Math.abs(tx.amount) - median) / median < 0.30);
+    const months = new Set(coreTxs.map(tx => tx.date.slice(0, 7)));
     if (months.size < 2) return;
-    const amounts = txs.map(tx => Math.abs(tx.amount));
-    const avgAmount = amounts.reduce((s, a) => s + a, 0) / amounts.length;
-    if (avgAmount > 5000) return;
-    const allSimilar = amounts.every(a => Math.abs(a - avgAmount) / avgAmount < 0.25);
-    if (!allSimilar) return;
+    const coreAmounts = coreTxs.map(tx => Math.abs(tx.amount));
+    const avgAmount = coreAmounts.reduce((s, a) => s + a, 0) / coreAmounts.length;
 
-    txs.forEach(tx => usedTxIds.add(tx.id));
+    coreTxs.forEach(tx => usedTxIds.add(tx.id));
     results.push({
       key: `cp:${key}`,
-      label: txs[0].description.trim(),
-      counterparty: txs[0].counterparty,
+      label: coreTxs.find(tx => tx.description?.toLowerCase().includes("huur"))?.description.trim()
+        || coreTxs[0].description.trim(),
+      counterparty: coreTxs[0].counterparty,
       avgAmount: parseFloat(avgAmount.toFixed(2)),
-      count: txs.length,
+      count: coreTxs.length,
       months: [...months].sort(),
-      lastDate: txs.map(tx => tx.date).sort().pop(),
-      category: txs[0].category,
-      txIds: txs.map(tx => tx.id),
+      lastDate: coreTxs.map(tx => tx.date).sort().pop(),
+      category: coreTxs[0].category,
+      txIds: coreTxs.map(tx => tx.id),
     });
   });
 
@@ -4515,36 +6904,48 @@ function detectRecurring(transactions) {
   });
 
   Object.entries(byDescription).forEach(([key, txs]) => {
-    const months = new Set(txs.map(tx => tx.date.slice(0, 7)));
+    const allAmounts = txs.map(tx => Math.abs(tx.amount)).sort((a, b) => a - b);
+    const mid = Math.floor(allAmounts.length / 2);
+    const median = allAmounts.length % 2 !== 0
+      ? allAmounts[mid]
+      : (allAmounts[mid - 1] + allAmounts[mid]) / 2;
+    if (median > 5000) return;
+    const coreTxs = txs.filter(tx => Math.abs(Math.abs(tx.amount) - median) / median < 0.30);
+    const months = new Set(coreTxs.map(tx => tx.date.slice(0, 7)));
     if (months.size < 2) return;
-    const amounts = txs.map(tx => Math.abs(tx.amount));
-    const avgAmount = amounts.reduce((s, a) => s + a, 0) / amounts.length;
-    if (avgAmount > 5000) return;
-    const allSimilar = amounts.every(a => Math.abs(a - avgAmount) / avgAmount < 0.25);
-    if (!allSimilar) return;
+    const coreAmounts = coreTxs.map(tx => Math.abs(tx.amount));
+    const avgAmount = coreAmounts.reduce((s, a) => s + a, 0) / coreAmounts.length;
 
     const cpMap = {};
-    txs.forEach(tx => { if (tx.counterparty) cpMap[tx.counterparty] = (cpMap[tx.counterparty]||0)+1; });
+    coreTxs.forEach(tx => { if (tx.counterparty) cpMap[tx.counterparty] = (cpMap[tx.counterparty]||0)+1; });
     const topCp = Object.entries(cpMap).sort((a,b)=>b[1]-a[1])[0]?.[0] || null;
 
     results.push({
       key: `desc:${key}`,
-      label: txs[0].description.trim(),
+      label: coreTxs[0].description.trim(),
       counterparty: topCp,
       avgAmount: parseFloat(avgAmount.toFixed(2)),
-      count: txs.length,
+      count: coreTxs.length,
       months: [...months].sort(),
-      lastDate: txs.map(tx => tx.date).sort().pop(),
-      category: txs[0].category,
-      txIds: txs.map(tx => tx.id),
+      lastDate: coreTxs.map(tx => tx.date).sort().pop(),
+      category: coreTxs[0].category,
+      txIds: coreTxs.map(tx => tx.id),
     });
   });
 
-  return results.sort((a, b) => b.avgAmount - a.avgAmount);
+  // ── Recency filter ────────────────────────────────────────────────────────
+  // The current month is skipped (may be incomplete). An item must have been
+  // paid in the last COMPLETE month (prevMonth) or later to be considered
+  // an active recurring expense. If February had no payment, it's not shown —
+  // even if January did. The exception is if it already appeared in the
+  // current (incomplete) month.
+  return results
+    .filter(r => r.lastDate.slice(0, 7) >= prevMonth)
+    .sort((a, b) => b.avgAmount - a.avgAmount);
 }
 
 // ─── VASTE LASTEN VIEW ─────────────────────────────────────────
-function VasteLasten({ transactions, recurringItems, setRecurringItems, isDark, t, lang }) {
+function VasteLasten({ transactions, recurringItems, setRecurringItems, isDark, t, lang, accounts = [], selectedAccount, setSelectedAccount }) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [addMode, setAddMode] = useState("search"); // "search" | "manual"
   const [searchQ, setSearchQ] = useState("");
@@ -4553,8 +6954,12 @@ function VasteLasten({ transactions, recurringItems, setRecurringItems, isDark, 
   const [editReminder, setEditReminder] = useState(null); // item id being edited
   const [reminderForm, setReminderForm] = useState({ date: "", note: "" });
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [vlSearch, setVlSearch] = useState("");
+  const [vlSort, setVlSort] = useState("amount_desc");
+  const [vlCatDrop, setVlCatDrop] = useState(null); // item.key whose cat dropdown is open
 
-  const detected = useMemo(() => detectRecurring(transactions), [transactions]);
+  const accountTxs = useMemo(() => filterByAccount(transactions, accounts, selectedAccount), [transactions, accounts, selectedAccount]);
+  const detected = useMemo(() => detectRecurring(accountTxs), [accountTxs]);
   const today = new Date().toISOString().slice(0, 10);
 
   // Merge detected + manually added, deduplicate by key
@@ -4574,11 +6979,11 @@ function VasteLasten({ transactions, recurringItems, setRecurringItems, isDark, 
     if (!searchQ.trim()) return [];
     const q = searchQ.toLowerCase();
     const seen = new Set();
-    return transactions
+    return accountTxs
       .filter(tx => tx.amount < 0 && (tx.description.toLowerCase().includes(q)))
       .filter(tx => { const k = tx.description.trim().toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; })
       .slice(0, 8);
-  }, [searchQ, transactions]);
+  }, [searchQ, accountTxs]);
 
   const addFromTx = (tx) => {
     const key = tx.description.trim().toLowerCase();
@@ -4738,31 +7143,53 @@ function VasteLasten({ transactions, recurringItems, setRecurringItems, isDark, 
         </div>
       )}
 
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: C.text }}>Vaste Lasten</div>
-          <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>{t.recurring.subtitle}</div>
-        </div>
+      {/* Header — alleen de knop, titel komt van de topbar */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: 14 }}>
         <button onClick={() => setShowAddModal(true)} style={{ ...pillBtn(), fontSize: 13 }}>
           <Plus size={15} /> {t.recurring.addBtn}
         </button>
       </div>
 
-      {/* Summary cards */}
+      {/* Account filter */}
+      <AccountFilterBar accounts={accounts} selectedAccount={selectedAccount} setSelectedAccount={setSelectedAccount} isDark={isDark} />
+
+      {/* Summary cards — zelfde stijl als Categoriseren */}
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
         {[
-          { label: t.recurring.totalMonth, value: fmt(totalMonthly), color: "#f43f5e", icon: "📅" },
-          { label: t.recurring.totalYear, value: fmt(totalMonthly * 12), color: "#a855f7", icon: "📆" },
-          { label: t.recurring.count, value: `${allItems.length}`, color: "#4f8ef7", icon: "🔁" },
-          { label: t.recurring.withReminder, value: `${allItems.filter(i => i.remindDate).length}`, color: "#f59e0b", icon: "🔔" },
+          { label: t.recurring.totalMonth,  value: fmt(totalMonthly),       color: "#f43f5e" },
+          { label: t.recurring.totalYear,   value: fmt(totalMonthly * 12),  color: "#a855f7" },
+          { label: t.recurring.count,       value: `${allItems.length}`,    color: "#4f8ef7" },
+          { label: t.recurring.withReminder,value: `${allItems.filter(i => i.remindDate).length}`, color: "#f59e0b" },
         ].map(s => (
-          <div key={s.label} style={{ ...card(isDark), flex: 1, minWidth: 140, padding: "14px 18px", borderTop: isDark ? undefined : `2.5px solid ${s.color}` }}>
-            <div style={{ fontSize: 20, marginBottom: 6 }}>{s.icon}</div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>{s.label}</div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: s.color, fontFamily: "'DM Mono', monospace" }}>{s.value}</div>
+          <div key={s.label} style={{ ...card(isDark), flex: 1, minWidth: 140, padding: "12px 16px" }}>
+            <div style={{ fontSize: 11, color: isDark ? "#64748b" : "#64748b", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>{s.label}</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: s.color, fontFamily: "'DM Mono', monospace" }}>{s.value}</div>
           </div>
         ))}
+      </div>
+
+      {/* Search + Sort bar */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
+        <div style={{ flex: 1, minWidth: 180, position: "relative" }}>
+          <input value={vlSearch} onChange={e => setVlSearch(e.target.value)}
+            placeholder={lang === "nl" ? "Zoeken..." : "Search..."}
+            style={{ width: "100%", padding: "9px 14px 9px 36px", background: isDark ? "rgba(255,255,255,0.04)" : "#f8fafc", border: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid #e2e6ed", borderRadius: 12, color: isDark ? "#f1f5f9" : "#0f172a", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+          <Search size={13} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: isDark ? "#334155" : "#94a3b8", pointerEvents: "none" }}/>
+        </div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {[
+            { v: "date_desc",   label: lang === "nl" ? "Nieuwste" : "Newest" },
+            { v: "date_asc",    label: lang === "nl" ? "Oudste" : "Oldest" },
+            { v: "amount_desc", label: lang === "nl" ? "Hoog→Laag" : "High→Low" },
+            { v: "amount_asc",  label: lang === "nl" ? "Laag→Hoog" : "Low→High" },
+            { v: "name_asc",    label: lang === "nl" ? "A→Z" : "A→Z" },
+          ].map(({ v, label }) => (
+            <button key={v} onClick={() => setVlSort(v)}
+              style={{ padding: "6px 12px", borderRadius: 20, border: vlSort === v ? `1.5px solid #4f8ef7` : `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "#e2e6ed"}`, background: vlSort === v ? "rgba(79,142,247,0.12)" : "transparent", color: vlSort === v ? "#4f8ef7" : isDark ? "#64748b" : "#94a3b8", fontSize: 12, fontWeight: vlSort === v ? 700 : 400, cursor: "pointer", whiteSpace: "nowrap" }}>
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* List */}
@@ -4782,7 +7209,16 @@ function VasteLasten({ transactions, recurringItems, setRecurringItems, isDark, 
           </div>
         )}
 
-        {allItems.filter(i => !i._removed).map((item, idx, arr) => {
+        {[...allItems]
+          .filter(i => !i._removed && (!vlSearch.trim() || (i.label || "").toLowerCase().includes(vlSearch.toLowerCase()) || (i.counterparty || "").toLowerCase().includes(vlSearch.toLowerCase())))
+          .sort((a, b) => {
+            if (vlSort === "amount_asc") return a.avgAmount - b.avgAmount;
+            if (vlSort === "name_asc")   return (a.counterparty || a.label).localeCompare(b.counterparty || b.label);
+            if (vlSort === "date_asc")   return (a.lastDate || "").localeCompare(b.lastDate || "");
+            if (vlSort === "date_desc")  return (b.lastDate || "").localeCompare(a.lastDate || "");
+            return b.avgAmount - a.avgAmount; // amount_desc default
+          })
+          .map((item, idx, arr) => {
           const hasReminder = !!item.remindDate;
           const reminderPast = hasReminder && item.remindDate <= today;
           const daysLeft = hasReminder ? Math.ceil((new Date(item.remindDate) - new Date()) / 86400000) : null;
@@ -4815,14 +7251,41 @@ function VasteLasten({ transactions, recurringItems, setRecurringItems, isDark, 
               </div>
 
               {/* Amount */}
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#f43f5e", fontFamily: "'DM Mono', monospace" }}>−{fmt(item.avgAmount)}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: isDark ? "#f1f5f9" : "#0f172a", fontFamily: "'DM Mono', monospace" }}>−{fmt(item.avgAmount)}</div>
 
-              {/* Category */}
-              <div>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 8, background: `${CATEGORY_COLORS[item.category] || "#64748b"}18`, fontSize: 11, fontWeight: 600, color: CATEGORY_COLORS[item.category] || "#64748b" }}>
+              {/* Category — klikbaar dropdown */}
+              <div style={{ position: "relative" }}>
+                <button onClick={() => setVlCatDrop(vlCatDrop === item.key ? null : item.key)}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 8, background: `${CATEGORY_COLORS[item.category] || "#64748b"}18`, border: `1px solid ${CATEGORY_COLORS[item.category] || "#64748b"}35`, fontSize: 11, fontWeight: 600, color: CATEGORY_COLORS[item.category] || "#64748b", cursor: "pointer", whiteSpace: "nowrap" }}>
                   <div style={{ width: 5, height: 5, borderRadius: 1, background: "currentColor" }} />
-                  {item.category}
-                </span>
+                  {t.categories[item.category] || item.category}
+                  <Edit2 size={9} style={{ opacity: 0.5 }}/>
+                </button>
+                {vlCatDrop === item.key && (
+                  <>
+                    <div style={{ position: "fixed", inset: 0, zIndex: 299 }} onClick={() => setVlCatDrop(null)}/>
+                    <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 300, background: isDark ? "#0b1628" : "#ffffff", border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #e2e6ed", borderRadius: 12, padding: "8px 10px", display: "flex", flexWrap: "wrap", gap: 5, width: 210, boxShadow: "0 8px 24px rgba(0,0,0,0.3)" }}>
+                      {Object.keys(CATEGORY_COLORS).map(k => {
+                        const color = CATEGORY_COLORS[k] || "#64748b";
+                        const active = item.category === k;
+                        return (
+                          <button key={k} onClick={() => {
+                            setRecurringItems(prev => {
+                              const exists = prev.find(r => r.key === item.key);
+                              if (exists) return prev.map(r => r.key === item.key ? { ...r, category: k } : r);
+                              return [...prev, { ...item, category: k }];
+                            });
+                            setVlCatDrop(null);
+                          }}
+                            style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 20, border: active ? `1.5px solid ${color}` : `1px solid ${color}30`, background: active ? `${color}28` : `${color}12`, color, fontSize: 11, fontWeight: active ? 700 : 500, cursor: "pointer", whiteSpace: "nowrap" }}>
+                            <div style={{ width: 5, height: 5, borderRadius: 1, background: color, flexShrink: 0 }}/>
+                            {t.categories[k] || k}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Reminder */}
@@ -4858,6 +7321,249 @@ function VasteLasten({ transactions, recurringItems, setRecurringItems, isDark, 
 
       <div style={{ marginTop: 12, fontSize: 12, color: C.faint, textAlign: "center" }}>
         {t.recurring.removeNote}
+      </div>
+    </div>
+  );
+}
+
+// ─── PRICING VIEW ──────────────────────────────────────────────
+function PricingView({ isDark, userPlan = 'normal', onClose, lang = 'nl' }) {
+  const [yearly, setYearly] = useState(false);
+  const C = {
+    bg:     isDark ? '#07111f' : '#f8fafc',
+    card:   isDark ? '#0f1e36' : '#ffffff',
+    border: isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0',
+    text:   isDark ? '#f1f5f9' : '#0f172a',
+    muted:  isDark ? '#64748b' : '#94a3b8',
+    sub:    isDark ? '#94a3b8' : '#475569',
+  };
+
+  const PLAN_LEVELS = { normal: 0, premium: 1, zzp_premium: 2, zzp_diamond: 3 };
+
+  const PLANS = [
+    {
+      key: 'normal',
+      name: 'Gratis',
+      icon: '○',
+      color: '#64748b',
+      grad: 'linear-gradient(135deg,#475569,#64748b)',
+      monthly: 0,
+      yearly: 0,
+      tagline: 'Voor wie wil beginnen',
+      popular: false,
+      features: [
+        { label: '1 bankrekening of 1 ZZP-bedrijf', ok: true },
+        { label: 'CSV import', ok: true },
+        { label: 'Transactieoverzicht (3 maanden)', ok: true },
+        { label: 'Basis categorisatie', ok: true },
+        { label: 'Vaste lasten overzicht', ok: true },
+        { label: 'Max 3 facturen per maand', ok: true },
+        { label: 'Onbeperkte rekeningen', ok: false },
+        { label: 'Volledige historie', ok: false },
+        { label: 'AI categorisatie', ok: false },
+        { label: 'Investeringen & doelen', ok: false },
+      ],
+    },
+    {
+      key: 'premium',
+      name: 'Premium',
+      icon: '★',
+      color: '#f59e0b',
+      grad: 'linear-gradient(135deg,#f59e0b,#f97316)',
+      monthly: 5.99,
+      yearly: 49,
+      tagline: 'Voor de serieuze particulier',
+      popular: false,
+      features: [
+        { label: 'Alles van Gratis', ok: true },
+        { label: 'Onbeperkte rekeningen', ok: true },
+        { label: 'Volledige transactiehistorie', ok: true },
+        { label: 'AI categorisatie', ok: true },
+        { label: 'Investeringsportefeuille', ok: true },
+        { label: 'Spaar- & doelen tracker', ok: true },
+        { label: 'Budgetten per categorie', ok: true },
+        { label: 'Export naar Excel / PDF', ok: true },
+        { label: 'ZZP functies', ok: false },
+        { label: 'Facturen onbeperkt', ok: false },
+      ],
+    },
+    {
+      key: 'zzp_premium',
+      name: 'ZZP Premium',
+      icon: '⚡',
+      color: '#a855f7',
+      grad: 'linear-gradient(135deg,#a855f7,#6366f1)',
+      monthly: 17.99,
+      yearly: 159,
+      tagline: 'Voor de actieve ZZP-er',
+      popular: true,
+      features: [
+        { label: 'Alles van Premium', ok: true },
+        { label: 'ZZP Dashboard', ok: true },
+        { label: 'Onbeperkt facturen & offertes', ok: true },
+        { label: 'Kosten registreren', ok: true },
+        { label: 'Bonnen uploaden (handmatig)', ok: true },
+        { label: 'BTW aangifte voorbereiding', ok: true },
+        { label: '1 bedrijfsprofiel', ok: true },
+        { label: 'Moneybird koppeling', ok: true },
+        { label: 'Boekhouder inzage (basis)', ok: true },
+        { label: 'AI bonnen scan', ok: false },
+      ],
+    },
+    {
+      key: 'zzp_diamond',
+      name: 'ZZP Diamond',
+      icon: '♦',
+      color: '#06b6d4',
+      grad: 'linear-gradient(135deg,#06b6d4,#8b5cf6)',
+      monthly: 89,
+      yearly: 849,
+      tagline: 'Volledig ontzorgd',
+      popular: false,
+      features: [
+        { label: 'Alles van ZZP Premium', ok: true },
+        { label: 'AI bonnen scan (automatisch)', ok: true },
+        { label: 'Tot 5 bedrijfsprofielen', ok: true },
+        { label: 'Boekhouder portaal (volledig)', ok: true },
+        { label: 'BTW aangifte door boekhouder', ok: true },
+        { label: 'IB aangifte door boekhouder', ok: true },
+        { label: 'Geavanceerde rapportages', ok: true },
+        { label: 'Prioriteit support', ok: true },
+        { label: 'Jaarlijks adviesgesprek', ok: true },
+        { label: 'Volledige boekhouding', ok: true },
+      ],
+    },
+  ];
+
+  const fmtPrice = (p) => p === 0 ? 'Gratis' : '\u20AC\u00A0' + p.toLocaleString('nl-NL', { minimumFractionDigits: p % 1 === 0 ? 0 : 2 });
+  const isCurrent = (key) => userPlan === key;
+  const isUpgrade = (key) => (PLAN_LEVELS[key] ?? 0) > (PLAN_LEVELS[userPlan] ?? 0);
+
+  return (
+    <div style={{ minHeight: '100%', padding: '32px 24px 64px', maxWidth: 1100, margin: '0 auto' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 8 }}>
+        <button onClick={onClose} style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${C.border}`, background: 'transparent', color: C.muted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <ChevronLeft size={18} />
+        </button>
+        <div>
+          <div style={{ fontSize: 24, fontWeight: 900, color: C.text }}>Kies je plan</div>
+          <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>Upgrade wanneer je er klaar voor bent. Geen verplichtingen.</div>
+        </div>
+      </div>
+
+      {/* Yearly toggle */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, margin: '28px 0 36px' }}>
+        <span style={{ fontSize: 14, fontWeight: yearly ? 500 : 700, color: yearly ? C.muted : C.text }}>Per maand</span>
+        <div onClick={() => setYearly(y => !y)} style={{ width: 48, height: 26, borderRadius: 13, background: yearly ? '#4f8ef7' : isDark ? 'rgba(255,255,255,0.12)' : '#e2e8f0', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+          <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#fff', position: 'absolute', top: 3, left: yearly ? 25 : 3, transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.2)' }} />
+        </div>
+        <span style={{ fontSize: 14, fontWeight: yearly ? 700 : 500, color: yearly ? C.text : C.muted }}>
+          Per jaar
+          <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, color: '#22c55e', background: 'rgba(34,197,94,0.12)', padding: '2px 7px', borderRadius: 6 }}>tot 15% korting</span>
+        </span>
+      </div>
+
+      {/* Plan cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, alignItems: 'stretch' }}>
+        {PLANS.map(plan => {
+          const price = yearly ? plan.yearly : plan.monthly;
+          const current = isCurrent(plan.key);
+          const upgrade = isUpgrade(plan.key);
+          return (
+            <div key={plan.key} style={{ position: 'relative', borderRadius: 20, border: current ? `2px solid ${plan.color}` : plan.popular ? `2px solid ${plan.color}` : `1px solid ${C.border}`, background: C.card, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: plan.popular ? `0 8px 32px ${plan.color}22` : 'none', transition: 'transform 0.15s', transform: plan.popular ? 'scale(1.02)' : 'scale(1)' }}>
+              {/* Popular badge */}
+              {plan.popular && !current && (
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, background: plan.grad, textAlign: 'center', fontSize: 11, fontWeight: 800, color: '#fff', padding: '5px 0', letterSpacing: '0.08em' }}>
+                  MEEST POPULAIR
+                </div>
+              )}
+              {current && (
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, background: plan.grad, textAlign: 'center', fontSize: 11, fontWeight: 800, color: '#fff', padding: '5px 0', letterSpacing: '0.08em' }}>
+                  HUIDIG PLAN
+                </div>
+              )}
+
+              <div style={{ padding: '24px 22px 20px', paddingTop: (plan.popular || current) ? 36 : 24, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                {/* Icon + name */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 12, background: plan.grad, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
+                    {plan.icon}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 17, fontWeight: 800, color: C.text }}>{plan.name}</div>
+                    <div style={{ fontSize: 11, color: C.muted }}>{plan.tagline}</div>
+                  </div>
+                </div>
+
+                {/* Price */}
+                <div style={{ marginBottom: 20 }}>
+                  {price === 0 ? (
+                    <div style={{ fontSize: 32, fontWeight: 900, color: C.text }}>Gratis</div>
+                  ) : (
+                    <>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                        <span style={{ fontSize: 32, fontWeight: 900, color: C.text }}>{fmtPrice(price)}</span>
+                        <span style={{ fontSize: 13, color: C.muted, fontWeight: 500 }}>/{yearly ? 'jaar' : 'maand'}</span>
+                      </div>
+                      {yearly && plan.monthly > 0 && (
+                        <div style={{ fontSize: 11, color: '#22c55e', fontWeight: 600, marginTop: 2 }}>
+                          Bespaar {'\u20AC'}{((plan.monthly * 12) - plan.yearly).toFixed(0)} per jaar
+                        </div>
+                      )}
+                      {!yearly && plan.yearly > 0 && (
+                        <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
+                          of {'\u20AC'}{plan.yearly}/jaar bij jaarlijkse betaling
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {/* Features */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, marginBottom: 20 }}>
+                  {plan.features.map((f, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ width: 18, height: 18, borderRadius: 5, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, background: f.ok ? `${plan.color}22` : 'transparent', border: f.ok ? 'none' : `1px solid ${C.border}` }}>
+                        {f.ok
+                          ? <Check size={11} color={plan.color} strokeWidth={3} />
+                          : <span style={{ fontSize: 10, color: C.border }}>—</span>
+                        }
+                      </div>
+                      <span style={{ fontSize: 12, color: f.ok ? C.sub : C.muted, fontWeight: f.ok ? 500 : 400 }}>{f.label}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* CTA */}
+                {current ? (
+                  <div style={{ padding: '11px 0', borderRadius: 12, border: `2px solid ${plan.color}`, textAlign: 'center', fontSize: 13, fontWeight: 700, color: plan.color }}>
+                    Huidig plan ✓
+                  </div>
+                ) : upgrade ? (
+                  <a href={`mailto:info@dynafy.nl?subject=Upgrade naar ${plan.name}&body=Ik wil graag upgraden naar het ${plan.name} plan.`}
+                    style={{ display: 'block', padding: '12px 0', borderRadius: 12, border: 'none', background: plan.grad, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', textAlign: 'center', textDecoration: 'none' }}>
+                    Upgrade naar {plan.name} →
+                  </a>
+                ) : (
+                  <div style={{ padding: '11px 0', borderRadius: 12, border: `1px solid ${C.border}`, textAlign: 'center', fontSize: 13, fontWeight: 500, color: C.muted }}>
+                    Downgrade
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Footer note */}
+      <div style={{ marginTop: 40, textAlign: 'center' }}>
+        <div style={{ fontSize: 13, color: C.muted, marginBottom: 6 }}>
+          Upgrade gaat via de beheerder. Klik op "Upgrade" om een e-mail te sturen.
+        </div>
+        <div style={{ fontSize: 12, color: isDark ? '#334155' : '#cbd5e1' }}>
+          Alle prijzen zijn excl. BTW · Maandelijks opzegbaar · Geen verborgen kosten
+        </div>
       </div>
     </div>
   );
@@ -5091,7 +7797,7 @@ function ExportView({ transactions, isDark }) {
 }
 
 // ─── GOALS VIEW ────────────────────────────────────────────────
-function GoalsView({ transactions, isDark, useMockData = true, goals: appGoals, setGoals: setAppGoals, t, lang = "nl" }) {
+function GoalsView({ transactions, isDark, useMockData = true, goals: appGoals, setGoals: setAppGoals, t, lang = "nl", investments = [] }) {
   const [tab, setTab] = useState("savings");
 
   const C = {
@@ -5108,10 +7814,10 @@ function GoalsView({ transactions, isDark, useMockData = true, goals: appGoals, 
   const labelStyle = { fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 6 };
 
   const tabs = [
-    { id: "savings",  label: lang === "nl" ? "Spaardoelen" : "Saving goals",   icon: "🎯" },
-    { id: "fire",     label: "FIRE",           icon: "🔥" },
-    { id: "budget",   label: lang === "nl" ? "Budgetteren" : "Budget",    icon: "📊" },
-    { id: "debt",     label: lang === "nl" ? "Schulden" : "Debt",       icon: "📉" },
+    { id: "savings",   label: lang === "nl" ? "Spaardoelen" : "Saving goals", Icon: Target,      color: "#22c55e" },
+    { id: "rendement", label: lang === "nl" ? "Rendement"   : "Returns",      Icon: TrendingUp,  color: "#4f8ef7" },
+    { id: "budget",    label: lang === "nl" ? "Budgetteren" : "Budget",       Icon: BarChart2,   color: "#a855f7" },
+    { id: "debt",      label: lang === "nl" ? "Schulden"    : "Debt",         Icon: TrendingDown,color: "#f43f5e" },
   ];
 
   // ─────────────────────────────────── SPAARDOELEN ───────────────
@@ -5178,30 +7884,62 @@ function GoalsView({ transactions, isDark, useMockData = true, goals: appGoals, 
             const monthlyNeeded = monthsLeft ? Math.ceil(remaining / monthsLeft) : null;
 
             return (
-              <div key={goal.id} style={{ ...card(isDark), borderTop: `3px solid ${goal.color}`, position: "relative" }}>
-                <button onClick={() => setGoals(prev => prev.filter(g => g.id !== goal.id))} style={{ position: "absolute", top: 14, right: 14, width: 24, height: 24, borderRadius: 6, background: "transparent", border: `1px solid ${C.border}`, color: C.faint, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><X size={11}/></button>
-                <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 4 }}>{goal.name}</div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
-                  <span style={{ fontSize: 22, fontWeight: 800, color: goal.color, fontFamily: "'DM Mono', monospace" }}>{Math.round(pct)}%</span>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: C.text, fontFamily: "'DM Mono', monospace" }}>{fmt(goal.current)} / {fmt(goal.target)}</div>
-                    <div style={{ fontSize: 11, color: C.muted }}>{fmt(remaining)} te gaan</div>
+              <div key={goal.id} style={{ ...card(isDark), position: "relative", overflow: "hidden" }}>
+                {/* Header: icon badge + name + sluit-knop (zelfde patroon als WHeader in dashboard) */}
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+                  <div style={{ width: 30, height: 30, borderRadius: 9, background: `${goal.color}18`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <Target size={14} color={goal.color}/>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: C.text, textTransform: "uppercase", letterSpacing: "0.09em" }}>{goal.name}</div>
+                    {goal.deadline && <div style={{ fontSize: 10, color: C.muted, marginTop: 1 }}>Deadline: {new Date(goal.deadline).toLocaleDateString("nl-NL",{day:"numeric",month:"short",year:"numeric"})}</div>}
+                  </div>
+                  <button onClick={() => setGoals(prev => prev.filter(g => g.id !== goal.id))}
+                    style={{ width: 24, height: 24, borderRadius: 6, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                    onMouseEnter={e => { e.currentTarget.style.background = "rgba(244,63,94,0.08)"; e.currentTarget.style.borderColor = "#f43f5e"; e.currentTarget.style.color = "#f43f5e"; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.muted; }}>
+                    <X size={11}/>
+                  </button>
+                </div>
+
+                {/* Primair: nog te gaan — groot & benadrukt */}
+                <div style={{ marginBottom: 4 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: C.muted, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 2 }}>Nog te gaan</div>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: remaining <= 0 ? "#22c55e" : goal.color, fontFamily: "'DM Mono', monospace", lineHeight: 1.1 }}>
+                    {remaining <= 0 ? "Bereikt!" : fmt(remaining)}
                   </div>
                 </div>
-                <div style={{ height: 8, background: isDark ? "rgba(255,255,255,0.06)" : "#e2e8f0", borderRadius: 4, overflow: "hidden", marginBottom: 10 }}>
-                  <div style={{ height: "100%", width: `${pct}%`, background: goal.color, borderRadius: 4, transition: "width 0.5s" }}/>
+
+                {/* Progress bar */}
+                <div style={{ margin: "14px 0 8px" }}>
+                  <div style={{ height: 6, background: isDark ? "rgba(255,255,255,0.06)" : "#e8ecf1", borderRadius: 99, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${pct}%`, background: goal.color, borderRadius: 99, transition: "width 0.5s" }}/>
+                  </div>
                 </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  {monthlyNeeded && <div style={{ flex: 1, padding: "8px", borderRadius: 8, background: C.rowBg, border: `1px solid ${C.border}`, textAlign: "center" }}>
-                    <div style={{ fontSize: 10, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>Per maand</div>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: goal.color, fontFamily: "'DM Mono', monospace" }}>{fmt(monthlyNeeded)}</div>
-                  </div>}
-                  {monthsLeft && <div style={{ flex: 1, padding: "8px", borderRadius: 8, background: C.rowBg, border: `1px solid ${C.border}`, textAlign: "center" }}>
-                    <div style={{ fontSize: 10, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>Maanden</div>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{monthsLeft}</div>
-                  </div>}
+
+                {/* Secundair: huidige stand / doel + percentage */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: (monthlyNeeded || monthsLeft) ? 14 : 0 }}>
+                  <span style={{ fontSize: 11, color: C.muted, fontFamily: "'DM Mono', monospace" }}>{fmt(goal.current)} / {fmt(goal.target)}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: goal.color }}>{pct}%</span>
                 </div>
-                {goal.deadline && <div style={{ fontSize: 11, color: C.faint, marginTop: 8 }}>Deadline: {new Date(goal.deadline).toLocaleDateString("nl-NL",{day:"numeric",month:"long",year:"numeric"})}</div>}
+
+                {/* Extra chips — zelfde stijl als sub-kaartjes in dashboard */}
+                {(monthlyNeeded || monthsLeft) && (
+                  <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
+                    {monthlyNeeded && (
+                      <div style={{ flex: 1, padding: "7px 10px", borderRadius: R.md, background: isDark ? "rgba(255,255,255,0.04)" : "#f8fafc", border: `1px solid ${C.border}`, textAlign: "center" }}>
+                        <div style={{ fontSize: 10, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 1 }}>Per maand</div>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: goal.color, fontFamily: "'DM Mono', monospace" }}>{fmt(monthlyNeeded)}</div>
+                      </div>
+                    )}
+                    {monthsLeft && (
+                      <div style={{ flex: 1, padding: "7px 10px", borderRadius: R.md, background: isDark ? "rgba(255,255,255,0.04)" : "#f8fafc", border: `1px solid ${C.border}`, textAlign: "center" }}>
+                        <div style={{ fontSize: 10, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 1 }}>Maanden</div>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{monthsLeft}</div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -5210,189 +7948,294 @@ function GoalsView({ transactions, isDark, useMockData = true, goals: appGoals, 
     );
   };
 
-  // ─────────────────────────────────── FIRE ──────────────────────
-  const FireTab = () => {
-    const [step, setStep] = useState("intro"); // "intro" | "calc"
-    const [monthlyExpenses, setMonthlyExpenses] = useState(3000);
-    const [currentWealth, setCurrentWealth] = useState(50000);
-    const [monthlyInvestment, setMonthlyInvestment] = useState(1000);
-    const [returnRate, setReturnRate] = useState(7);
-    const [inflationRate, setInflationRate] = useState(2.5);
-    const [withdrawalRate, setWithdrawalRate] = useState(4);
-    const [tooltip, setTooltip] = useState(null); // which tooltip is open
+  // ─────────────────────────────────── RENDEMENT ────────────────
+  const RendementTab = () => {
+    const portfolioTotal = investments.reduce((s, inv) => s + (parseFloat(inv.currentValue) || parseFloat(inv.invested) || 0), 0);
+    const [startBedrag,   setStartBedrag]   = useState(Math.max(100, portfolioTotal > 0 ? Math.round(portfolioTotal) : 1000));
+    const [maandInleg,    setMaandInleg]     = useState(200);
+    const [rendement,     setRendement]      = useState(7);
+    const [jaren,         setJaren]          = useState(20);
+    const [gekozenInv,    setGekozenInv]     = useState([]); // ids van geselecteerde bestaande investeringen
+    const [toonInv,       setToonInv]        = useState(false);
 
-    // Close tooltip on any outside click
-    useEffect(() => {
-      if (!tooltip) return;
-      const close = () => setTooltip(null);
-      document.addEventListener("click", close);
-      return () => document.removeEventListener("click", close);
-    }, [tooltip]);
+    // Bereken totaal startbedrag: handmatig + geselecteerde investeringen
+    const extraVanInv = investments
+      .filter(inv => gekozenInv.includes(inv.id))
+      .reduce((s, inv) => s + (parseFloat(inv.currentValue) || parseFloat(inv.invested) || 0), 0);
+    const effectiefStart = startBedrag + extraVanInv;
 
-    const realReturn = (returnRate - inflationRate) / 100;
-    const annualExpenses = monthlyExpenses * 12;
-    const fireNumber = Math.round(annualExpenses / (withdrawalRate / 100));
-    const remaining = Math.max(0, fireNumber - currentWealth);
+    // Compound interest per jaar — maandbijdrage inbegrepen
+    const r = rendement / 100;
+    const rm = r / 12;
+    const chartData = Array.from({ length: jaren + 1 }, (_, yr) => {
+      const months = yr * 12;
+      // FV = P*(1+r)^n + PMT * [((1+r)^n - 1) / r]
+      const fvStart = effectiefStart * Math.pow(1 + rm, months);
+      const fvMaand = maandInleg > 0 && rm > 0
+        ? maandInleg * ((Math.pow(1 + rm, months) - 1) / rm)
+        : maandInleg * months;
+      const totaalWaarde = fvStart + fvMaand;
+      const totaalIngelegd = effectiefStart + maandInleg * months;
+      return {
+        jaar: new Date().getFullYear() + yr,
+        waarde: Math.round(totaalWaarde),
+        ingelegd: Math.round(totaalIngelegd),
+        rendementEuro: Math.round(totaalWaarde - totaalIngelegd),
+      };
+    });
 
-    let yearsToFire = null;
-    if (monthlyInvestment > 0 && realReturn > 0) {
-      const r = realReturn / 12;
-      let months = 0; let wealth = currentWealth;
-      while (wealth < fireNumber && months < 600) { wealth = wealth * (1 + r) + monthlyInvestment; months++; }
-      yearsToFire = months < 600 ? (months / 12).toFixed(1) : null;
-    }
-    const fireYear = yearsToFire ? new Date().getFullYear() + Math.ceil(parseFloat(yearsToFire)) : null;
-    const pct = Math.min(100, Math.round((currentWealth / fireNumber) * 100));
+    const eindWaarde    = chartData[jaren].waarde;
+    const totaalIngelegd = chartData[jaren].ingelegd;
+    const totaalRendement = eindWaarde - totaalIngelegd;
+    const rendementPct  = totaalIngelegd > 0 ? ((totaalRendement / totaalIngelegd) * 100).toFixed(0) : 0;
+    const maxVal        = eindWaarde;
 
-    const TIPS = {
-      expenses: "Hoeveel geef jij gemiddeld per maand uit? Dit is de basis voor je FIRE-berekening. Gebruik je gemiddelde uitgaven uit de transactie-overzichten.",
-      wealth: "Alles wat je nu bezit: spaarrekening, beleggingen, crypto, pensioen. Huis telt alleen mee als je het zou verkopen.",
-      investment: "Hoeveel leg je elke maand opzij om te investeren? Dit versnelt het moment dat je FIRE bereikt.",
-      return: "Het gemiddelde jaarlijkse rendement op je beleggingen. De wereldwijde aandelenmarkt (MSCI World) gaf historisch ~7-10% per jaar.",
-      inflation: "De jaarlijkse geldontwaarding. In Nederland was dit de afgelopen jaren ~3-5%. Reken conservatief met 2.5-3%.",
-      swr: "Safe Withdrawal Rate: het percentage dat je elk jaar 'veilig' kunt opnemen zonder je vermogen op te maken. De klassieke 4% regel stelt dat je 25× je jaaruitgaven nodig hebt. Lager (3%) = zekerder maar je hebt meer nodig.",
+    const [editingSlider, setEditingSlider] = useState(null); // label of slider being manually edited
+    const [editRaw, setEditRaw] = useState("");
+
+    const Slider = ({ label, value, onChange, min, max, step, suffix, color = "#22c55e" }) => {
+      const pct = Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100));
+      const trackBg = isDark ? "rgba(255,255,255,0.08)" : "#e2e8f0";
+      const isEditing = editingSlider === label;
+
+      const startEdit = () => {
+        setEditingSlider(label);
+        setEditRaw(String(value));
+      };
+
+      const commitEdit = () => {
+        const parsed = parseFloat(editRaw.replace(',', '.').replace(/[^0-9.]/g, ''));
+        if (!isNaN(parsed)) onChange(Math.max(min, Math.min(max, parsed)));
+        setEditingSlider(null);
+      };
+
+      const calcValue = (clientX, rect) => {
+        const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+        const raw = min + ratio * (max - min);
+        const stepped = Math.round(raw / step) * step;
+        return Math.max(min, Math.min(max, parseFloat(stepped.toFixed(10))));
+      };
+
+      const handleMouseDown = (e) => {
+        e.preventDefault();
+        const rect = e.currentTarget.getBoundingClientRect();
+        onChange(calcValue(e.clientX, rect));
+        const onMove = (ev) => onChange(calcValue(ev.clientX, rect));
+        const onUp = () => {
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+        };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      };
+
+      return (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <label style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</label>
+            {isEditing ? (
+              <input
+                autoFocus
+                value={editRaw}
+                onChange={e => setEditRaw(e.target.value)}
+                onBlur={commitEdit}
+                onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditingSlider(null); }}
+                style={{ fontSize: 15, fontWeight: 800, color, fontFamily: "'DM Mono', monospace", background: "transparent", border: "none", borderBottom: `2px solid ${color}`, outline: "none", width: 120, textAlign: "right", padding: "0 2px" }}
+              />
+            ) : (
+              <span
+                onClick={startEdit}
+                title="Klik om handmatig in te voeren"
+                style={{ fontSize: 15, fontWeight: 800, color, fontFamily: "'DM Mono', monospace", cursor: "text", borderBottom: `1px dashed ${color}44`, paddingBottom: 1 }}>
+                {suffix === "€" ? fmt(value) : `${value}${suffix}`}
+              </span>
+            )}
+          </div>
+          <div onMouseDown={handleMouseDown}
+            style={{ position: "relative", height: 28, display: "flex", alignItems: "center", cursor: "pointer", userSelect: "none" }}>
+            <div style={{ position: "absolute", left: 0, right: 0, height: 5, borderRadius: 99, background: trackBg }}>
+              <div style={{ position: "absolute", left: 0, width: `${pct}%`, height: "100%", background: color, borderRadius: 99 }}/>
+            </div>
+            <div style={{ position: "absolute", left: `calc(${pct}% - 10px)`, width: 20, height: 20, borderRadius: "50%", background: "#fff", boxShadow: `0 1px 6px rgba(0,0,0,0.3), 0 0 0 3px ${color}`, pointerEvents: "none" }}/>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+            <span style={{ fontSize: 10, color: C.faint }}>{suffix === "€" ? fmt(min) : `${min}${suffix}`}</span>
+            <span style={{ fontSize: 10, color: C.faint }}>{suffix === "€" ? fmt(max) : `${max}${suffix}`}</span>
+          </div>
+        </div>
+      );
     };
 
-    const TooltipBtn = ({ id }) => (
-      <div style={{ position: "relative", display: "inline-block" }}>
-        <button onClick={(e) => { e.stopPropagation(); setTooltip(tooltip === id ? null : id); }}
-          style={{ width: 16, height: 16, borderRadius: "50%", background: isDark ? "rgba(255,255,255,0.1)" : "#e2e8f0", border: "none", color: isDark ? "#94a3b8" : "#64748b", cursor: "pointer", fontSize: 10, fontWeight: 800, display: "inline-flex", alignItems: "center", justifyContent: "center", marginLeft: 6, flexShrink: 0, lineHeight: 1 }}>
-          ?
-        </button>
-        {tooltip === id && (
-          <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", left: 22, top: -4, zIndex: 50, width: 240, padding: "10px 12px", borderRadius: 10, background: isDark ? "#1e2d3d" : "#ffffff", border: isDark ? "1px solid rgba(79,142,247,0.4)" : "1px solid #93c5fd", fontSize: 12, color: isDark ? "#cbd5e1" : "#334155", lineHeight: 1.55, boxShadow: "0 4px 20px rgba(0,0,0,0.25)", cursor: "default" }}>
-            {TIPS[id]}
-            <div style={{ position: "absolute", left: -5, top: 10, width: 8, height: 8, background: isDark ? "#1e2d3d" : "#ffffff", border: isDark ? "1px solid rgba(79,142,247,0.4)" : "1px solid #93c5fd", borderRight: "none", borderTop: "none", transform: "rotate(45deg)" }}/>
-          </div>
-        )}
-      </div>
-    );
+    return (
+      <div style={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: 16, alignItems: "start" }}>
 
-    const Slider = ({ id, label, value, onChange, min, max, step, suffix }) => (
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-          <div style={{ display: "flex", alignItems: "center" }}>
-            <label style={{ ...labelStyle, marginBottom: 0 }}>{label}</label>
-            <TooltipBtn id={id} />
-          </div>
-          <span style={{ fontSize: 14, fontWeight: 800, color: "#f59e0b", fontFamily: "'DM Mono', monospace" }}>{suffix === "€" ? fmt(value) : `${value}${suffix}`}</span>
-        </div>
-        <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(parseFloat(e.target.value))}
-          style={{ width: "100%", accentColor: "#f59e0b" }}/>
-        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
-          <span style={{ fontSize: 10, color: C.faint }}>{suffix === "€" ? fmt(min) : `${min}${suffix}`}</span>
-          <span style={{ fontSize: 10, color: C.faint }}>{suffix === "€" ? fmt(max) : `${max}${suffix}`}</span>
-        </div>
-      </div>
-    );
-
-    // ── INTRO SCREEN ────────────────────────────────────────────
-    if (step === "intro") return (
-      <div style={{ maxWidth: 640, margin: "0 auto" }}>
-        <div style={{ ...card(isDark), borderTop: "3px solid #f59e0b", marginBottom: 16 }}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: C.text, marginBottom: 12 }}>🔥 Wat is FIRE?</div>
-          <p style={{ fontSize: 14, color: C.sub, lineHeight: 1.7, marginBottom: 12 }}>
-            <b style={{ color: C.text }}>FIRE</b> staat voor <b style={{ color: "#f59e0b" }}>Financial Independence, Retire Early</b> — financiële onafhankelijkheid en vroeg stoppen met werken.
-          </p>
-          <p style={{ fontSize: 14, color: C.sub, lineHeight: 1.7, marginBottom: 12 }}>
-            Het idee is simpel: als je genoeg vermogen hebt opgebouwd dat de <b style={{ color: C.text }}>beleggingsrendementen</b> je jaarlijkse uitgaven dekken, hoef je nooit meer te werken voor geld.
-          </p>
-          <div style={{ padding: "14px 16px", borderRadius: 12, background: isDark ? "rgba(245,158,11,0.08)" : "#fffbeb", border: "1px solid rgba(245,158,11,0.25)", marginBottom: 12 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#f59e0b", marginBottom: 6 }}>De 4% regel</div>
-            <div style={{ fontSize: 13, color: C.sub, lineHeight: 1.6 }}>
-              Historisch gezien kun je elk jaar <b style={{ color: C.text }}>4% van je vermogen</b> opnemen zonder dat het ooit opraakt. Dit betekent dat je <b style={{ color: C.text }}>25× je jaarlijkse uitgaven</b> nodig hebt als FIRE-bedrag.
+        {/* ── Links: invoer ─────────────────────────── */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ ...card(isDark) }}>
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+              <div style={{ width: 30, height: 30, borderRadius: 9, background: "#22c55e18", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <TrendingUp size={14} color="#22c55e"/>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.text, textTransform: "uppercase", letterSpacing: "0.09em" }}>Rendement calculator</div>
+                <div style={{ fontSize: 10, color: C.muted, marginTop: 1 }}>Samengesteld rente berekening</div>
+              </div>
             </div>
+
+            <Slider label="Startbedrag" value={startBedrag} onChange={setStartBedrag} min={100} max={100000} step={100} suffix="€" color="#4f8ef7"/>
+            <Slider label="Maandelijkse inleg" value={maandInleg} onChange={setMaandInleg} min={0} max={5000} step={10} suffix="€" color="#a855f7"/>
+            <Slider label="Jaarlijks rendement" value={rendement} onChange={setRendement} min={1} max={20} step={0.1} suffix="%" color="#22c55e"/>
+            <Slider label="Looptijd (jaren)" value={jaren} onChange={setJaren} min={1} max={40} step={1} suffix=" jr" color="#f59e0b"/>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+
+          {/* Bestaande investeringen koppelen */}
+          {investments.length > 0 && (
+            <div style={{ ...card(isDark) }}>
+              <button onClick={() => setToonInv(p => !p)}
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ width: 28, height: 28, borderRadius: 8, background: "#4f8ef718", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <BarChart2 size={13} color="#4f8ef7"/>
+                  </div>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: C.text }}>Bestaande investeringen</span>
+                </div>
+                <ChevronRight size={14} color={C.muted} style={{ transform: toonInv ? "rotate(90deg)" : "none", transition: "transform 0.2s" }}/>
+              </button>
+              {toonInv && (
+                <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 2 }}>Selecteer investeringen om mee te rekenen (bovenop startbedrag)</div>
+                  {investments.map(inv => {
+                    const val = parseFloat(inv.currentValue) || parseFloat(inv.invested) || 0;
+                    const checked = gekozenInv.includes(inv.id);
+                    return (
+                      <div key={inv.id} onClick={() => setGekozenInv(prev => checked ? prev.filter(x => x !== inv.id) : [...prev, inv.id])}
+                        style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: R.md, background: checked ? (isDark ? "rgba(79,142,247,0.1)" : "rgba(79,142,247,0.06)") : (isDark ? "rgba(255,255,255,0.03)" : "#f8fafc"), border: `1px solid ${checked ? "rgba(79,142,247,0.35)" : C.border}`, cursor: "pointer", transition: "all 0.15s" }}>
+                        <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${checked ? "#4f8ef7" : C.border}`, background: checked ? "#4f8ef7" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.15s" }}>
+                          {checked && <div style={{ width: 8, height: 8, borderRadius: 2, background: "#fff" }}/>}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{inv.name}</div>
+                          <div style={{ fontSize: 10, color: C.muted }}>{inv.type}</div>
+                        </div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: "#4f8ef7", fontFamily: "'DM Mono', monospace", flexShrink: 0 }}>{fmt(val)}</div>
+                      </div>
+                    );
+                  })}
+                  {gekozenInv.length > 0 && (
+                    <div style={{ padding: "8px 12px", borderRadius: R.md, background: "rgba(79,142,247,0.08)", border: "1px solid rgba(79,142,247,0.2)", fontSize: 12, color: "#4f8ef7", fontWeight: 700 }}>
+                      + {fmt(extraVanInv)} toegevoegd aan startbedrag
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* ── Rechts: resultaten ────────────────────── */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+
+          {/* KPI row */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
             {[
-              { label: "Lean FIRE", desc: "Zuinig leven, €1.500/mnd", color: "#22c55e" },
-              { label: "Regular FIRE", desc: "Comfortabel, €3.000/mnd", color: "#f59e0b" },
-              { label: "Fat FIRE", desc: "Luxe levensstijl, €6.000+/mnd", color: "#f43f5e" },
-            ].map(f => (
-              <div key={f.label} style={{ padding: "10px 12px", borderRadius: 10, background: `${f.color}12`, border: `1px solid ${f.color}30`, textAlign: "center" }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: f.color, marginBottom: 4 }}>{f.label}</div>
-                <div style={{ fontSize: 11, color: C.muted }}>{f.desc}</div>
+              { label: "Eindwaarde",       value: fmt(eindWaarde),      color: "#22c55e", sub: `na ${jaren} jaar` },
+              { label: "Totaal ingelegd",  value: fmt(totaalIngelegd),  color: "#4f8ef7", sub: "start + inleg" },
+              { label: "Rendement (€)",    value: fmt(totaalRendement), color: "#a855f7", sub: "winst door rente" },
+              { label: "Rendement (%)",    value: `${rendementPct}%`,   color: "#f59e0b", sub: "totaal op inleg" },
+            ].map(k => (
+              <div key={k.label} style={{ ...card(isDark), padding: "16px 18px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 10 }}>
+                  <div style={{ width: 28, height: 28, borderRadius: 8, background: `${k.color}18`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <TrendingUp size={13} color={k.color}/>
+                  </div>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.07em" }}>{k.label}</span>
+                </div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: k.color, fontFamily: "'DM Mono', monospace", letterSpacing: "-0.5px", lineHeight: 1 }}>{k.value}</div>
+                <div style={{ fontSize: 10, color: C.muted, marginTop: 4 }}>{k.sub}</div>
               </div>
             ))}
           </div>
-        </div>
 
-        <div style={{ ...card(isDark) }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 4 }}>Wat zijn jouw maandelijkse uitgaven?</div>
-          <div style={{ fontSize: 13, color: C.muted, marginBottom: 16 }}>Dit is het startpunt van je berekening. Gebruik je gemiddelde uit de transactieoverzichten.</div>
-          <Slider id="expenses" label="Maandelijkse uitgaven" value={monthlyExpenses} onChange={setMonthlyExpenses} min={500} max={10000} step={100} suffix="€"/>
-          <div style={{ padding: "12px 16px", borderRadius: 10, background: isDark ? "rgba(245,158,11,0.08)" : "#fffbeb", border: "1px solid rgba(245,158,11,0.2)", marginBottom: 20 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: 13, color: C.sub }}>Jouw FIRE-bedrag (4% regel)</span>
-              <span style={{ fontSize: 20, fontWeight: 800, color: "#f59e0b", fontFamily: "'DM Mono', monospace" }}>{fmt(monthlyExpenses * 12 * 25)}</span>
-            </div>
-          </div>
-          <button onClick={() => setStep("calc")} style={{ ...pillBtn(), width: "100%", padding: "13px 0", fontSize: 14, background: "linear-gradient(135deg, #f59e0b, #ef4444)" }}>
-            Bereken mijn FIRE-datum 🔥
-          </button>
-        </div>
-      </div>
-    );
-
-    // ── CALCULATOR SCREEN ───────────────────────────────────────
-    return (
-      <div>
-        <button onClick={() => setStep("intro")} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 16, background: "transparent", border: "none", color: C.muted, cursor: "pointer", fontSize: 13, fontWeight: 600, padding: 0 }}>
-          ← Terug naar uitleg
-        </button>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          {/* Grafiek */}
           <div style={{ ...card(isDark) }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 20 }}>Jouw situatie</div>
-            <Slider id="expenses" label="Maandelijkse uitgaven" value={monthlyExpenses} onChange={setMonthlyExpenses} min={500} max={10000} step={100} suffix="€"/>
-            <Slider id="wealth" label="Huidig vermogen" value={currentWealth} onChange={setCurrentWealth} min={0} max={500000} step={5000} suffix="€"/>
-            <Slider id="investment" label="Maandelijkse investering" value={monthlyInvestment} onChange={setMonthlyInvestment} min={0} max={5000} step={50} suffix="€"/>
-            <Slider id="return" label="Verwacht rendement" value={returnRate} onChange={setReturnRate} min={1} max={15} step={0.5} suffix="%"/>
-            <Slider id="inflation" label="Inflatie" value={inflationRate} onChange={setInflationRate} min={0} max={6} step={0.5} suffix="%"/>
-            <Slider id="swr" label="Opnamepercentage (SWR)" value={withdrawalRate} onChange={setWithdrawalRate} min={2} max={6} step={0.5} suffix="%"/>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+              <div style={{ width: 30, height: 30, borderRadius: 9, background: "#22c55e18", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <TrendingUp size={14} color="#22c55e"/>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.text, textTransform: "uppercase", letterSpacing: "0.09em" }}>Vermogensgroei over tijd</div>
+                <div style={{ fontSize: 10, color: C.muted, marginTop: 1 }}>Ingelegd vs. eindwaarde incl. rendement</div>
+              </div>
+              <div style={{ marginLeft: "auto", display: "flex", gap: 14 }}>
+                {[{ color: "#22c55e", label: "Eindwaarde" }, { color: "#4f8ef7", label: "Ingelegd" }].map(l => (
+                  <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: 3, background: l.color }}/>
+                    <span style={{ fontSize: 11, color: C.muted }}>{l.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div style={{ height: 220 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="gradWaarde" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#22c55e" stopOpacity={0.25}/>
+                      <stop offset="95%" stopColor="#22c55e" stopOpacity={0.02}/>
+                    </linearGradient>
+                    <linearGradient id="gradIngelegd" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#4f8ef7" stopOpacity={0.2}/>
+                      <stop offset="95%" stopColor="#4f8ef7" stopOpacity={0.02}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "rgba(255,255,255,0.04)" : "#f0f0f0"} vertical={false}/>
+                  <XAxis dataKey="jaar" tick={{ fill: C.muted, fontSize: 10 }} axisLine={false} tickLine={false} interval={Math.ceil(jaren / 6)}/>
+                  <YAxis tick={{ fill: C.muted, fontSize: 10 }} axisLine={false} tickLine={false} width={64} tickFormatter={v => v >= 1000000 ? `€${(v/1000000).toFixed(1)}M` : v >= 1000 ? `€${(v/1000).toFixed(0)}k` : `€${v}`}/>
+                  <Tooltip
+                    contentStyle={{ background: isDark ? "#0f1e36" : "#fff", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "#e2e8f0"}`, borderRadius: 10, fontSize: 12 }}
+                    formatter={(value, name) => [fmt(value), name === "waarde" ? "Eindwaarde" : name === "ingelegd" ? "Ingelegd" : "Rendement"]}
+                    labelFormatter={l => `Jaar ${l}`}/>
+                  <Area type="monotone" dataKey="waarde"   stroke="#22c55e" strokeWidth={2} fill="url(#gradWaarde)"   dot={false}/>
+                  <Area type="monotone" dataKey="ingelegd" stroke="#4f8ef7" strokeWidth={2} fill="url(#gradIngelegd)" dot={false}/>
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ ...card(isDark), borderTop: "3px solid #f59e0b" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#f59e0b", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>🔥 FIRE bedrag</div>
-              <div style={{ fontSize: 28, fontWeight: 800, color: C.text, fontFamily: "'DM Mono', monospace", letterSpacing: "-0.5px" }}>{fmt(fireNumber)}</div>
-              <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>{fmt(annualExpenses)}/jaar × {(100/withdrawalRate).toFixed(0)}× multiplicator</div>
-            </div>
-
-            <div style={{ ...card(isDark) }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase" }}>Voortgang</span>
-                <span style={{ fontSize: 14, fontWeight: 800, color: "#f59e0b" }}>{pct}%</span>
+          {/* Jaar-voor-jaar tabel */}
+          <div style={{ ...card(isDark) }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+              <div style={{ width: 30, height: 30, borderRadius: 9, background: "#f59e0b18", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <BarChart2 size={14} color="#f59e0b"/>
               </div>
-              <div style={{ height: 10, background: isDark ? "rgba(255,255,255,0.06)" : "#e2e8f0", borderRadius: 5, overflow: "hidden", marginBottom: 8 }}>
-                <div style={{ height: "100%", width: `${pct}%`, background: "linear-gradient(90deg, #f59e0b, #ef4444)", borderRadius: 5 }}/>
-              </div>
-              <div style={{ fontSize: 12, color: C.muted }}>{fmt(currentWealth)} van {fmt(fireNumber)}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.text, textTransform: "uppercase", letterSpacing: "0.09em" }}>Jaar-voor-jaar overzicht</div>
             </div>
-
-            <div style={{ ...card(isDark), background: yearsToFire ? (isDark ? "rgba(34,197,94,0.08)" : "#f0fdf4") : undefined, border: yearsToFire ? "1px solid rgba(34,197,94,0.3)" : undefined }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: isDark ? "#94a3b8" : "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>🗓 Stoppen met werken in</div>
-              {yearsToFire ? (
-                <>
-                  <div style={{ fontSize: 32, fontWeight: 800, color: "#22c55e", letterSpacing: "-1px" }}>{fireYear}</div>
-                  <div style={{ fontSize: 13, color: isDark ? "#86efac" : "#16a34a", marginTop: 4, fontWeight: 600 }}>{yearsToFire} jaar · {Math.round(parseFloat(yearsToFire)*12)} maanden</div>
-                </>
-              ) : (
-                <div style={{ fontSize: 13, color: isDark ? "#94a3b8" : "#64748b" }}>Verhoog je maandelijkse investering</div>
-              )}
-            </div>
-
-            <div style={{ ...card(isDark) }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Samenvatting</div>
-              {[
-                ["Nog nodig", fmt(remaining)],
-                ["Passief inkomen", fmt(fireNumber * (withdrawalRate/100) / 12) + "/mnd"],
-                ["Reëel rendement", `${(realReturn*100).toFixed(1)}%/jr`],
-              ].map(([k,v]) => (
-                <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: `1px solid ${C.border}` }}>
-                  <span style={{ fontSize: 12, color: C.muted }}>{k}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: C.text, fontFamily: "'DM Mono', monospace" }}>{v}</span>
-                </div>
-              ))}
+            <div style={{ overflowY: "auto", maxHeight: 240 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                <thead>
+                  <tr style={{ borderBottom: `1px solid ${C.border}` }}>
+                    {["Jaar", "Eindwaarde", "Ingelegd", "Rendement €", "Rendement %"].map(h => (
+                      <th key={h} style={{ textAlign: h === "Jaar" ? "left" : "right", padding: "0 8px 8px", fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {chartData.filter((_, i) => i > 0).map((row, i) => {
+                    const pct2 = row.ingelegd > 0 ? ((row.rendementEuro / row.ingelegd) * 100).toFixed(0) : 0;
+                    const isLast = i === jaren - 1;
+                    return (
+                      <tr key={row.jaar} style={{ borderBottom: `1px solid ${C.border}`, background: isLast ? (isDark ? "rgba(34,197,94,0.06)" : "rgba(34,197,94,0.03)") : "transparent" }}>
+                        <td style={{ padding: "8px", fontWeight: isLast ? 700 : 400, color: isLast ? "#22c55e" : C.text }}>{row.jaar}</td>
+                        <td style={{ padding: "8px", textAlign: "right", fontFamily: "'DM Mono', monospace", fontWeight: isLast ? 800 : 600, color: isLast ? "#22c55e" : C.text }}>{fmt(row.waarde)}</td>
+                        <td style={{ padding: "8px", textAlign: "right", fontFamily: "'DM Mono', monospace", color: C.muted }}>{fmt(row.ingelegd)}</td>
+                        <td style={{ padding: "8px", textAlign: "right", fontFamily: "'DM Mono', monospace", color: "#a855f7", fontWeight: 600 }}>+{fmt(row.rendementEuro)}</td>
+                        <td style={{ padding: "8px", textAlign: "right", fontFamily: "'DM Mono', monospace", color: "#f59e0b", fontWeight: 700 }}>{pct2}%</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -5550,18 +8393,25 @@ function GoalsView({ transactions, isDark, useMockData = true, goals: appGoals, 
         {/* Summary row */}
         {budgets.length > 0 && (
           <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
-            <div style={{ ...card(isDark), flex: 1, minWidth: 140, padding: "12px 16px", borderTop: "3px solid #4f8ef7" }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Totaal budget</div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: C.text, fontFamily: "'DM Mono', monospace" }}>{fmt(totalBudget)}</div>
-            </div>
-            <div style={{ ...card(isDark), flex: 1, minWidth: 140, padding: "12px 16px", borderTop: "3px solid #f43f5e" }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Uitgegeven</div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: totalSpent > totalBudget ? "#f43f5e" : "#22c55e", fontFamily: "'DM Mono', monospace" }}>{fmt(totalSpent)}</div>
-            </div>
-            <div style={{ ...card(isDark), flex: 1, minWidth: 140, padding: "12px 16px", borderTop: `3px solid ${totalLeft >= 0 ? "#22c55e" : "#f43f5e"}` }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Resterend</div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: totalLeft >= 0 ? "#22c55e" : "#f43f5e", fontFamily: "'DM Mono', monospace" }}>{fmt(Math.abs(totalLeft))}{totalLeft < 0 ? " over" : ""}</div>
-            </div>
+            {[
+              { label: "Totaal budget", value: totalBudget,         color: "#4f8ef7", Icon: Wallet,       sub: `${budgets.length} categorie${budgets.length !== 1 ? "ën" : ""}` },
+              { label: "Uitgegeven",    value: totalSpent,          color: totalSpent > totalBudget ? "#f43f5e" : "#f59e0b", Icon: TrendingDown, sub: "deze maand" },
+              { label: "Resterend",     value: Math.abs(totalLeft), color: totalLeft >= 0 ? "#22c55e" : "#f43f5e", Icon: totalLeft >= 0 ? TrendingUp : TrendingDown, sub: totalLeft < 0 ? "over budget" : "beschikbaar" },
+            ].map(({ label, value, color, Icon: Ic, sub }) => (
+              <div key={label} style={{ ...card(isDark), flex: 1, minWidth: 140, position: "relative", overflow: "hidden" }}>
+                <div style={{ position: "absolute", top: 0, right: 0, width: 80, height: 80, background: `radial-gradient(circle at 80% 10%, ${color}22, transparent 65%)`, pointerEvents: "none" }}/>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: isDark ? "#475569" : "#94a3b8", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>{label}</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: isDark ? "#f8fafc" : "#0f172a", fontFamily: "'DM Mono', monospace", letterSpacing: "-0.03em", lineHeight: 1.1 }}>{fmt(value)}</div>
+                    <div style={{ fontSize: 11, color: isDark ? "#64748b" : "#94a3b8", marginTop: 4 }}>{sub}</div>
+                  </div>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: `${color}18`, border: `1px solid ${color}25`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <Ic size={16} color={color}/>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
@@ -5578,46 +8428,45 @@ function GoalsView({ transactions, isDark, useMockData = true, goals: appGoals, 
             const lastSpent = lastMonthSpent[cat] || 0;
 
             return (
-              <div key={cat} style={{ ...card(isDark), border: `1px solid ${isOver ? "rgba(244,63,94,0.3)" : isWarn ? "rgba(245,158,11,0.25)" : C.border}` }}>
+              <div key={cat} style={{ ...card(isDark), border: `1px solid ${isOver ? "rgba(244,63,94,0.3)" : isWarn ? "rgba(245,158,11,0.25)" : C.border}`, position: "relative", overflow: "hidden" }}>
+                {/* Accent glow top-right */}
+                <div style={{ position: "absolute", top: 0, right: 0, width: 80, height: 80, background: `radial-gradient(circle at 80% 10%, ${statusColor}18, transparent 65%)`, pointerEvents: "none" }}/>
+
                 {editingCat === cat ? (
-                  /* Edit mode */
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <div style={{ width: 10, height: 10, borderRadius: 3, background: catColor, flexShrink: 0 }}/>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: C.text, flex: 1 }}>{cat}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: isDark ? "#f1f5f9" : "#0f172a", flex: 1 }}>{cat}</span>
                     <input type="number" autoFocus value={editAmount} onChange={e => setEditAmount(e.target.value)}
                       onKeyDown={e => { if (e.key === "Enter") saveEdit(cat); if (e.key === "Escape") setEditingCat(null); }}
-                      style={{ width: 100, padding: "6px 10px", background: C.inputBg, border: `1px solid #4f8ef7`, borderRadius: 9, color: C.text, fontSize: 13, outline: "none", fontFamily: "'DM Mono', monospace" }}/>
-                    <button onClick={() => saveEdit(cat)} style={{ padding: "6px 12px", borderRadius: 9, background: "rgba(79,142,247,0.15)", border: "1px solid rgba(79,142,247,0.4)", color: "#4f8ef7", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
-                      <Check size={13}/>
-                    </button>
-                    <button onClick={() => setEditingCat(null)} style={{ padding: "6px 10px", borderRadius: 9, background: C.rowBg, border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer", fontSize: 12 }}>
-                      <X size={13}/>
-                    </button>
+                      style={{ width: 100, padding: "6px 10px", background: C.inputBg, border: `1px solid #4f8ef7`, borderRadius: 9, color: isDark ? "#f1f5f9" : "#0f172a", fontSize: 13, outline: "none", fontFamily: "'DM Mono', monospace" }}/>
+                    <button onClick={() => saveEdit(cat)} style={{ padding: "6px 12px", borderRadius: 9, background: "rgba(79,142,247,0.15)", border: "1px solid rgba(79,142,247,0.4)", color: "#4f8ef7", cursor: "pointer", fontSize: 12, fontWeight: 700 }}><Check size={13}/></button>
+                    <button onClick={() => setEditingCat(null)} style={{ padding: "6px 10px", borderRadius: 9, background: C.rowBg, border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer", fontSize: 12 }}><X size={13}/></button>
                   </div>
                 ) : (
                   <>
-                    {/* Top row */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                      <div style={{ width: 34, height: 34, borderRadius: 10, background: `${catColor}18`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+                      {/* Icon badge */}
+                      <div style={{ width: 36, height: 36, borderRadius: 10, background: `${catColor}18`, border: `1px solid ${catColor}25`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                         <div style={{ width: 10, height: 10, borderRadius: 3, background: catColor }}/>
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{cat}</div>
-                        {lastSpent > 0 && <div style={{ fontSize: 11, color: C.faint }}>Vorige maand: {fmt(lastSpent)}</div>}
+                        <div style={{ fontSize: 11, fontWeight: 700, color: isDark ? "#475569" : "#94a3b8", textTransform: "uppercase", letterSpacing: "0.09em" }}>{cat}</div>
+                        {lastSpent > 0 && <div style={{ fontSize: 10, color: isDark ? "#334155" : "#94a3b8", marginTop: 1 }}>Vorige maand: {fmt(lastSpent)}</div>}
                       </div>
-                      {/* Status + amounts */}
-                      <div style={{ textAlign: "right" }}>
-                        <div style={{ fontSize: 15, fontWeight: 800, color: statusColor, fontFamily: "'DM Mono', monospace" }}>
-                          {fmt(spent)} <span style={{ fontSize: 11, color: C.muted, fontWeight: 400 }}>/ {fmt(amount)}</span>
+                      {/* Bedragen */}
+                      <div style={{ textAlign: "right", marginRight: 8 }}>
+                        <div style={{ fontSize: 18, fontWeight: 800, color: isDark ? "#f8fafc" : "#0f172a", fontFamily: "'DM Mono', monospace", letterSpacing: "-0.02em" }}>
+                          {fmt(spent)}
+                          <span style={{ fontSize: 12, color: isDark ? "#475569" : "#94a3b8", fontWeight: 400 }}> / {fmt(amount)}</span>
                         </div>
                         <div style={{ fontSize: 11, fontWeight: 700, color: statusColor, marginTop: 2 }}>
-                          {isOver ? `⚠ ${fmt(spent - amount)} over budget` : isWarn ? `⚡ ${fmt(amount - spent)} resterend` : `✓ ${fmt(amount - spent)} resterend`}
+                          {isOver ? `⚠ ${fmt(spent - amount)} over` : isWarn ? `⚡ ${fmt(amount - spent)} over` : `✓ ${fmt(amount - spent)} over`}
                         </div>
                       </div>
                       {/* Actions */}
                       <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
                         <button onClick={() => { setEditingCat(cat); setEditAmount(amount.toString()); }}
-                          style={{ width: 28, height: 28, borderRadius: 8, background: C.rowBg, border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          style={{ width: 28, height: 28, borderRadius: 8, background: isDark ? "rgba(255,255,255,0.04)" : "#f1f5f9", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                           <Edit2 size={12}/>
                         </button>
                         <button onClick={() => removeBudget(cat)}
@@ -5626,12 +8475,14 @@ function GoalsView({ transactions, isDark, useMockData = true, goals: appGoals, 
                         </button>
                       </div>
                     </div>
-
                     {/* Progress bar */}
-                    <div style={{ height: 8, background: isDark ? "rgba(255,255,255,0.06)" : "#e2e8f0", borderRadius: 4, overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: `${barPct}%`, background: statusColor, borderRadius: 4, transition: "width 0.4s" }}/>
+                    <div style={{ height: 5, background: isDark ? "rgba(255,255,255,0.06)" : "#e8ecf1", borderRadius: 99, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${barPct}%`, background: `linear-gradient(90deg, ${statusColor}88, ${statusColor})`, borderRadius: 99, transition: "width 0.4s" }}/>
                     </div>
-                    <div style={{ fontSize: 10, color: C.faint, marginTop: 4, textAlign: "right" }}>{Math.round(pct)}%</div>
+                    <div style={{ fontSize: 10, color: isDark ? "#334155" : "#94a3b8", marginTop: 5, display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: statusColor, fontWeight: 700 }}>{Math.round(pct)}%</span>
+                      <span>{fmt(spent)} van {fmt(amount)}</span>
+                    </div>
                   </>
                 )}
               </div>
@@ -5690,16 +8541,40 @@ function GoalsView({ transactions, isDark, useMockData = true, goals: appGoals, 
 
     return (
       <div>
-        {/* Summary */}
-        <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
-          <div style={{ ...card(isDark), flex: 1, minWidth: 150, padding: "12px 16px", borderTop: "3px solid #f43f5e" }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Totale schuld</div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: "#f43f5e", fontFamily: "'DM Mono', monospace" }}>{fmt(totalDebt)}</div>
-          </div>
-          <div style={{ ...card(isDark), flex: 1, minWidth: 150, padding: "12px 16px", borderTop: "3px solid #4f8ef7" }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Totaal per maand</div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: "#4f8ef7", fontFamily: "'DM Mono', monospace" }}>{fmt(totalMonthly)}</div>
-          </div>
+        {/* Summary — premium StatCard style */}
+        <div style={{ display: "flex", gap: 14, marginBottom: 20, flexWrap: "wrap" }}>
+          {[
+            { label: "Totale schuld",    value: totalDebt,    color: "#f43f5e", Icon: TrendingDown },
+            { label: "Totaal per maand", value: totalMonthly, color: "#4f8ef7", Icon: Calendar    },
+          ].map(({ label, value, color, Icon: Ic }) => (
+            <div key={label} style={{ ...card(isDark), flex: 1, minWidth: 160, position: "relative", overflow: "hidden",
+              borderTop: isDark ? `1px solid ${color}30` : `2.5px solid ${color}` }}>
+              {/* Accent glow */}
+              <div style={{ position: "absolute", top: 0, right: 0, width: 90, height: 90,
+                background: `radial-gradient(circle at 80% 10%, ${color}28, transparent 65%)`,
+                borderRadius: "0 16px 0 0", pointerEvents: "none" }} />
+              <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 1,
+                background: `linear-gradient(90deg, transparent, ${color}20, transparent)`, pointerEvents: "none" }} />
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div>
+                  <div style={{ fontSize: 10, color: isDark ? "#475569" : "#94a3b8", fontWeight: 700,
+                    letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>{label}</div>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: isDark ? "#f8fafc" : "#0f172a",
+                    fontFamily: "'DM Mono', monospace", letterSpacing: "-0.03em", lineHeight: 1.1 }}>
+                    {fmt(value)}
+                  </div>
+                  <div style={{ fontSize: 12, color: isDark ? "#64748b" : "#64748b", marginTop: 4 }}>
+                    {value === 0 ? "Geen schulden" : label === "Totale schuld" ? `${debts.length} schuld${debts.length !== 1 ? "en" : ""}` : `${debts.length} betaling${debts.length !== 1 ? "en" : ""}`}
+                  </div>
+                </div>
+                <div style={{ width: 40, height: 40, borderRadius: 12, background: `${color}18`,
+                  border: `1px solid ${color}25`,
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <Ic size={19} color={color} />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* Method toggle */}
@@ -5802,23 +8677,34 @@ function GoalsView({ transactions, isDark, useMockData = true, goals: appGoals, 
 
   return (
     <div>
-      <div style={{ fontSize: 20, fontWeight: 700, color: C.text, marginBottom: 4 }}>Goals</div>
       <div style={{ fontSize: 13, color: C.muted, marginBottom: 20 }}>Financiële doelen, budgetten en schuldenafbouw</div>
 
       {/* Tab bar */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 24, flexWrap: "wrap" }}>
-        {tabs.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)}
-            style={{ padding: "9px 16px", borderRadius: 50, border: tab === t.id ? "1px solid rgba(79,142,247,0.5)" : `1px solid ${C.border}`, background: tab === t.id ? "rgba(79,142,247,0.12)" : "transparent", color: tab === t.id ? "#4f8ef7" : C.muted, fontSize: 13, fontWeight: tab === t.id ? 700 : 500, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}>
-            {t.icon} {t.label}
-          </button>
-        ))}
+      <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
+        {tabs.map(tb => {
+          const active = tab === tb.id;
+          const Ic = tb.Icon;
+          return (
+            <button key={tb.id} onClick={() => setTab(tb.id)}
+              style={{
+                padding: "9px 18px", borderRadius: 50, cursor: "pointer", fontSize: 13, fontWeight: active ? 700 : 500,
+                display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s",
+                border: active ? `1px solid ${tb.color}55` : `1px solid ${C.border}`,
+                background: active ? `${tb.color}14` : isDark ? "rgba(255,255,255,0.03)" : "#f8fafc",
+                color: active ? tb.color : isDark ? "#94a3b8" : "#64748b",
+                boxShadow: active ? `0 0 14px ${tb.color}18` : "none",
+              }}>
+              <Ic size={13} color={active ? tb.color : isDark ? "#64748b" : "#94a3b8"}/>
+              {tb.label}
+            </button>
+          );
+        })}
       </div>
 
-      {tab === "savings" && <SavingsTab />}
-      {tab === "fire"    && <FireTab />}
-      {tab === "budget"  && <BudgetTab />}
-      {tab === "debt"    && <DebtTab />}
+      {tab === "savings"   && <SavingsTab />}
+      {tab === "rendement" && <RendementTab />}
+      {tab === "budget"    && <BudgetTab />}
+      {tab === "debt"      && <DebtTab />}
     </div>
   );
 }
@@ -6229,6 +9115,4569 @@ function Onboarding({ onComplete }) {
   );
 }
 
+// ─── INVOICE TOTALS HELPER ─────────────────────────────────────
+function invoiceTotals(invoice) {
+  const lines = invoice.lines || [];
+  const btwGroups = {};
+  let exclBtw = 0;
+  lines.forEach(l => {
+    const lineExcl = parseFloat(l.quantity || 0) * parseFloat(l.unit_price || 0);
+    exclBtw += lineExcl;
+    const pct = String(parseFloat(l.btw_percentage || 0));
+    btwGroups[pct] = (btwGroups[pct] || 0) + lineExcl * parseFloat(l.btw_percentage || 0) / 100;
+  });
+  const btw = Object.values(btwGroups).reduce((s, v) => s + v, 0);
+  return { exclBtw, btw, inclBtw: exclBtw + btw, btwGroups };
+}
+
+function printInvoicePDF(invoice, zzpProfile) {
+  const p = zzpProfile || {};
+  const totals = invoiceTotals(invoice);
+  const client = invoice.client || {};
+  const clientName = client.company_name || [client.first_name, client.last_name].filter(Boolean).join(' ') || '—';
+  const clientAddr = [client.address, [client.postal_code, client.city].filter(Boolean).join(' ')].filter(Boolean).join('<br>');
+  const fmtN = (n) => Number(n || 0).toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const linesHtml = (invoice.lines || []).sort((a,b) => a.sort_order - b.sort_order).map(l => {
+    const excl = parseFloat(l.quantity||0) * parseFloat(l.unit_price||0);
+    return `<tr>
+      <td>${l.description}</td>
+      <td style="text-align:right">${parseFloat(l.quantity||0).toLocaleString('nl-NL')}</td>
+      <td style="text-align:right">€ ${fmtN(l.unit_price)}</td>
+      <td style="text-align:right">${l.btw_percentage}%</td>
+      <td style="text-align:right">€ ${fmtN(excl)}</td>
+    </tr>`;
+  }).join('');
+
+  const btwRows = Object.entries(totals.btwGroups).map(([pct, amt]) =>
+    `<tr><td colspan="4" style="text-align:right;color:#64748b">BTW ${pct}%</td><td style="text-align:right;color:#64748b">€ ${fmtN(amt)}</td></tr>`
+  ).join('');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Factuur ${invoice.invoice_number}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;padding:48px}
+    .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:48px}
+    .company-name{font-size:22px;font-weight:800;margin-bottom:8px}
+    .meta{color:#64748b;line-height:1.7;font-size:12px}
+    .invoice-title{font-size:36px;font-weight:800;color:#1a1a1a;text-align:right;margin-bottom:12px}
+    .bill-to{margin-bottom:36px}
+    .label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin-bottom:4px}
+    table{width:100%;border-collapse:collapse;margin-top:24px}
+    th{text-align:left;font-size:10px;text-transform:uppercase;color:#64748b;padding:8px 6px;border-bottom:2px solid #e2e8f0}
+    td{padding:10px 6px;border-bottom:1px solid #f1f5f9;vertical-align:top}
+    .totals-table{margin-left:auto;width:280px;margin-top:8px}
+    .totals-table td{border:none;padding:3px 6px}
+    .grand-total td{font-size:16px;font-weight:800;border-top:2px solid #1a1a1a;padding-top:10px!important}
+    .footer{margin-top:48px;padding-top:20px;border-top:1px solid #e2e8f0;color:#64748b;font-size:11px;line-height:1.6}
+    @media print{body{padding:0}}
+  </style></head><body>
+  <div class="header">
+    <div>
+      <div class="company-name">${p.company_name || 'Bedrijfsnaam'}</div>
+      <div class="meta">
+        ${p.address || ''}${p.address ? '<br>' : ''}
+        ${[p.postal_code, p.city].filter(Boolean).join(' ')}${p.city ? '<br>' : ''}
+        ${p.kvk ? 'KvK: ' + p.kvk + '<br>' : ''}
+        ${p.btw_number ? 'BTW: ' + p.btw_number + '<br>' : ''}
+        ${p.iban ? 'IBAN: ' + p.iban : ''}
+      </div>
+    </div>
+    <div>
+      <div class="invoice-title">FACTUUR</div>
+      <div class="meta" style="text-align:right;line-height:1.9">
+        <b>Nummer:</b> ${invoice.invoice_number}<br>
+        <b>Datum:</b> ${new Date(invoice.invoice_date).toLocaleDateString('nl-NL')}<br>
+        ${invoice.due_date ? '<b>Vervaldatum:</b> ' + new Date(invoice.due_date).toLocaleDateString('nl-NL') : ''}
+      </div>
+    </div>
+  </div>
+  <div class="bill-to">
+    <div class="label">Factuur aan</div>
+    <div style="font-weight:700;font-size:14px">${clientName}</div>
+    <div class="meta">${clientAddr}${client.email ? '<br>' + client.email : ''}${client.kvk ? '<br>KvK: ' + client.kvk : ''}${client.btw_number ? '<br>BTW: ' + client.btw_number : ''}</div>
+  </div>
+  <table>
+    <thead><tr><th>Omschrijving</th><th style="text-align:right">Aantal</th><th style="text-align:right">Prijs</th><th style="text-align:right">BTW</th><th style="text-align:right">Bedrag</th></tr></thead>
+    <tbody>${linesHtml}</tbody>
+  </table>
+  <table class="totals-table">
+    <tr><td colspan="4" style="text-align:right;color:#64748b">Subtotaal excl. BTW</td><td style="text-align:right;color:#64748b">€ ${fmtN(totals.exclBtw)}</td></tr>
+    ${btwRows}
+    <tr class="grand-total"><td colspan="4" style="text-align:right">Totaal incl. BTW</td><td style="text-align:right">€ ${fmtN(totals.inclBtw)}</td></tr>
+  </table>
+  ${invoice.notes ? `<div style="margin-top:32px;padding:16px;background:#f8fafc;border-radius:8px"><div class="label">Opmerkingen</div><div style="margin-top:4px">${invoice.notes}</div></div>` : ''}
+  <div class="footer">
+    Gelieve € ${fmtN(totals.inclBtw)} over te maken op <b>${p.iban || '—'}</b> o.v.v. factuurnummer <b>${invoice.invoice_number}</b>.
+  </div>
+  <script>window.onload=()=>window.print()</script>
+  </body></html>`;
+
+  const w = window.open('', '_blank', 'width=860,height=1100');
+  if (w) { w.document.write(html); w.document.close(); }
+}
+
+// ─── MAIL POPUP ────────────────────────────────────────────────
+function MailPopup({ isDark, invoice, zzpProfile, onClose }) {
+  const client = invoice.client || {};
+  const clientName = client.company_name || [client.first_name, client.last_name].filter(Boolean).join(' ') || '';
+  const invoiceTitle = invoice.title || invoice.lines?.[0]?.description || '';
+  const [to, setTo]       = useState(client.email || '');
+  const [subject, setSubject] = useState(`Factuur ${invoice.invoice_number}${invoiceTitle ? ': ' + invoiceTitle : ''}`);
+  const [body, setBody]   = useState(`Beste ${clientName || 'heer/mevrouw'},\n\nHierbij ontvangt u factuur ${invoice.invoice_number}${invoiceTitle ? ' voor ' + invoiceTitle : ''}.\n\nMet vriendelijke groet,\n${zzpProfile?.company_name || ''}`);
+  const C = { card:isDark?'#0f1e36':'#fff', border:isDark?'rgba(255,255,255,0.08)':'#e2e8f0', text:isDark?'#f1f5f9':'#0f172a', muted:isDark?'#64748b':'#94a3b8', input:isDark?'rgba(255,255,255,0.06)':'#f8fafc' };
+  const inp = { width:'100%', padding:'10px 12px', borderRadius:8, border:`1px solid ${C.border}`, background:C.input, color:C.text, fontSize:14, outline:'none', boxSizing:'border-box', fontFamily:'inherit' };
+  const lbl = { fontSize:11, fontWeight:700, color:C.muted, display:'block', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' };
+  const handleSend = () => {
+    window.location.href = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    onClose();
+  };
+  return createPortal(
+    <div onClick={e => { if (e.target===e.currentTarget) onClose(); }} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', backdropFilter:'blur(4px)', zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+      <div style={{ background:C.card, borderRadius:20, width:'100%', maxWidth:520, border:`1px solid ${C.border}` }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'18px 22px', borderBottom:`1px solid ${C.border}` }}>
+          <div style={{ fontSize:16, fontWeight:800, color:C.text }}>Factuur verzenden</div>
+          <button onClick={onClose} style={{ width:30, height:30, borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:C.muted }}><X size={14}/></button>
+        </div>
+        <div style={{ padding:22, display:'flex', flexDirection:'column', gap:14 }}>
+          <div><label style={lbl}>Aan (e-mailadres) *</label><input style={inp} value={to} onChange={e => setTo(e.target.value)} placeholder="naam@bedrijf.nl" /></div>
+          <div><label style={lbl}>Onderwerp</label><input style={inp} value={subject} onChange={e => setSubject(e.target.value)} /></div>
+          <div><label style={lbl}>Tekst</label><textarea style={{ ...inp, minHeight:130, resize:'vertical' }} value={body} onChange={e => setBody(e.target.value)} /></div>
+          <div style={{ padding:'10px 14px', borderRadius:10, background:isDark?'rgba(79,142,247,0.08)':'rgba(79,142,247,0.06)', border:`1px solid ${isDark?'rgba(79,142,247,0.2)':'rgba(79,142,247,0.15)'}`, fontSize:12, color:'#4f8ef7' }}>
+            Klik op Verstuur om je e-mailprogramma te openen met deze gegevens ingevuld. De PDF kun je bijvoegen vanuit het factuuroverzicht.
+          </div>
+          <div style={{ display:'flex', gap:10 }}>
+            <button onClick={onClose} style={{ flex:1, padding:12, borderRadius:12, border:`1px solid ${C.border}`, background:'transparent', color:C.muted, fontSize:14, fontWeight:600, cursor:'pointer' }}>Annuleren</button>
+            <button onClick={handleSend} disabled={!to} style={{ flex:2, padding:12, borderRadius:12, border:'none', background:'linear-gradient(135deg,#22c55e,#16a34a)', color:'#fff', fontSize:14, fontWeight:700, cursor:to?'pointer':'not-allowed', opacity:to?1:0.5 }}>
+              Verstuur →
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// ─── INVOICE FORM ──────────────────────────────────────────────
+function InvoiceForm({ isDark, user, invoice, clients, onClose, onSaved, zzpProfile, onNavigate }) {
+  // savedInvoice = null means CREATE mode, set after first save
+  const [savedInvoice, setSavedInvoice] = useState(invoice || null);
+  const isNew = !invoice; // was it opened as "new" (not editing existing)
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+  const [title, setTitle] = useState(savedInvoice?.title || '');
+  const [clientId, setClientId] = useState(savedInvoice?.client_id || '');
+  const [showNewClient, setShowNewClient] = useState(false);
+  const [newClient, setNewClient] = useState({ company_name:'', first_name:'', last_name:'', email:'', address:'', city:'', postal_code:'', kvk:'', btw_number:'' });
+  const [invoiceDate, setInvoiceDate] = useState(savedInvoice?.invoice_date || new Date().toISOString().slice(0,10));
+  const [dueDate, setDueDate] = useState(savedInvoice?.due_date || '');
+  const [notes, setNotes] = useState(savedInvoice?.notes || '');
+  const [lines, setLines] = useState(
+    savedInvoice?.lines?.length ? [...savedInvoice.lines].sort((a,b) => a.sort_order - b.sort_order)
+      : [{ description:'', quantity:1, unit_price:'', btw_percentage:21 }]
+  );
+
+  const C = { card:isDark?'#0b1628':'#fff', border:isDark?'rgba(255,255,255,0.08)':'#e2e8f0', text:isDark?'#f1f5f9':'#0f172a', muted:isDark?'#64748b':'#94a3b8', input:isDark?'rgba(255,255,255,0.06)':'#f8fafc' };
+  const inp = { width:'100%', padding:'9px 12px', borderRadius:8, border:`1px solid ${C.border}`, background:C.input, color:C.text, fontSize:14, outline:'none', boxSizing:'border-box', fontFamily:'inherit' };
+  const lbl = { fontSize:11, fontWeight:700, color:C.muted, display:'block', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' };
+  const fmtEur = (n) => '€ ' + Number(n||0).toLocaleString('nl-NL', { minimumFractionDigits:2, maximumFractionDigits:2 });
+
+  const paymentDays = zzpProfile?.payment_term_days ?? 14;
+
+  useEffect(() => {
+    if (!dueDate && invoiceDate) {
+      const d = new Date(invoiceDate); d.setDate(d.getDate() + paymentDays);
+      setDueDate(d.toISOString().slice(0,10));
+    }
+  }, []);
+
+  const totals = invoiceTotals({ lines });
+  const addLine = () => setLines(p => [...p, { description:'', quantity:1, unit_price:'', btw_percentage:21 }]);
+  const removeLine = (i) => setLines(p => p.filter((_,idx) => idx !== i));
+  const setLine = (i, k, v) => setLines(p => p.map((l,idx) => idx===i ? {...l,[k]:v} : l));
+  const setNC = (k, v) => setNewClient(p => ({...p,[k]:v}));
+
+  const collectLinesData = () => lines.map((l, i) => ({ description:l.description, quantity:parseFloat(l.quantity)||1, unit_price:parseFloat(l.unit_price)||0, btw_percentage:parseFloat(l.btw_percentage)||0, sort_order:i }));
+
+  const resolveClient = async () => {
+    if (!showNewClient) return clientId;
+    const { data: cli, error: cliErr } = await supabase.from('clients').insert({ ...newClient, user_id:user.id }).select().single();
+    if (cliErr) throw cliErr;
+    setClientId(cli.id);
+    setShowNewClient(false);
+    return cli.id;
+  };
+
+  // Create invoice (concept or definitief) and close
+  const handleCreate = async (targetStatus = 'concept') => {
+    setErr('');
+    if (!clientId && !showNewClient) return setErr('Selecteer of maak een klant aan');
+    if (showNewClient && !newClient.company_name && !newClient.first_name) return setErr('Vul minimaal een naam in');
+    if (lines.some(l => !l.description.trim())) return setErr('Elke regel heeft een omschrijving nodig');
+    setSaving(true);
+    try {
+      const finalClientId = await resolveClient();
+      const year = new Date().getFullYear();
+      const { count } = await supabase.from('invoices').select('*', { count:'exact', head:true }).eq('user_id', user.id).gte('invoice_date', `${year}-01-01`);
+      const invoiceNumber = `${year}-${String((count||0)+1).padStart(4,'0')}`;
+      const { data: inv, error: invErr } = await supabase.from('invoices').insert({ user_id:user.id, client_id:finalClientId, invoice_number:invoiceNumber, invoice_date:invoiceDate, due_date:dueDate||null, status:targetStatus, notes, title:title||null }).select('*, client:clients(*), lines:invoice_lines(*)').single();
+      if (invErr) throw invErr;
+      const linesData = collectLinesData();
+      await supabase.from('invoice_lines').insert(linesData.map(l => ({ ...l, invoice_id:inv.id })));
+      await onSaved();
+    } catch(e) { setErr(e.message || 'Fout bij opslaan'); setSaving(false); }
+  };
+
+  // Phase 2: save changes to existing concept
+  const handleUpdate = async (newStatus) => {
+    setErr('');
+    if (lines.some(l => !l.description.trim())) return setErr('Elke regel heeft een omschrijving nodig');
+    setSaving(true);
+    try {
+      const invId = savedInvoice.id;
+      const targetStatus = newStatus || savedInvoice.status;
+      const { error: updErr } = await supabase.from('invoices').update({
+        client_id:clientId, invoice_date:invoiceDate, due_date:dueDate||null,
+        notes, title:title||null, status:targetStatus, updated_at:new Date().toISOString()
+      }).eq('id', invId);
+      if (updErr) throw updErr;
+      await supabase.from('invoice_lines').delete().eq('invoice_id', invId);
+      await supabase.from('invoice_lines').insert(collectLinesData().map(l => ({ ...l, invoice_id:invId })));
+      if (newStatus) await onSaved();
+      else {
+        const { data: full } = await supabase.from('invoices').select('*, client:clients(*), lines:invoice_lines(*)').eq('id', invId).single();
+        setSavedInvoice(full || savedInvoice);
+      }
+    } catch(e) { setErr(e.message || 'Fout bij opslaan'); }
+    setSaving(false);
+  };
+
+  const isEditMode = !!savedInvoice; // concept already created
+  const headerTitle = isEditMode ? `Factuur ${savedInvoice.invoice_number} bewerken` : 'Nieuwe factuur';
+
+  return createPortal(
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', backdropFilter:'blur(4px)', zIndex:9999, overflowY:'auto', padding:'20px 16px' }}>
+      <div style={{ background:C.card, borderRadius:20, width:'100%', maxWidth:800, margin:'0 auto', border:`1px solid ${C.border}` }}>
+        {/* Header */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 24px', borderBottom:`1px solid ${C.border}` }}>
+          <div>
+            <div style={{ fontSize:18, fontWeight:800, color:C.text }}>{headerTitle}</div>
+            {isEditMode && isNew && <div style={{ fontSize:12, color:'#f59e0b', marginTop:2 }}>Concept aangemaakt — bewerk en maak definitief</div>}
+          </div>
+          <button onClick={onClose} style={{ width:32, height:32, borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:C.muted }}><X size={16}/></button>
+        </div>
+        <div style={{ padding:24, display:'flex', flexDirection:'column', gap:20 }}>
+          {/* Klant */}
+          <div>
+            <label style={lbl}>Klant *</label>
+            {!showNewClient ? (
+              <div style={{ display:'flex', gap:8 }}>
+                <select value={clientId} onChange={e => setClientId(e.target.value)} style={{ ...inp, flex:1 }} disabled={isEditMode}>
+                  <option value="">— Selecteer klant —</option>
+                  {clients.map(c => <option key={c.id} value={c.id}>{c.company_name || [c.first_name,c.last_name].filter(Boolean).join(' ')}</option>)}
+                </select>
+                {!isEditMode && <button onClick={() => { setShowNewClient(true); setClientId(''); }} style={{ padding:'9px 16px', borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', color:'#4f8ef7', fontSize:13, fontWeight:600, cursor:'pointer', whiteSpace:'nowrap' }}>+ Nieuwe klant</button>}
+              </div>
+            ) : (
+              <div style={{ background:isDark?'rgba(255,255,255,0.03)':'#f8fafc', border:`1px solid ${C.border}`, borderRadius:12, padding:16 }}>
+                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:12 }}>
+                  <span style={{ fontSize:13, fontWeight:700, color:C.text }}>Nieuwe klant aanmaken</span>
+                  <button onClick={() => setShowNewClient(false)} style={{ fontSize:12, color:C.muted, background:'none', border:'none', cursor:'pointer' }}>← Bestaande klant kiezen</button>
+                </div>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                  <input style={inp} placeholder="Bedrijfsnaam *" value={newClient.company_name} onChange={e => setNC('company_name', e.target.value)} />
+                  <input style={inp} placeholder="E-mail" value={newClient.email} onChange={e => setNC('email', e.target.value)} />
+                  <input style={inp} placeholder="Voornaam" value={newClient.first_name} onChange={e => setNC('first_name', e.target.value)} />
+                  <input style={inp} placeholder="Achternaam" value={newClient.last_name} onChange={e => setNC('last_name', e.target.value)} />
+                  <input style={inp} placeholder="Adres" value={newClient.address} onChange={e => setNC('address', e.target.value)} />
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+                    <input style={inp} placeholder="Postcode" value={newClient.postal_code} onChange={e => setNC('postal_code', e.target.value.toUpperCase())} />
+                    <input style={inp} placeholder="Stad" value={newClient.city} onChange={e => setNC('city', e.target.value)} />
+                  </div>
+                  <input style={inp} placeholder="KvK (optioneel)" value={newClient.kvk} onChange={e => setNC('kvk', e.target.value)} />
+                  <input style={inp} placeholder="BTW-nummer (optioneel)" value={newClient.btw_number} onChange={e => setNC('btw_number', e.target.value)} />
+                </div>
+              </div>
+            )}
+          </div>
+          {/* Datums */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+            <div><label style={lbl}>Factuurdatum</label><input type="date" style={inp} value={invoiceDate} onChange={e => setInvoiceDate(e.target.value)} /></div>
+            <div>
+              <label style={lbl}>Vervaldatum</label>
+              <input type="date" style={inp} value={dueDate} onChange={e => setDueDate(e.target.value)} />
+              <div style={{ fontSize:11, color:C.muted, marginTop:4 }}>
+                Standaard {paymentDays} dagen ·{' '}
+                <button onClick={() => { if(onNavigate) { onClose(); onNavigate('mijn-bedrijf'); } }} style={{ fontSize:11, color:'#4f8ef7', background:'none', border:'none', cursor:'pointer', padding:0, fontFamily:'inherit', textDecoration:'underline' }}>wijzigen</button>
+              </div>
+            </div>
+          </div>
+          {/* Regels */}
+          <div>
+            <label style={lbl}>Factuurregels</label>
+            <div style={{ border:`1px solid ${C.border}`, borderRadius:12, overflow:'hidden' }}>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 70px 110px 80px 90px 28px', gap:8, padding:'8px 12px', borderBottom:`1px solid ${C.border}`, background:isDark?'rgba(255,255,255,0.02)':'#f8fafc' }}>
+                {['Omschrijving','Aantal','Prijs excl.','BTW%','Totaal',''].map(h => <div key={h} style={{ fontSize:10, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.05em' }}>{h}</div>)}
+              </div>
+              {lines.map((l, i) => {
+                const lineTotal = (parseFloat(l.quantity)||0) * (parseFloat(l.unit_price)||0);
+                return (
+                  <div key={i} style={{ display:'grid', gridTemplateColumns:'1fr 70px 110px 80px 90px 28px', gap:8, padding:'8px 12px', borderBottom:i<lines.length-1?`1px solid ${C.border}`:'none', alignItems:'center' }}>
+                    <input style={{ ...inp, padding:'7px 10px' }} placeholder="Omschrijving" value={l.description} onChange={e => setLine(i,'description',e.target.value)} />
+                    <input style={{ ...inp, padding:'7px 8px', textAlign:'right' }} type="number" min="0.01" step="0.5" value={l.quantity} onChange={e => setLine(i,'quantity',e.target.value)} />
+                    <input style={{ ...inp, padding:'7px 8px', textAlign:'right' }} type="number" min="0" step="0.01" placeholder="0,00" value={l.unit_price} onChange={e => setLine(i,'unit_price',e.target.value)} />
+                    <select style={{ ...inp, padding:'7px 6px' }} value={l.btw_percentage} onChange={e => setLine(i,'btw_percentage',Number(e.target.value))}>
+                      <option value={0}>0%</option><option value={9}>9%</option><option value={21}>21%</option>
+                    </select>
+                    <div style={{ fontSize:13, fontWeight:700, color:C.text, textAlign:'right' }}>{fmtEur(lineTotal)}</div>
+                    <button onClick={() => removeLine(i)} disabled={lines.length===1} style={{ width:24, height:24, borderRadius:6, border:'none', background:'transparent', cursor:lines.length===1?'default':'pointer', color:'#f43f5e', display:'flex', alignItems:'center', justifyContent:'center', opacity:lines.length===1?0.25:1 }}><X size={13}/></button>
+                  </div>
+                );
+              })}
+              <div style={{ padding:'8px 12px', borderTop:`1px solid ${C.border}` }}>
+                <button onClick={addLine} style={{ fontSize:13, color:'#4f8ef7', background:'none', border:'none', cursor:'pointer', fontWeight:600, padding:0 }}>+ Regel toevoegen</button>
+              </div>
+            </div>
+            <div style={{ marginTop:10, display:'flex', flexDirection:'column', alignItems:'flex-end', gap:3 }}>
+              <div style={{ fontSize:13, color:C.muted }}>Subtotaal excl. BTW: <b style={{ color:C.text }}>{fmtEur(totals.exclBtw)}</b></div>
+              {Object.entries(totals.btwGroups).map(([pct,amt]) => <div key={pct} style={{ fontSize:13, color:C.muted }}>BTW {pct}%: <b style={{ color:C.text }}>{fmtEur(amt)}</b></div>)}
+              <div style={{ fontSize:17, fontWeight:800, color:C.text, borderTop:`2px solid ${C.border}`, paddingTop:8, marginTop:4 }}>Totaal: {fmtEur(totals.inclBtw)}</div>
+            </div>
+          </div>
+          {/* Notes */}
+          <div>
+            <label style={lbl}>Opmerkingen (optioneel)</label>
+            <textarea style={{ ...inp, minHeight:72, resize:'vertical' }} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Bijv. betalingsreferentie, projectnummer..." />
+          </div>
+          {/* Titel (optioneel) — auto-filled from line descriptions */}
+          <div>
+            <label style={lbl}>Titel / onderwerp (optioneel)</label>
+            <input style={inp}
+              placeholder={lines.filter(l => l.description.trim()).map(l => l.description.trim()).join(', ') || 'Bijv. Webdesign april'}
+              value={title} onChange={e => setTitle(e.target.value)} />
+            <div style={{ fontSize:11, color:C.muted, marginTop:4 }}>Als leeg: omschrijvingen van factuurregels worden gebruikt.</div>
+          </div>
+          {err && <div style={{ padding:'10px 14px', borderRadius:10, background:'rgba(244,63,94,0.1)', border:'1px solid rgba(244,63,94,0.3)', color:'#f43f5e', fontSize:13 }}>{err}</div>}
+
+          {/* Buttons: different per phase */}
+          {!isEditMode ? (
+            // Phase 1: create new
+            <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
+              <button onClick={onClose} style={{ flex:1, minWidth:110, padding:13, borderRadius:12, border:`1px solid ${C.border}`, background:'transparent', color:C.muted, fontSize:14, fontWeight:600, cursor:'pointer' }}>Annuleren</button>
+              <button onClick={() => handleCreate('concept')} disabled={saving} style={{ flex:1, minWidth:150, padding:13, borderRadius:12, border:`1px solid ${C.border}`, background:'transparent', color:C.text, fontSize:14, fontWeight:600, cursor:saving?'wait':'pointer', opacity:saving?0.7:1 }}>
+                {saving ? '...' : 'Concept opslaan'}
+              </button>
+              <button onClick={() => handleCreate('definitief')} disabled={saving} style={{ flex:2, minWidth:200, padding:13, borderRadius:12, border:'none', background:'linear-gradient(135deg,#a855f7,#7c3aed)', color:'#fff', fontSize:14, fontWeight:700, cursor:saving?'wait':'pointer', opacity:saving?0.7:1 }}>
+                {saving ? 'Opslaan...' : '✓ Factuur definitief maken'}
+              </button>
+            </div>
+          ) : (
+            // Phase 2: edit mode (either fresh concept or editing existing)
+            <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
+              <button onClick={() => handleUpdate(null)} disabled={saving} style={{ flex:1, minWidth:140, padding:12, borderRadius:12, border:`1px solid ${C.border}`, background:'transparent', color:C.text, fontSize:14, fontWeight:600, cursor:saving?'wait':'pointer' }}>
+                {saving ? '...' : 'Opslaan'}
+              </button>
+              <button onClick={() => handleUpdate('definitief')} disabled={saving} style={{ flex:2, minWidth:200, padding:12, borderRadius:12, border:'none', background:'linear-gradient(135deg,#a855f7,#7c3aed)', color:'#fff', fontSize:14, fontWeight:700, cursor:saving?'wait':'pointer', opacity:saving?0.7:1 }}>
+                {saving ? 'Opslaan...' : '✓ Factuur definitief maken'}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// ─── CLIENT EDIT MODAL ─────────────────────────────────────────
+function ClientEditModal({ isDark, client, onClose, onSaved }) {
+  const [form, setForm] = useState({ ...client });
+  const [saving, setSaving] = useState(false);
+  const C = { card:isDark?'#0f1e36':'#fff', border:isDark?'rgba(255,255,255,0.08)':'#e2e8f0', text:isDark?'#f1f5f9':'#0f172a', muted:isDark?'#64748b':'#94a3b8', input:isDark?'rgba(255,255,255,0.06)':'#f8fafc' };
+  const inp = { width:'100%', padding:'9px 12px', borderRadius:8, border:`1px solid ${C.border}`, background:C.input, color:C.text, fontSize:14, outline:'none', boxSizing:'border-box', fontFamily:'inherit' };
+  const lbl = { fontSize:11, fontWeight:700, color:C.muted, display:'block', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' };
+  const set = (k,v) => setForm(p => ({...p,[k]:v}));
+  const handleSave = async () => { setSaving(true); await onSaved(form); setSaving(false); };
+  return createPortal(
+    <div onClick={e => { if(e.target===e.currentTarget) onClose(); }} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', backdropFilter:'blur(4px)', zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+      <div style={{ background:C.card, borderRadius:20, width:'100%', maxWidth:560, border:`1px solid ${C.border}` }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'18px 22px', borderBottom:`1px solid ${C.border}` }}>
+          <div style={{ fontSize:16, fontWeight:800, color:C.text }}>Klant bewerken</div>
+          <button onClick={onClose} style={{ width:30, height:30, borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:C.muted }}><X size={14}/></button>
+        </div>
+        <div style={{ padding:22, display:'flex', flexDirection:'column', gap:14 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+            <div><label style={lbl}>Bedrijfsnaam</label><input style={inp} value={form.company_name||''} onChange={e=>set('company_name',e.target.value)} placeholder="Bedrijfsnaam" /></div>
+            <div><label style={lbl}>E-mail</label><input style={inp} value={form.email||''} onChange={e=>set('email',e.target.value)} placeholder="naam@bedrijf.nl" /></div>
+            <div><label style={lbl}>Voornaam</label><input style={inp} value={form.first_name||''} onChange={e=>set('first_name',e.target.value)} /></div>
+            <div><label style={lbl}>Achternaam</label><input style={inp} value={form.last_name||''} onChange={e=>set('last_name',e.target.value)} /></div>
+            <div><label style={lbl}>Telefoon</label><input style={inp} value={form.phone||''} onChange={e=>set('phone',e.target.value)} placeholder="+31 6 00000000" /></div>
+            <div><label style={lbl}>KvK</label><input style={inp} value={form.kvk||''} onChange={e=>set('kvk',e.target.value)} /></div>
+            <div><label style={lbl}>BTW-nummer</label><input style={inp} value={form.btw_number||''} onChange={e=>set('btw_number',e.target.value)} /></div>
+            <div><label style={lbl}>IBAN</label><input style={inp} value={form.iban||''} onChange={e=>set('iban',e.target.value)} /></div>
+          </div>
+          <div><label style={lbl}>Adres</label><input style={inp} value={form.address||''} onChange={e=>set('address',e.target.value)} /></div>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+            <div><label style={lbl}>Postcode</label><input style={inp} value={form.postal_code||''} onChange={e=>set('postal_code',e.target.value.toUpperCase())} /></div>
+            <div><label style={lbl}>Stad</label><input style={inp} value={form.city||''} onChange={e=>set('city',e.target.value)} /></div>
+          </div>
+          <div style={{ display:'flex', gap:10, marginTop:4 }}>
+            <button onClick={onClose} style={{ flex:1, padding:12, borderRadius:12, border:`1px solid ${C.border}`, background:'transparent', color:C.muted, fontSize:14, fontWeight:600, cursor:'pointer' }}>Annuleren</button>
+            <button onClick={handleSave} disabled={saving} style={{ flex:2, padding:12, borderRadius:12, border:'none', background:'linear-gradient(135deg,#4f8ef7,#6366f1)', color:'#fff', fontSize:14, fontWeight:700, cursor:saving?'wait':'pointer' }}>{saving?'Opslaan...':'Wijzigingen opslaan'}</button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// ─── FACTUREN VIEW (Native Dynafy) ─────────────────────────────
+function FacturenView({ isDark, user, zzpProfile, onNavigate, activeCompanyId, userPlan = 'normal', onUpgrade }) {
+  const [invoices, setInvoices] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState(null);
+  const [filter, setFilter] = useState('all');
+  const [activeTab, setActiveTab] = useState('facturen');
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selected, setSelected] = useState(new Set()); // bulk selection
+  const [mailInvoice, setMailInvoice] = useState(null); // invoice to mail
+  const [editingClient, setEditingClient] = useState(null); // client being edited
+
+  const C = { card:isDark?'#0f1e36':'#fff', border:isDark?'rgba(255,255,255,0.08)':'#e2e8f0', text:isDark?'#f1f5f9':'#0f172a', muted:isDark?'#64748b':'#94a3b8', input:isDark?'rgba(255,255,255,0.06)':'#f8fafc' };
+  const fmtEur = (n) => '€ ' + Number(n||0).toLocaleString('nl-NL', { minimumFractionDigits:2, maximumFractionDigits:2 });
+
+  // Plan limieten
+  const PLAN_LEVELS_FAC = { normal: 0, premium: 1, zzp_premium: 2, zzp_diamond: 3 };
+  const isGratisFac = (PLAN_LEVELS_FAC[userPlan] ?? 0) < 2;
+  const thisMonthStr = new Date().toISOString().slice(0, 7);
+  const thisMonthInvoices = invoices.filter(inv => (inv.invoice_date || '').startsWith(thisMonthStr)).length;
+  const atInvoiceLimit = isGratisFac && thisMonthInvoices >= 3;
+
+  // Bedrijfsprofiel vereist voor nieuwe factuur
+  const hasCompanyProfile = !!(zzpProfile?.company_name?.trim());
+
+  const handleNewInvoice = () => {
+    if (!hasCompanyProfile) return; // geblokkeerd — banner al zichtbaar
+    if (atInvoiceLimit) { onUpgrade?.(); return; }
+    setEditingInvoice(null); setShowForm(true);
+  };
+
+  const STATUS_LABEL = { concept:'Concept', definitief:'Definitief', verstuurd:'Verstuurd', betaald:'Betaald', herinnering:'Herinnering', geannuleerd:'Geannuleerd' };
+  const STATUS_COLOR = { concept:'#64748b', definitief:'#a855f7', verstuurd:'#4f8ef7', betaald:'#22c55e', herinnering:'#f59e0b', geannuleerd:'#f43f5e' };
+  const STATUS_BG    = { concept:'rgba(100,116,139,0.15)', definitief:'rgba(168,85,247,0.15)', verstuurd:'rgba(79,142,247,0.15)', betaald:'rgba(34,197,94,0.15)', herinnering:'rgba(245,158,11,0.15)', geannuleerd:'rgba(244,63,94,0.15)' };
+  const STATUS_NEXT  = { concept:'definitief', definitief:'verstuurd', verstuurd:'betaald', herinnering:'betaald' };
+
+  const load = useCallback(async () => {
+    if (!user?.id) return;
+    setLoading(true);
+    const [invRes, cliRes] = await Promise.all([
+      supabase.from('invoices').select('*, client:clients(*), lines:invoice_lines(*)').eq('user_id', user.id).order('invoice_number', { ascending:false }),
+      supabase.from('clients').select('*').eq('user_id', user.id).order('company_name'),
+    ]);
+    if (invRes.data) setInvoices(invRes.data);
+    if (cliRes.data) setClients(cliRes.data);
+    setLoading(false);
+  }, [user?.id]);
+
+  useEffect(() => { load(); }, [load]);
+
+  // Company-filtered invoices (client-side; company_profile_id=null → belongs to 'main')
+  const companyInvoices = activeCompanyId
+    ? invoices.filter(i => (i.company_profile_id || 'main') === activeCompanyId)
+    : invoices;
+
+  // Available years from invoices + current year
+  const years = [...new Set([new Date().getFullYear(), ...companyInvoices.map(i => new Date(i.invoice_date).getFullYear())])].sort((a,b) => b-a);
+
+  // Year-filtered invoices for display
+  const yearInvoices = companyInvoices.filter(i => new Date(i.invoice_date).getFullYear() === selectedYear);
+
+  // BTW verschuldigd DIT KWARTAAL (all non-cancelled invoices in current quarter)
+  const now = new Date();
+  const curQ = Math.ceil((now.getMonth()+1)/3);
+  const qStart = new Date(now.getFullYear(), (curQ-1)*3, 1);
+  const qEnd   = new Date(now.getFullYear(), curQ*3, 0);
+  const qInvoices = companyInvoices.filter(i => {
+    const d = new Date(i.invoice_date);
+    return !['geannuleerd','concept'].includes(i.status) && d >= qStart && d <= qEnd;
+  });
+  const btwDitKwartaal = qInvoices.reduce((s,i) => s + invoiceTotals(i).btw, 0);
+
+  const openstaand   = yearInvoices.filter(i => ['verstuurd','herinnering','definitief'].includes(i.status)).reduce((s,i) => s + invoiceTotals(i).inclBtw, 0);
+  const omzetYTD     = yearInvoices.filter(i => i.status==='betaald').reduce((s,i) => s + invoiceTotals(i).exclBtw, 0);
+
+  // Bulk selection helpers
+  const toggleSelect = (id) => setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleAll    = () => setSelected(prev => prev.size===filtered.length && filtered.length>0 ? new Set() : new Set(filtered.map(i => i.id)));
+  const clearSelection = () => setSelected(new Set());
+
+  const updateStatus = async (inv, newStatus) => {
+    await supabase.from('invoices').update({ status:newStatus, updated_at:new Date().toISOString() }).eq('id', inv.id);
+    setInvoices(prev => prev.map(i => i.id===inv.id ? {...i, status:newStatus} : i));
+  };
+
+  const deleteInvoice = async (inv) => {
+    if (!window.confirm(`Factuur ${inv.invoice_number} verwijderen?`)) return;
+    await supabase.from('invoice_lines').delete().eq('invoice_id', inv.id);
+    await supabase.from('invoices').delete().eq('id', inv.id);
+    setInvoices(prev => prev.filter(i => i.id !== inv.id));
+    setSelected(prev => { const n = new Set(prev); n.delete(inv.id); return n; });
+  };
+
+  const deleteClient = async (c) => {
+    if (!window.confirm(`Klant "${c.company_name || c.first_name}" verwijderen?`)) return;
+    await supabase.from('clients').delete().eq('id', c.id);
+    setClients(prev => prev.filter(x => x.id !== c.id));
+  };
+
+  // Bulk: mark selected as betaald
+  const bulkMarkBetaald = async () => {
+    const ids = [...selected];
+    await Promise.all(ids.map(id => supabase.from('invoices').update({ status:'betaald', updated_at:new Date().toISOString() }).eq('id', id)));
+    setInvoices(prev => prev.map(i => ids.includes(i.id) ? {...i, status:'betaald'} : i));
+    clearSelection();
+  };
+
+  // Bulk: mark selected as herinnering
+  const bulkMarkHerinnering = async () => {
+    const ids = [...selected];
+    await Promise.all(ids.map(id => supabase.from('invoices').update({ status:'herinnering', updated_at:new Date().toISOString() }).eq('id', id)));
+    setInvoices(prev => prev.map(i => ids.includes(i.id) ? {...i, status:'herinnering'} : i));
+    clearSelection();
+  };
+
+  // Bulk: delete selected
+  const bulkDelete = async () => {
+    if (!window.confirm(`${selected.size} facturen verwijderen?`)) return;
+    const ids = [...selected];
+    await Promise.all(ids.map(id => supabase.from('invoice_lines').delete().eq('invoice_id', id)));
+    await supabase.from('invoices').delete().in('id', ids);
+    setInvoices(prev => prev.filter(i => !ids.includes(i.id)));
+    clearSelection();
+  };
+
+  // Bulk: print selected as PDF
+  const bulkPrint = () => {
+    const ids = [...selected];
+    ids.forEach((id, idx) => {
+      const inv = invoices.find(i => i.id === id);
+      if (inv) setTimeout(() => printInvoicePDF(inv, zzpProfile), idx * 600);
+    });
+  };
+
+  const filtered = (filter==='all' ? yearInvoices : yearInvoices.filter(i => i.status===filter));
+
+  const tabBtn = (id, label) => (
+    <button onClick={() => setActiveTab(id)} style={{ padding:'8px 18px', borderRadius:20, border:'none', cursor:'pointer', fontWeight:activeTab===id?700:500, fontSize:14, background:activeTab===id?(isDark?'rgba(79,142,247,0.15)':'rgba(79,142,247,0.1)'):'transparent', color:activeTab===id?'#4f8ef7':C.muted }}>
+      {label}
+    </button>
+  );
+
+  const COLS = '36px 110px 1fr 1fr 95px 150px 110px 155px';
+
+  return (
+    <div style={{ padding:'28px 32px', maxWidth:1200, margin:'0 auto', paddingBottom: selected.size > 0 ? 96 : 28 }}>
+      {/* Header */}
+      {isGratisFac && (
+        <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 16px', borderRadius:12, background:'rgba(245,158,11,0.1)', border:'1px solid rgba(245,158,11,0.3)', marginBottom:16 }}>
+          <span style={{ fontSize:14 }}>{'⚡'}</span>
+          <span style={{ fontSize:13, color:'#f59e0b', fontWeight:600 }}>
+            Gratis plan: {thisMonthInvoices}/3 facturen deze maand gebruikt
+            {atInvoiceLimit ? ' \u2014 limiet bereikt.' : '.'}
+          </span>
+          <button onClick={onUpgrade} style={{ marginLeft:'auto', padding:'5px 12px', borderRadius:8, border:'none', background:'linear-gradient(135deg,#a855f7,#6366f1)', color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' }}>
+            Upgrade {'→'}
+          </button>
+        </div>
+      )}
+      {!hasCompanyProfile && (
+        <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 18px', borderRadius:14, background:'rgba(244,63,94,0.07)', border:'1px solid rgba(244,63,94,0.25)', marginBottom:16 }}>
+          <Building2 size={18} color="#f43f5e" style={{ flexShrink:0 }} />
+          <div style={{ flex:1 }}>
+            <div style={{ fontSize:13, fontWeight:700, color:'#f43f5e', marginBottom:2 }}>Geen bedrijfsprofiel ingesteld</div>
+            <div style={{ fontSize:12, color:C.muted }}>Je moet eerst een bedrijf aanmaken voordat je facturen kunt maken. Je bedrijfsgegevens verschijnen op elke factuur.</div>
+          </div>
+          <button onClick={() => onNavigate?.('mijn-bedrijf')} style={{ padding:'8px 16px', borderRadius:10, border:'none', background:'linear-gradient(135deg,#f43f5e,#f97316)', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap', flexShrink:0 }}>
+            Bedrijf instellen {'→'}
+          </button>
+        </div>
+      )}
+      <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:24, flexWrap:'wrap' }}>
+        <div style={{ width:42, height:42, borderRadius:12, background:'linear-gradient(135deg,#4f8ef7,#6366f1)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+          <FileText size={20} color="#fff"/>
+        </div>
+        <div>
+          <div style={{ fontSize:20, fontWeight:800, color:C.text }}>{activeTab==='klanten' ? 'Klanten' : 'Facturen'}</div>
+          <div style={{ fontSize:13, color:C.muted }}>{invoices.length} facturen · {clients.length} klanten</div>
+        </div>
+        <div style={{ marginLeft:'auto', display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
+          {tabBtn('facturen','Facturen')}
+          {tabBtn('klanten','Klanten')}
+          {activeTab==='facturen' && <>
+            <div style={{ width:1, height:20, background:C.border }} />
+            {years.map(y => (
+              <button key={y} onClick={() => { setSelectedYear(y); setFilter('all'); clearSelection(); }} style={{ padding:'6px 14px', borderRadius:20, border:`1px solid ${selectedYear===y?'transparent':C.border}`, background:selectedYear===y?'rgba(99,102,241,0.2)':'transparent', color:selectedYear===y?'#6366f1':C.muted, fontSize:13, fontWeight:selectedYear===y?700:500, cursor:'pointer' }}>
+                {y}
+              </button>
+            ))}
+            <div style={{ width:1, height:20, background:C.border }} />
+            <button onClick={handleNewInvoice} disabled={!hasCompanyProfile}
+              title={!hasCompanyProfile ? 'Stel eerst een bedrijfsprofiel in' : undefined}
+              style={{ padding:'9px 18px', borderRadius:20, border: atInvoiceLimit ? '1px solid rgba(245,158,11,0.4)' : 'none', background: !hasCompanyProfile ? 'rgba(100,116,139,0.2)' : atInvoiceLimit ? 'rgba(245,158,11,0.2)' : 'linear-gradient(135deg,#4f8ef7,#6366f1)', color: !hasCompanyProfile ? '#64748b' : atInvoiceLimit ? '#f59e0b' : '#fff', fontSize:14, fontWeight:700, cursor: !hasCompanyProfile ? 'not-allowed' : 'pointer', display:'flex', alignItems:'center', gap:6, opacity: !hasCompanyProfile ? 0.6 : 1 }}>
+              <Plus size={15}/> Nieuwe factuur
+              {atInvoiceLimit && <span style={{ fontSize:10, background:'rgba(245,158,11,0.2)', padding:'2px 6px', borderRadius:6 }}>3/3 ⚡</span>}
+            </button>
+          </>}
+        </div>
+      </div>
+
+      {activeTab==='facturen' && <>
+        {/* Summary cards */}
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:16, marginBottom:20 }}>
+          {[
+            { label:'Openstaand', value:fmtEur(openstaand), color:'#f59e0b', sub:'verstuurd + herinnering', gradient:'linear-gradient(135deg,rgba(245,158,11,0.14),rgba(245,158,11,0.04))', icon:<Clock size={16} color="#f59e0b"/> },
+            { label:'Omzet YTD', value:fmtEur(omzetYTD), color:'#22c55e', sub:'excl. BTW · betaalde facturen', gradient:'linear-gradient(135deg,rgba(34,197,94,0.14),rgba(34,197,94,0.04))', icon:<TrendingUp size={16} color="#22c55e"/> },
+            { label:`BTW Q${curQ} ${now.getFullYear()}`, value:fmtEur(btwDitKwartaal), color:'#8b5cf6', sub:'gefactureerd dit kwartaal', gradient:'linear-gradient(135deg,rgba(139,92,246,0.14),rgba(139,92,246,0.04))', icon:<PiggyBank size={16} color="#8b5cf6"/> },
+          ].map(s => (
+            <div key={s.label} style={{ background:isDark?C.card:'#fff', border:`1px solid ${C.border}`, borderRadius:18, padding:'20px 22px 16px', position:'relative', overflow:'hidden', boxShadow:isDark?'0 4px 24px rgba(0,0,0,0.2)':'0 2px 12px rgba(0,0,0,0.06)' }}>
+              <div style={{ position:'absolute', inset:0, background:s.gradient, pointerEvents:'none' }}/>
+              <div style={{ position:'relative' }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
+                  <div style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.08em' }}>{s.label}</div>
+                  <div style={{ width:32, height:32, borderRadius:9, background:`${s.color}22`, display:'flex', alignItems:'center', justifyContent:'center', border:`1px solid ${s.color}33` }}>{s.icon}</div>
+                </div>
+                <div style={{ fontSize:24, fontWeight:900, color:C.text, letterSpacing:'-0.5px', marginBottom:4 }}>{s.value}</div>
+                <div style={{ fontSize:12, color:C.muted, display:'flex', alignItems:'center', gap:4 }}>
+                  <div style={{ width:6, height:6, borderRadius:'50%', background:s.color }}/>
+                  {s.sub}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Status filters */}
+        <div style={{ display:'flex', gap:8, marginBottom:16, flexWrap:'wrap', alignItems:'center' }}>
+          {['all','concept','definitief','verstuurd','betaald','herinnering','geannuleerd'].map(f => (
+            <button key={f} onClick={() => setFilter(f)} style={{ padding:'5px 13px', borderRadius:20, border:`1px solid ${filter===f?'transparent':C.border}`, background:filter===f?'rgba(79,142,247,0.15)':'transparent', color:filter===f?'#4f8ef7':C.muted, fontSize:13, fontWeight:filter===f?700:500, cursor:'pointer' }}>
+              {f==='all'?'Alle':STATUS_LABEL[f]}{f!=='all'&&<span style={{ marginLeft:5, fontSize:11, opacity:0.7 }}>({yearInvoices.filter(i=>i.status===f).length})</span>}
+            </button>
+          ))}
+        </div>
+
+        {/* Invoice table */}
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:18, overflow:'hidden', position:'relative' }}>
+          {/* Table header */}
+          <div style={{ display:'grid', gridTemplateColumns:COLS, padding:'12px 16px', borderBottom:`1px solid ${C.border}`, background:isDark?'rgba(255,255,255,0.02)':'rgba(0,0,0,0.02)', alignItems:'center' }}>
+            {/* Select all checkbox */}
+            <div>
+              <input type="checkbox" checked={filtered.length>0 && selected.size===filtered.length} onChange={toggleAll} style={{ cursor:'pointer', width:14, height:14 }} />
+            </div>
+            {['Nummer','Klant','Titel / Omschrijving','Datum','Bedrag','Status','Acties'].map(h => <div key={h} style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.06em' }}>{h}</div>)}
+          </div>
+
+          {loading ? <div style={{ padding:40, textAlign:'center', color:C.muted }}>Laden...</div>
+          : filtered.length===0 ? (
+            <div style={{ padding:60, textAlign:'center' }}>
+              <FileText size={32} color={C.muted} style={{ margin:'0 auto 12px', display:'block' }}/>
+              <div style={{ color:C.muted, fontSize:14, marginBottom:16 }}>Geen facturen voor {selectedYear}</div>
+              <button onClick={handleNewInvoice} style={{ padding:'10px 24px', borderRadius:12, border:'none', background:'linear-gradient(135deg,#4f8ef7,#6366f1)', color:'#fff', fontSize:14, fontWeight:700, cursor:'pointer' }}>Factuur aanmaken</button>
+            </div>
+          ) : filtered.map((inv, i) => {
+            const totals = invoiceTotals(inv);
+            const clientName = inv.client ? (inv.client.company_name || [inv.client.first_name,inv.client.last_name].filter(Boolean).join(' ') || '—') : '—';
+            const displayTitle = inv.title || inv.lines?.[0]?.description || '';
+            const isSel = selected.has(inv.id);
+            return (
+              <div key={inv.id} style={{ display:'grid', gridTemplateColumns:COLS, padding:'12px 16px', alignItems:'center', borderBottom:i<filtered.length-1?`1px solid ${C.border}`:'none', transition:'background 0.15s', background:isSel?(isDark?'rgba(79,142,247,0.08)':'rgba(79,142,247,0.04)'):'transparent', cursor:'pointer' }}
+                onClick={(e) => { if (e.target.closest('button') || e.target.closest('input[type="checkbox"]')) return; setEditingInvoice(inv); setShowForm(true); }}
+                onMouseEnter={e => { if(!isSel) e.currentTarget.style.background=isDark?'rgba(79,142,247,0.06)':'rgba(79,142,247,0.04)'; }}
+                onMouseLeave={e => { if(!isSel) e.currentTarget.style.background='transparent'; }}>
+                {/* Checkbox */}
+                <div><input type="checkbox" checked={isSel} onChange={() => toggleSelect(inv.id)} style={{ cursor:'pointer', width:14, height:14 }} /></div>
+                {/* Number */}
+                <div style={{ fontSize:13, fontWeight:700, color:'#4f8ef7', fontFamily:'monospace' }}>{inv.invoice_number}</div>
+                {/* Client */}
+                <div style={{ minWidth:0, fontSize:14, color:C.text, fontWeight:600, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{clientName}</div>
+                {/* Title */}
+                <div style={{ minWidth:0, fontSize:13, color:C.muted, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{displayTitle || '—'}</div>
+                {/* Date */}
+                <div style={{ fontSize:13, color:C.muted }}>{new Date(inv.invoice_date).toLocaleDateString('nl-NL')}</div>
+                {/* Bedrag */}
+                <div>
+                  <div style={{ fontSize:14, fontWeight:700, color:C.text }}>{fmtEur(totals.exclBtw)}</div>
+                  <div style={{ fontSize:11, color:C.muted }}>{fmtEur(totals.inclBtw)} incl. btw</div>
+                </div>
+                {/* Status */}
+                <div><span style={{ padding:'4px 10px', borderRadius:20, fontSize:12, fontWeight:700, background:STATUS_BG[inv.status], color:STATUS_COLOR[inv.status] }}>{STATUS_LABEL[inv.status]}</span></div>
+                {/* Actions */}
+                <div style={{ display:'flex', gap:4 }}>
+                  <button onClick={() => setMailInvoice(inv)} title="Verzenden" style={{ width:28, height:28, borderRadius:7, border:`1px solid ${C.border}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#22c55e' }}><Mail size={12}/></button>
+                  <button onClick={() => printInvoicePDF(inv, zzpProfile)} title="PDF" style={{ width:28, height:28, borderRadius:7, border:`1px solid ${C.border}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:C.muted }}><Download size={12}/></button>
+                  {STATUS_NEXT[inv.status] && <button onClick={() => updateStatus(inv, STATUS_NEXT[inv.status])} title={`→ ${STATUS_LABEL[STATUS_NEXT[inv.status]]}`} style={{ width:28, height:28, borderRadius:7, border:`1px solid ${C.border}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#22c55e' }}><Check size={12}/></button>}
+                  <button onClick={() => deleteInvoice(inv)} title="Verwijderen" style={{ width:28, height:28, borderRadius:7, border:'1px solid rgba(244,63,94,0.3)', background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#f43f5e' }}><Trash2 size={12}/></button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Bulk action bar */}
+        {selected.size > 0 && (
+          <div style={{ position:'fixed', bottom:24, left:'50%', transform:'translateX(-50%)', zIndex:999, background:isDark?'#0f1e36':'#fff', border:`1px solid ${C.border}`, borderRadius:16, padding:'12px 20px', display:'flex', alignItems:'center', gap:12, boxShadow:'0 8px 40px rgba(0,0,0,0.25)', whiteSpace:'nowrap' }}>
+            <span style={{ fontSize:13, fontWeight:700, color:C.text }}>{selected.size} geselecteerd</span>
+            <div style={{ width:1, height:18, background:C.border }}/>
+            <button onClick={bulkMarkBetaald} style={{ padding:'6px 14px', borderRadius:10, border:'none', background:'rgba(34,197,94,0.15)', color:'#22c55e', fontSize:13, fontWeight:700, cursor:'pointer' }}>✓ Betaald</button>
+            <button onClick={bulkMarkHerinnering} style={{ padding:'6px 14px', borderRadius:10, border:'none', background:'rgba(245,158,11,0.15)', color:'#f59e0b', fontSize:13, fontWeight:700, cursor:'pointer' }}>Herinnering</button>
+            <button onClick={bulkPrint} style={{ padding:'6px 14px', borderRadius:10, border:'none', background:'rgba(79,142,247,0.15)', color:'#4f8ef7', fontSize:13, fontWeight:700, cursor:'pointer' }}>PDF download</button>
+            <button onClick={bulkDelete} style={{ padding:'6px 14px', borderRadius:10, border:'none', background:'rgba(244,63,94,0.12)', color:'#f43f5e', fontSize:13, fontWeight:700, cursor:'pointer' }}>Verwijderen</button>
+            <button onClick={clearSelection} style={{ width:28, height:28, borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:C.muted }}><X size={13}/></button>
+          </div>
+        )}
+      </>}
+
+      {activeTab==='klanten' && (
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:18, overflow:'hidden' }}>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 140px 60px', padding:'12px 20px', borderBottom:`1px solid ${C.border}`, background:isDark?'rgba(255,255,255,0.02)':'rgba(0,0,0,0.02)' }}>
+            {['Naam','E-mail','Telefoon',''].map(h => <div key={h} style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.06em' }}>{h}</div>)}
+          </div>
+          {clients.length===0 ? <div style={{ padding:40, textAlign:'center', color:C.muted, fontSize:14 }}>Nog geen klanten — maak een factuur aan om je eerste klant toe te voegen.</div>
+          : clients.map((c, i) => (
+            <div key={c.id} onClick={() => setEditingClient({...c})} style={{ display:'grid', gridTemplateColumns:'1fr 1fr 140px 60px', padding:'13px 20px', alignItems:'center', borderBottom:i<clients.length-1?`1px solid ${C.border}`:'none', cursor:'pointer', transition:'background 0.12s' }}
+              onMouseEnter={e => e.currentTarget.style.background=isDark?'rgba(79,142,247,0.06)':'rgba(79,142,247,0.04)'}
+              onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+              <div>
+                <div style={{ fontSize:14, fontWeight:600, color:C.text }}>{c.company_name || [c.first_name,c.last_name].filter(Boolean).join(' ') || '—'}</div>
+                <div style={{ fontSize:12, color:C.muted }}>{[c.address, [c.postal_code,c.city].filter(Boolean).join(' ')].filter(Boolean).join(', ')}</div>
+              </div>
+              <div style={{ fontSize:13, color:C.muted }}>{c.email || '—'}</div>
+              <div style={{ fontSize:13, color:C.muted }}>{c.phone || '—'}</div>
+              <div style={{ display:'flex', gap:6 }} onClick={e => e.stopPropagation()}>
+                <button onClick={() => deleteClient(c)} title="Verwijderen" style={{ width:30, height:30, borderRadius:8, border:'1px solid rgba(244,63,94,0.3)', background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#f43f5e' }}><Trash2 size={13}/></button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showForm && <InvoiceForm isDark={isDark} user={user} zzpProfile={zzpProfile} invoice={editingInvoice} clients={clients} onClose={() => { setShowForm(false); setEditingInvoice(null); }} onSaved={async () => { setShowForm(false); setEditingInvoice(null); await load(); }} onNavigate={onNavigate} />}
+      {mailInvoice && <MailPopup isDark={isDark} invoice={mailInvoice} zzpProfile={zzpProfile} onClose={() => setMailInvoice(null)} />}
+      {editingClient && <ClientEditModal isDark={isDark} client={editingClient} onClose={() => setEditingClient(null)} onSaved={async (updated) => { await supabase.from('clients').update(updated).eq('id', updated.id); setClients(prev => prev.map(c => c.id===updated.id ? {...c,...updated} : c)); setEditingClient(null); }} />}
+    </div>
+  );
+}
+
+// ─── SHARED PORTAL HELPERS ────────────────────────────────────
+function PortalHeader({ isDark, title, subtitle, color, icon: Icon, user, onSignOut }) {
+  const C = { card: isDark ? '#0b1628' : '#fff', border: isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0', text: isDark ? '#f1f5f9' : '#0f172a', muted: isDark ? '#64748b' : '#94a3b8' };
+  return (
+    <div style={{ background: isDark ? '#0b1628' : '#fff', borderBottom: `1px solid ${C.border}`, padding: '14px 28px', display: 'flex', alignItems: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 100 }}>
+      <div style={{ width: 36, height: 36, borderRadius: 10, background: `linear-gradient(135deg,${color},${color}cc)`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <Icon size={18} color="#fff" />
+      </div>
+      <div>
+        <div style={{ fontSize: 15, fontWeight: 800, color: C.text }}>{title}</div>
+        <div style={{ fontSize: 11, color: C.muted }}>{subtitle}</div>
+      </div>
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ fontSize: 12, color: C.muted, background: isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9', padding: '5px 12px', borderRadius: 20, border: `1px solid ${C.border}` }}>{user?.email}</div>
+        <button onClick={onSignOut} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 10, border: `1px solid ${C.border}`, background: 'transparent', color: C.muted, cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit', transition: 'all 0.15s' }}>
+          <LogOut size={13} /> Uitloggen
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function InviteCodeInput({ isDark, user, role, onLinked }) {
+  const C = { card: isDark ? '#0f1e36' : '#fff', border: isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0', text: isDark ? '#f1f5f9' : '#0f172a', muted: isDark ? '#64748b' : '#94a3b8' };
+  const [code, setCode]       = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState('');
+  const [success, setSuccess] = useState('');
+
+  const accept = async () => {
+    if (!code.trim()) return;
+    setLoading(true); setError(''); setSuccess('');
+    try {
+      const { data: link, error: fetchErr } = await supabase
+        .from('client_links')
+        .select('*, client:profiles!client_links_client_user_id_fkey(id, company_name, email, plan)')
+        .eq('invite_code', code.trim().toUpperCase())
+        .eq('status', 'pending')
+        .single();
+      if (fetchErr || !link) {
+        setError('Ongeldige of verlopen code. Vraag de klant om een nieuwe code te genereren.');
+      } else {
+        await supabase.from('client_links').update({ linked_user_id: user.id, status: 'accepted' }).eq('id', link.id);
+        setSuccess(`Gekoppeld aan ${link.client?.company_name || link.client?.email}!`);
+        setCode('');
+        onLinked({ ...link, linked_user_id: user.id, status: 'accepted' });
+      }
+    } catch { setError('Er ging iets mis. Probeer opnieuw.'); }
+    setLoading(false);
+  };
+
+  return (
+    <div style={{ background: isDark ? C.card : '#fff', border: `1px solid ${C.border}`, borderRadius: 16, padding: '20px 22px', boxShadow: isDark ? '0 2px 12px rgba(0,0,0,0.2)' : '0 2px 8px rgba(0,0,0,0.05)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+        <Link2 size={15} color="#4f8ef7" />
+        <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Klant koppelen via uitnodigingscode</div>
+      </div>
+      <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>
+        Vraag je klant om een code te genereren in Dynafy → MijnBedrijf → Medewerkers.
+      </div>
+      <div style={{ display: 'flex', gap: 10 }}>
+        <input value={code} onChange={e => { setCode(e.target.value.toUpperCase()); setError(''); setSuccess(''); }}
+          onKeyDown={e => e.key === 'Enter' && accept()}
+          placeholder="Bijv. A1B2C3D4" maxLength={8}
+          style={{ flex: 1, padding: '11px 14px', borderRadius: 10, border: `1px solid ${error ? '#f43f5e' : C.border}`, background: isDark ? 'rgba(255,255,255,0.06)' : '#f8fafc', color: C.text, fontSize: 15, fontWeight: 800, letterSpacing: '0.12em', outline: 'none', fontFamily: 'inherit' }} />
+        <button onClick={accept} disabled={loading || !code.trim()}
+          style={{ padding: '11px 22px', borderRadius: 10, border: 'none', background: loading || !code.trim() ? 'rgba(79,142,247,0.3)' : 'linear-gradient(135deg,#4f8ef7,#6366f1)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: loading || !code.trim() ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit' }}>
+          {loading ? 'Koppelen...' : 'Koppelen →'}
+        </button>
+      </div>
+      {error   && <div style={{ fontSize: 12, color: '#f43f5e', marginTop: 10, padding: '8px 12px', background: 'rgba(244,63,94,0.08)', borderRadius: 8 }}>⚠ {error}</div>}
+      {success && <div style={{ fontSize: 12, color: '#22c55e', marginTop: 10, padding: '8px 12px', background: 'rgba(34,197,94,0.08)', borderRadius: 8 }}>✓ {success}</div>}
+    </div>
+  );
+}
+
+// ─── ADMINISTRATEUR PORTAL ─────────────────────────────────────
+function AdministrateurPortal({ isDark, user, clientLinks: initialLinks, onSignOut, onLinksChange }) {
+  const C = { bg: isDark ? '#07111f' : '#f1f5f9', card: isDark ? '#0f1e36' : '#fff', border: isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0', text: isDark ? '#f1f5f9' : '#0f172a', muted: isDark ? '#64748b' : '#94a3b8' };
+
+  const [links, setLinks]               = useState(initialLinks || []);
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [adminView, setAdminView]       = useState('facturen');
+
+  const handleLinked = (newLink) => {
+    const updated = [...links, newLink];
+    setLinks(updated);
+    onLinksChange?.(updated);
+  };
+
+  const clientViews = [
+    { id: 'facturen', label: 'Facturen' },
+    { id: 'kosten',   label: 'Kosten' },
+    { id: 'bonnen',   label: 'Bonnen' },
+  ];
+
+  // ── Client workspace ──
+  if (selectedClient) {
+    const fakeUser = { id: selectedClient.client_user_id };
+    return (
+      <div style={{ minHeight: '100vh', background: C.bg, fontFamily: "'Inter', sans-serif" }}>
+        <div style={{ background: isDark ? '#0b1628' : '#fff', borderBottom: `1px solid ${C.border}`, padding: '12px 28px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', position: 'sticky', top: 0, zIndex: 100 }}>
+          <button onClick={() => setSelectedClient(null)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 10, border: `1px solid ${C.border}`, background: 'transparent', color: C.muted, cursor: 'pointer', fontSize: 13, fontFamily: 'inherit' }}>
+            <ChevronLeft size={14}/> Klanten
+          </button>
+          <div style={{ width: 1, height: 20, background: C.border }} />
+          <Building2 size={15} color="#4f8ef7" />
+          <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>
+            {selectedClient.client?.company_name || selectedClient.client?.email}
+          </div>
+          <div style={{ fontSize: 11, color: '#4f8ef7', background: 'rgba(79,142,247,0.1)', border: '1px solid rgba(79,142,247,0.2)', borderRadius: 20, padding: '3px 9px', fontWeight: 700 }}>
+            Administrateur
+          </div>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+            {clientViews.map(v => (
+              <button key={v.id} onClick={() => setAdminView(v.id)}
+                style={{ padding: '7px 16px', borderRadius: 9, border: `1px solid ${adminView === v.id ? '#4f8ef7' : C.border}`, background: adminView === v.id ? 'rgba(79,142,247,0.12)' : 'transparent', color: adminView === v.id ? '#4f8ef7' : C.muted, cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: 'inherit', transition: 'all 0.15s' }}>
+                {v.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          {adminView === 'facturen' && (
+            <FacturenView isDark={isDark} user={fakeUser} activeCompanyId="main"
+              zzpProfile={selectedClient.client || {}} onNavigate={() => {}} />
+          )}
+          {adminView === 'kosten' && (
+            <KostenView isDark={isDark} user={fakeUser} activeCompanyId="main" />
+          )}
+          {adminView === 'bonnen' && (
+            <BonnenView isDark={isDark} user={fakeUser} activeCompanyId="main"
+              userPlan="zzp_premium" onUpgrade={() => {}} />
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Client list ──
+  return (
+    <div style={{ minHeight: '100vh', background: C.bg, fontFamily: "'Inter', sans-serif" }}>
+      <PortalHeader isDark={isDark} title="Administrateur Portal" subtitle="Beheer de administratie van jouw klanten"
+        color="#4f8ef7" icon={Briefcase} user={user} onSignOut={onSignOut} />
+
+      <div style={{ maxWidth: 740, margin: '0 auto', padding: '32px 24px' }}>
+        <div style={{ fontSize: 20, fontWeight: 800, color: C.text, marginBottom: 4 }}>Jouw klanten</div>
+        <div style={{ fontSize: 13, color: C.muted, marginBottom: 24 }}>
+          Selecteer een klant om hun facturen, kosten en bonnen te beheren.
+        </div>
+
+        {links.length === 0 ? (
+          <div style={{ padding: '40px 24px', textAlign: 'center', background: isDark ? 'rgba(255,255,255,0.03)' : '#fff', borderRadius: 16, border: `1px dashed ${C.border}`, marginBottom: 24 }}>
+            <div style={{ width: 52, height: 52, borderRadius: 14, background: 'rgba(79,142,247,0.1)', border: '1px solid rgba(79,142,247,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <Users size={24} color="#4f8ef7" />
+            </div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 6 }}>Nog geen klanten gekoppeld</div>
+            <div style={{ fontSize: 13, color: C.muted, maxWidth: 340, margin: '0 auto' }}>
+              Vraag je klant om jou te koppelen via Dynafy → Mijn Bedrijf → Medewerkers & Boekhouder.
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
+            {links.map((link, i) => (
+              <div key={i} onClick={() => { setSelectedClient(link); setAdminView('facturen'); }}
+                style={{ background: isDark ? C.card : '#fff', border: `1px solid ${C.border}`, borderRadius: 16, padding: '18px 22px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', boxShadow: isDark ? '0 2px 12px rgba(0,0,0,0.2)' : '0 2px 8px rgba(0,0,0,0.05)', transition: 'all 0.15s' }}>
+                <div style={{ width: 46, height: 46, borderRadius: 13, background: 'linear-gradient(135deg,rgba(79,142,247,0.15),rgba(99,102,241,0.15))', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(79,142,247,0.2)', flexShrink: 0 }}>
+                  <Building2 size={22} color="#4f8ef7" />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>
+                    {link.client?.company_name || link.client?.email || 'Klant'}
+                  </div>
+                  <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{link.client?.email}</div>
+                </div>
+                {link.client?.plan && (
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#6366f1', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 20, padding: '4px 10px' }}>
+                    {link.client.plan.replace('_', ' ').toUpperCase()}
+                  </div>
+                )}
+                <ChevronRight size={16} color={C.muted} />
+              </div>
+            ))}
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
+// ─── BOEKHOUDER BTW OVERZICHT ──────────────────────────────────
+function BoekhouderBtwView({ isDark, clientUserId, clientName }) {
+  const C = { card: isDark ? '#0f1e36' : '#fff', border: isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0', text: isDark ? '#f1f5f9' : '#0f172a', muted: isDark ? '#64748b' : '#94a3b8' };
+  const fmt = (n) => '€ ' + Number(n||0).toLocaleString('nl-NL', { minimumFractionDigits:2, maximumFractionDigits:2 });
+  const today = new Date();
+  const yr = today.getFullYear();
+
+  const [invoices, setInvoices] = useState([]);
+  const [costs, setCosts]       = useState([]);
+  const [qStatus, setQStatus]   = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [note, setNote]         = useState('');
+  const [noteQ, setNoteQ]       = useState(null);
+
+  useEffect(() => {
+    if (!clientUserId) return;
+    (async () => {
+      setLoading(true);
+      const [invRes, costRes, qRes] = await Promise.all([
+        supabase.from('invoices').select('*, lines:invoice_lines(*)').eq('user_id', clientUserId),
+        supabase.from('costs').select('*').eq('user_id', clientUserId),
+        supabase.from('quarter_status').select('*').eq('user_id', clientUserId).eq('year', yr),
+      ]);
+      if (invRes.data)  setInvoices(invRes.data);
+      if (costRes.data) setCosts(costRes.data);
+      if (qRes.data)    setQStatus(qRes.data);
+      setLoading(false);
+    })();
+  }, [clientUserId]);
+
+  const quarters = [
+    { q:1, label:'Q1', periode:'jan – mrt' },
+    { q:2, label:'Q2', periode:'apr – jun' },
+    { q:3, label:'Q3', periode:'jul – sep' },
+    { q:4, label:'Q4', periode:'okt – dec' },
+  ];
+
+  const qInvoiceBtw = (q) => {
+    const months = [0,1,2].map(m => (q-1)*3 + m);
+    return invoices
+      .filter(i => ['definitief','verstuurd','herinnering','betaald'].includes(i.status) && months.includes(new Date(i.invoice_date||'').getMonth()) && new Date(i.invoice_date||'').getFullYear() === yr)
+      .reduce((s, i) => s + invoiceTotals(i).btw, 0);
+  };
+  const qCostBtw = (q) => {
+    const months = [0,1,2].map(m => (q-1)*3 + m);
+    return costs
+      .filter(c => months.includes(new Date(c.date||'').getMonth()) && new Date(c.date||'').getFullYear() === yr)
+      .reduce((s, c) => s + parseFloat(c.amount_excl_btw||0) * parseFloat(c.btw_percentage||0) / 100, 0);
+  };
+
+  const markAangifte = async (q, ingediend) => {
+    const qs = qStatus.find(s => s.quarter === q.q);
+    const payload = { user_id: clientUserId, year: yr, quarter: q.q, is_complete: qs?.is_complete || false, aangifte_ingediend: ingediend, boekhouder_note: qs?.boekhouder_note || '', marked_complete_at: qs?.marked_complete_at || null };
+    await supabase.from('quarter_status').upsert(payload, { onConflict: 'user_id,year,quarter' });
+    setQStatus(prev => [...prev.filter(s => s.quarter !== q.q), payload]);
+  };
+
+  const saveNote = async (q) => {
+    const qs = qStatus.find(s => s.quarter === q.q);
+    const payload = { user_id: clientUserId, year: yr, quarter: q.q, is_complete: qs?.is_complete || false, aangifte_ingediend: qs?.aangifte_ingediend || false, boekhouder_note: note, marked_complete_at: qs?.marked_complete_at || null };
+    await supabase.from('quarter_status').upsert(payload, { onConflict: 'user_id,year,quarter' });
+    setQStatus(prev => [...prev.filter(s => s.quarter !== q.q), payload]);
+    setNoteQ(null);
+    setNote('');
+  };
+
+  if (loading) return <div style={{ padding:40, textAlign:'center', color:C.muted }}>BTW data laden…</div>;
+
+  const currentQ = Math.ceil((today.getMonth() + 1) / 3);
+
+  return (
+    <div style={{ padding:'28px 32px', maxWidth:900, margin:'0 auto' }}>
+      <div style={{ fontSize:18, fontWeight:800, color:C.text, marginBottom:4 }}>BTW Overzicht — {clientName}</div>
+      <div style={{ fontSize:13, color:C.muted, marginBottom:24 }}>Kwartaaloverzicht {yr} · markeer wanneer aangifte is ingediend</div>
+
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:16 }}>
+        {quarters.map(q => {
+          const qs = qStatus.find(s => s.quarter === q.q);
+          const ingediend = qs?.aangifte_ingediend || false;
+          const invBtw = qInvoiceBtw(q.q);
+          const costBtw = qCostBtw(q.q);
+          const saldo   = invBtw - costBtw;
+          const isCurrent = q.q === currentQ;
+          return (
+            <div key={q.q} style={{ background:C.card, border:`1.5px solid ${ingediend ? 'rgba(34,197,94,0.35)' : isCurrent ? 'rgba(168,85,247,0.35)' : C.border}`, borderRadius:18, padding:'20px 22px', boxShadow:isDark?'0 4px 16px rgba(0,0,0,0.2)':'0 2px 10px rgba(0,0,0,0.05)' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14 }}>
+                <div>
+                  <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:2 }}>
+                    <div style={{ fontSize:16, fontWeight:800, color:C.text }}>{q.label} {yr}</div>
+                    {isCurrent && !ingediend && <span style={{ fontSize:10, fontWeight:700, background:'rgba(168,85,247,0.15)', color:'#a855f7', padding:'2px 7px', borderRadius:6, border:'1px solid rgba(168,85,247,0.25)' }}>Huidig</span>}
+                  </div>
+                  <div style={{ fontSize:12, color:C.muted }}>{q.periode}</div>
+                </div>
+                {ingediend
+                  ? <div style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, fontWeight:700, color:'#22c55e', background:'rgba(34,197,94,0.1)', border:'1px solid rgba(34,197,94,0.25)', borderRadius:20, padding:'4px 10px' }}>
+                      <Check size={12}/> Ingediend
+                    </div>
+                  : null}
+              </div>
+
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:16 }}>
+                {[
+                  { label:'BTW facturen', value:fmt(invBtw), color:'#4f8ef7' },
+                  { label:'BTW kosten', value:fmt(costBtw), color:'#a855f7' },
+                  { label:'Te betalen', value:fmt(saldo), color: saldo > 0 ? '#f43f5e' : '#22c55e' },
+                ].map(s => (
+                  <div key={s.label} style={{ background:isDark?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.025)', borderRadius:10, padding:'10px 12px' }}>
+                    <div style={{ fontSize:10, fontWeight:700, color:C.muted, marginBottom:4, textTransform:'uppercase', letterSpacing:'0.05em' }}>{s.label}</div>
+                    <div style={{ fontSize:14, fontWeight:800, color:s.color }}>{s.value}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Note */}
+              {qs?.boekhouder_note && noteQ !== q.q && (
+                <div style={{ fontSize:12, color:C.muted, background:isDark?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.03)', borderRadius:8, padding:'8px 10px', marginBottom:12, fontStyle:'italic' }}>
+                  📝 {qs.boekhouder_note}
+                </div>
+              )}
+              {noteQ === q.q && (
+                <div style={{ marginBottom:12 }}>
+                  <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Notitie voor klant…" rows={2}
+                    style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:`1px solid ${C.border}`, background:isDark?'rgba(255,255,255,0.06)':'#f8fafc', color:C.text, fontSize:12, resize:'vertical', outline:'none', boxSizing:'border-box', fontFamily:'inherit' }}/>
+                  <div style={{ display:'flex', gap:8, marginTop:6 }}>
+                    <button onClick={() => saveNote(q)} style={{ padding:'5px 12px', borderRadius:7, border:'none', background:'#a855f7', color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer' }}>Opslaan</button>
+                    <button onClick={() => { setNoteQ(null); setNote(''); }} style={{ padding:'5px 12px', borderRadius:7, border:`1px solid ${C.border}`, background:'transparent', color:C.muted, fontSize:12, cursor:'pointer' }}>Annuleren</button>
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display:'flex', gap:8 }}>
+                <button onClick={() => markAangifte(q, !ingediend)}
+                  style={{ flex:1, padding:'8px 12px', borderRadius:10, border:`1px solid ${ingediend ? 'rgba(34,197,94,0.4)' : 'rgba(168,85,247,0.4)'}`, background: ingediend ? 'rgba(34,197,94,0.1)' : 'rgba(168,85,247,0.1)', color: ingediend ? '#22c55e' : '#a855f7', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
+                  {ingediend ? '↩ Aangifte intrekken' : '✓ Aangifte ingediend'}
+                </button>
+                <button onClick={() => { setNoteQ(q.q); setNote(qs?.boekhouder_note || ''); }}
+                  style={{ padding:'8px 12px', borderRadius:10, border:`1px solid ${C.border}`, background:'transparent', color:C.muted, fontSize:12, cursor:'pointer', fontFamily:'inherit' }}>
+                  📝
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── BERICHTEN CHAT (shared boekhouder ↔ klant) ────────────────
+function BerichtenChat({ isDark, user, otherUserId, otherName, clientUserId }) {
+  const C = { border:isDark?'rgba(255,255,255,0.08)':'#e2e8f0', text:isDark?'#f1f5f9':'#0f172a', muted:isDark?'#64748b':'#94a3b8', input:isDark?'rgba(255,255,255,0.06)':'#f8fafc' };
+  const [msgs, setMsgs]       = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [newMsg, setNewMsg]   = useState('');
+  const [sending, setSending] = useState(false);
+  const bottomRef             = useRef(null);
+
+  useEffect(() => {
+    if (!user?.id || !clientUserId) return;
+    (async () => {
+      setLoading(true);
+      const { data } = await supabase.from('berichten').select('*').eq('client_user_id', clientUserId).order('created_at', { ascending: true });
+      setMsgs(data || []);
+      await supabase.from('berichten').update({ gelezen: true }).eq('client_user_id', clientUserId).eq('to_user_id', user.id).eq('gelezen', false);
+      setLoading(false);
+    })();
+  }, [user?.id, clientUserId]);
+
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior:'smooth' }); }, [msgs]);
+
+  const send = async () => {
+    if (!newMsg.trim() || !otherUserId) return;
+    setSending(true);
+    const { data } = await supabase.from('berichten').insert({ from_user_id:user.id, to_user_id:otherUserId, client_user_id:clientUserId, bericht:newMsg.trim() }).select().single();
+    if (data) setMsgs(prev => [...prev, data]);
+    setNewMsg('');
+    setSending(false);
+  };
+
+  const fmtTime = (ts) => new Date(ts).toLocaleString('nl-NL', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', height:'100%', minHeight:400 }}>
+      {loading ? (
+        <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:C.muted }}>Laden…</div>
+      ) : msgs.length === 0 ? (
+        <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', color:C.muted, gap:8, padding:32 }}>
+          <Mail size={32} color={C.muted} style={{ opacity:0.4 }}/>
+          <div style={{ fontSize:14, fontWeight:600, color:C.muted }}>Nog geen berichten</div>
+          <div style={{ fontSize:12, color:C.muted }}>Stuur een bericht naar {otherName}</div>
+        </div>
+      ) : (
+        <div style={{ flex:1, overflowY:'auto', padding:'12px 0', display:'flex', flexDirection:'column', gap:8 }}>
+          {msgs.map((m, i) => {
+            const isMine = m.from_user_id === user.id;
+            return (
+              <div key={m.id || i} style={{ display:'flex', justifyContent:isMine?'flex-end':'flex-start' }}>
+                <div style={{ maxWidth:'75%' }}>
+                  <div style={{ fontSize:10, color:C.muted, marginBottom:3, textAlign:isMine?'right':'left' }}>{fmtTime(m.created_at)}</div>
+                  <div style={{ padding:'9px 13px', borderRadius:isMine?'14px 14px 4px 14px':'14px 14px 14px 4px', background:isMine?'linear-gradient(135deg,#a855f7,#6366f1)':isDark?'rgba(255,255,255,0.07)':'#f1f5f9', color:isMine?'#fff':C.text, fontSize:13, lineHeight:1.5, border:isMine?'none':`1px solid ${C.border}` }}>
+                    {m.bericht}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          <div ref={bottomRef}/>
+        </div>
+      )}
+      <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:12, display:'flex', gap:8, alignItems:'flex-end' }}>
+        <textarea value={newMsg} onChange={e => setNewMsg(e.target.value)}
+          onKeyDown={e => { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
+          placeholder={`Bericht aan ${otherName}…`} rows={2}
+          style={{ flex:1, padding:'9px 12px', borderRadius:10, border:`1px solid ${C.border}`, background:C.input, color:C.text, fontSize:13, resize:'none', outline:'none', fontFamily:'inherit', lineHeight:1.5 }}/>
+        <button onClick={send} disabled={sending || !newMsg.trim()}
+          style={{ padding:'9px 16px', borderRadius:10, border:'none', background:newMsg.trim()?'linear-gradient(135deg,#a855f7,#6366f1)':'rgba(168,85,247,0.2)', color:newMsg.trim()?'#fff':'rgba(168,85,247,0.5)', fontWeight:700, fontSize:13, cursor:newMsg.trim()?'pointer':'default', fontFamily:'inherit', height:40, flexShrink:0 }}>
+          {sending ? '…' : 'Stuur'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── BERICHTEN VIEW (ZZP klant kant) ───────────────────────────
+function BerichtenView({ isDark, user }) {
+  const C = { card:isDark?'#0f1e36':'#fff', border:isDark?'rgba(255,255,255,0.08)':'#e2e8f0', text:isDark?'#f1f5f9':'#0f172a', muted:isDark?'#64748b':'#94a3b8' };
+  const [boekhouder, setBoekhouder] = useState(null);
+  const [loading, setLoading]       = useState(true);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    (async () => {
+      const { data: links } = await supabase.from('client_links').select('*').eq('client_user_id', user.id).eq('status', 'accepted');
+      if (!links?.length) { setLoading(false); return; }
+      const { data: prof } = await supabase.from('profiles').select('id, email, company_name').eq('id', links[0].linked_user_id).single();
+      setBoekhouder(prof);
+      setLoading(false);
+    })();
+  }, [user?.id]);
+
+  if (loading) return <div style={{ padding:60, textAlign:'center', color:C.muted }}>Laden…</div>;
+
+  if (!boekhouder) return (
+    <div style={{ padding:'32px 36px', maxWidth:700, margin:'0 auto' }}>
+      <div style={{ textAlign:'center', padding:'52px 20px', background:C.card, borderRadius:16, border:`1px solid ${C.border}` }}>
+        <Mail size={32} color={C.muted} style={{ opacity:0.4, marginBottom:12, display:'block', margin:'0 auto 12px' }}/>
+        <div style={{ fontSize:15, fontWeight:700, color:C.text }}>Geen boekhouder gekoppeld</div>
+        <div style={{ fontSize:13, color:C.muted, marginTop:6 }}>Koppel een boekhouder via Mijn Bedrijf → Medewerkers & Boekhouder.</div>
+      </div>
+    </div>
+  );
+
+  const bName = boekhouder.company_name || boekhouder.email;
+  return (
+    <div style={{ padding:'28px 32px', maxWidth:700, margin:'0 auto' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:24 }}>
+        <div style={{ width:42, height:42, borderRadius:12, background:'linear-gradient(135deg,#a855f7,#6366f1)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <Mail size={20} color="#fff"/>
+        </div>
+        <div>
+          <div style={{ fontSize:20, fontWeight:800, color:C.text }}>Berichten</div>
+          <div style={{ fontSize:13, color:C.muted }}>Communicatie met {bName}</div>
+        </div>
+      </div>
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:16, padding:'20px 22px', minHeight:500, display:'flex', flexDirection:'column', boxShadow:isDark?'0 4px 24px rgba(0,0,0,0.2)':'0 2px 12px rgba(0,0,0,0.06)' }}>
+        <BerichtenChat isDark={isDark} user={user} otherUserId={boekhouder.id} otherName={bName} clientUserId={user.id}/>
+      </div>
+    </div>
+  );
+}
+
+// ─── BOEKHOUDER PORTAL ─────────────────────────────────────────
+function BoekhouderPortal({ isDark, user, clientLinks: initialLinks, onSignOut, onLinksChange }) {
+  const C = { bg: isDark?'#07111f':'#f1f5f9', card: isDark?'#0f1e36':'#fff', sidebar: isDark?'#0b1628':'#fff', border: isDark?'rgba(255,255,255,0.08)':'#e2e8f0', text: isDark?'#f1f5f9':'#0f172a', muted: isDark?'#64748b':'#94a3b8' };
+  const fmt = (n) => '€ ' + Number(n||0).toLocaleString('nl-NL', { minimumFractionDigits:2, maximumFractionDigits:2 });
+
+  const [links, setLinks]                   = useState([]);
+  const [linksLoading, setLinksLoading]     = useState(true);
+  const [portalView, setPortalView]         = useState('dashboard');
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [clientZzpView, setClientZzpView]   = useState('zzp-dashboard');
+  const [allQStatus, setAllQStatus]         = useState({});
+  const [qStatusLoading, setQStatusLoading] = useState(false);
+  const [aangiftePanel, setAangiftePanel]   = useState(null);
+  const [panelInvoices, setPanelInvoices]   = useState([]);
+  const [panelCosts, setPanelCosts]         = useState([]);
+  const [panelLoading, setPanelLoading]     = useState(false);
+  const [panelQ, setPanelQ]                 = useState(null);
+  const [markingAangifte, setMarkingAangifte] = useState(false);
+  const [klantenData, setKlantenData]       = useState({});
+  const [klantenDataLoading, setKlantenDataLoading] = useState(false);
+
+  const today = new Date();
+  const yr    = today.getFullYear();
+  const quarters = [
+    { q:1, label:'Q1', periode:'jan–mrt', aangifteDeadline:new Date(yr,3,30),   adminDeadline:new Date(yr,3,15) },
+    { q:2, label:'Q2', periode:'apr–jun', aangifteDeadline:new Date(yr,6,31),   adminDeadline:new Date(yr,6,16) },
+    { q:3, label:'Q3', periode:'jul–sep', aangifteDeadline:new Date(yr,9,31),   adminDeadline:new Date(yr,9,16) },
+    { q:4, label:'Q4', periode:'okt–dec', aangifteDeadline:new Date(yr+1,0,31), adminDeadline:new Date(yr+1,0,16) },
+  ];
+  const nextQ          = quarters.find(q => q.adminDeadline >= today) || quarters[3];
+  const daysToDeadline = Math.ceil((nextQ.adminDeadline - today) / 86400000);
+  const urgColor       = daysToDeadline <= 7 ? '#f43f5e' : daysToDeadline <= 21 ? '#f59e0b' : '#22c55e';
+  const fmtDate        = (d) => d.toLocaleDateString('nl-NL', { day:'numeric', month:'long' });
+
+  useEffect(() => {
+    if (!user?.id) return;
+    (async () => {
+      setLinksLoading(true);
+      const { data: rawLinks } = await supabase.from('client_links').select('*').eq('linked_user_id', user.id).eq('status', 'accepted');
+      if (!rawLinks?.length) { setLinksLoading(false); return; }
+      const ids = rawLinks.map(l => l.client_user_id).filter(Boolean);
+      const { data: profs } = await supabase.from('profiles').select('id, company_name, email, plan').in('id', ids);
+      const profMap = Object.fromEntries((profs || []).map(p => [p.id, p]));
+      const merged  = rawLinks.map(l => ({ ...l, client: profMap[l.client_user_id] || null }));
+      setLinks(merged);
+      onLinksChange?.(merged);
+      setLinksLoading(false);
+    })();
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!links.length) return;
+    setQStatusLoading(true);
+    const ids = links.map(l => l.client_user_id);
+    supabase.from('quarter_status').select('*').in('user_id', ids).eq('year', yr).then(({ data }) => {
+      const grouped = {};
+      (data || []).forEach(s => { if (!grouped[s.user_id]) grouped[s.user_id] = []; grouped[s.user_id].push(s); });
+      setAllQStatus(grouped);
+      setQStatusLoading(false);
+    });
+  }, [links]);
+
+  useEffect(() => {
+    if (portalView !== 'klanten' || !links.length) return;
+    setKlantenDataLoading(true);
+    const clientIds = links.map(l => l.client_user_id);
+    const qStart = new Date(yr, (nextQ.q-1)*3, 1).toISOString().split('T')[0];
+    const qEnd   = new Date(yr, nextQ.q*3, 0).toISOString().split('T')[0];
+    Promise.all([
+      supabase.from('invoices').select('*, lines:invoice_lines(*)').in('user_id', clientIds).gte('invoice_date', qStart).lte('invoice_date', qEnd).not('status', 'in', '(geannuleerd,concept)'),
+      supabase.from('costs').select('user_id, amount_excl_btw, btw_percentage').in('user_id', clientIds).gte('date', qStart).lte('date', qEnd),
+      supabase.from('bonnen').select('id, user_id').in('user_id', clientIds).eq('geboekt', false),
+      supabase.from('berichten').select('id, client_user_id').in('client_user_id', clientIds).eq('to_user_id', user.id).eq('gelezen', false),
+    ]).then(([invRes, costRes, bonnRes, berichtRes]) => {
+      const d = {};
+      clientIds.forEach(id => { d[id] = { omzetExcl:0, btwOmzet:0, btwKosten:0, openBonnen:0, openBerichten:0 }; });
+      (invRes.data || []).forEach(inv => {
+        if (!d[inv.user_id]) return;
+        const t = invoiceTotals(inv);
+        d[inv.user_id].omzetExcl += t.subtotal;
+        d[inv.user_id].btwOmzet  += t.btw;
+      });
+      (costRes.data || []).forEach(c => {
+        if (!d[c.user_id]) return;
+        d[c.user_id].btwKosten += parseFloat(c.amount_excl_btw||0) * parseFloat(c.btw_percentage||0) / 100;
+      });
+      (bonnRes.data || []).forEach(b => { if (d[b.user_id]) d[b.user_id].openBonnen++; });
+      (berichtRes.data || []).forEach(m => { if (d[m.client_user_id]) d[m.client_user_id].openBerichten++; });
+      setKlantenData(d);
+      setKlantenDataLoading(false);
+    });
+  }, [portalView, links]);
+
+  const getQS         = (cid, q) => (allQStatus[cid] || []).find(s => s.quarter === q);
+  const adminCompleet  = links.filter(l => getQS(l.client_user_id, nextQ.q)?.is_complete).length;
+  const aangifteGedaan = links.filter(l => getQS(l.client_user_id, nextQ.q)?.aangifte_ingediend).length;
+  const nogTeDoen      = links.filter(l => { const s = getQS(l.client_user_id, nextQ.q); return s?.is_complete && !s?.aangifte_ingediend; }).length;
+  const adminIncompleet= links.filter(l => !getQS(l.client_user_id, nextQ.q)?.is_complete).length;
+  const sevenDaysAgo   = new Date(Date.now() - 7*86400000);
+  const notifications  = links.filter(l => { const s = getQS(l.client_user_id, nextQ.q); return s?.is_complete && s?.marked_complete_at && new Date(s.marked_complete_at) >= sevenDaysAgo && !s?.aangifte_ingediend; });
+  const needsAangifte  = links.filter(l => { const s = getQS(l.client_user_id, nextQ.q); return s?.is_complete && !s?.aangifte_ingediend; });
+
+  const openPanel = async (link) => {
+    setAangiftePanel(link);
+    setPanelQ(nextQ.q);
+    setPanelLoading(true);
+    const [invRes, costRes] = await Promise.all([
+      supabase.from('invoices').select('*, lines:invoice_lines(*)').eq('user_id', link.client_user_id),
+      supabase.from('costs').select('*').eq('user_id', link.client_user_id),
+    ]);
+    setPanelInvoices(invRes.data || []);
+    setPanelCosts(costRes.data || []);
+    setPanelLoading(false);
+  };
+
+  const getPanelQData = (q) => {
+    if (!q) return { omzetExcl:0, btwOmzet:0, kostenExcl:0, btwKosten:0 };
+    const qStart = new Date(yr,(q-1)*3,1), qEnd = new Date(yr,q*3,0);
+    const qInv   = panelInvoices.filter(i => { const d = new Date(i.invoice_date||''); return !['geannuleerd','concept'].includes(i.status) && d >= qStart && d <= qEnd; });
+    const qCst   = panelCosts.filter(c => { const d = new Date(c.date||''); return d >= qStart && d <= qEnd; });
+    return {
+      omzetExcl:  qInv.reduce((s,i) => s + invoiceTotals(i).subtotal, 0),
+      btwOmzet:   qInv.reduce((s,i) => s + invoiceTotals(i).btw, 0),
+      kostenExcl: qCst.reduce((s,c) => s + parseFloat(c.amount_excl_btw||0), 0),
+      btwKosten:  qCst.reduce((s,c) => s + parseFloat(c.amount_excl_btw||0) * parseFloat(c.btw_percentage||0) / 100, 0),
+    };
+  };
+
+  const markAangifteDone = async (done) => {
+    if (!aangiftePanel) return;
+    setMarkingAangifte(true);
+    const cid = aangiftePanel.client_user_id;
+    const qs  = getQS(cid, panelQ);
+    const payload = { user_id:cid, year:yr, quarter:panelQ, is_complete:qs?.is_complete||false, aangifte_ingediend:done, boekhouder_note:qs?.boekhouder_note||'', marked_complete_at:qs?.marked_complete_at||null };
+    await supabase.from('quarter_status').upsert(payload, { onConflict:'user_id,year,quarter' });
+    setAllQStatus(prev => { const rest = (prev[cid]||[]).filter(s => s.quarter !== panelQ); return { ...prev, [cid]:[...rest, payload] }; });
+    setMarkingAangifte(false);
+    if (done) setAangiftePanel(null);
+  };
+
+  // ── Client workspace (Klanten → click) ──
+  if (selectedClient) {
+    const cName  = selectedClient.client?.company_name || selectedClient.client?.email || 'Klant';
+    const cUser  = { id: selectedClient.client_user_id };
+    const cProf  = selectedClient.client || {};
+    const cPlan  = selectedClient.client?.plan || 'zzp_premium';
+    const cViews = [
+      { id:'zzp-dashboard', label:'Dashboard',    icon:BarChart2 },
+      { id:'facturen',      label:'Facturen',     icon:FileText },
+      { id:'kosten',        label:'Kosten',       icon:TrendingDown },
+      { id:'btw-aangifte',  label:'BTW Aangifte', icon:Calendar },
+      { id:'bonnen',        label:'Bonnen',       icon:Upload },
+      { id:'berichten',     label:'Berichten',    icon:Mail },
+    ];
+    return (
+      <div style={{ display:'flex', minHeight:'100vh', background:C.bg, fontFamily:"'Inter',sans-serif" }}>
+        <div style={{ width:220, flexShrink:0, background:C.sidebar, borderRight:`1px solid ${C.border}`, display:'flex', flexDirection:'column', position:'sticky', top:0, height:'100vh', overflowY:'auto' }}>
+          <div style={{ padding:'14px 12px 8px' }}>
+            <button onClick={() => { setSelectedClient(null); setPortalView('klanten'); }}
+              style={{ display:'flex', alignItems:'center', gap:6, width:'100%', padding:'8px 10px', borderRadius:9, border:`1px solid ${C.border}`, background:'transparent', color:C.muted, cursor:'pointer', fontSize:12, fontFamily:'inherit', marginBottom:10 }}>
+              <ChevronLeft size={13}/> Terug naar klanten
+            </button>
+            <div style={{ padding:'10px 12px', background:'rgba(168,85,247,0.08)', borderRadius:11, border:'1px solid rgba(168,85,247,0.15)', marginBottom:8 }}>
+              <div style={{ fontSize:10, fontWeight:800, color:'#a855f7', marginBottom:2, textTransform:'uppercase', letterSpacing:'0.05em' }}>Boekhouder modus</div>
+              <div style={{ fontSize:13, fontWeight:700, color:C.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{cName}</div>
+            </div>
+          </div>
+          <nav style={{ padding:'0 8px', flex:1 }}>
+            {cViews.map(v => {
+              const Icon = v.icon; const active = clientZzpView === v.id;
+              return (
+                <button key={v.id} onClick={() => setClientZzpView(v.id)}
+                  style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderRadius:10, border:'none', background:active?'rgba(168,85,247,0.12)':'transparent', color:active?'#a855f7':C.muted, cursor:'pointer', fontSize:13, fontWeight:active?700:500, fontFamily:'inherit', marginBottom:2, textAlign:'left', transition:'all 0.15s' }}>
+                  <Icon size={16}/> {v.label}
+                </button>
+              );
+            })}
+          </nav>
+          <div style={{ padding:'10px 12px', borderTop:`1px solid ${C.border}` }}>
+            <button onClick={onSignOut} style={{ width:'100%', display:'flex', alignItems:'center', gap:8, padding:'9px 10px', borderRadius:9, border:`1px solid ${C.border}`, background:'transparent', color:C.muted, cursor:'pointer', fontSize:12, fontFamily:'inherit' }}>
+              <LogOut size={13}/> Uitloggen
+            </button>
+          </div>
+        </div>
+        <div style={{ flex:1, overflowY:'auto', minHeight:'100vh' }}>
+          {clientZzpView==='zzp-dashboard' && <ZZPDashboardView isDark={isDark} user={cUser} zzpProfile={cProf} onNavigate={setClientZzpView} activeCompanyId="main" />}
+          {clientZzpView==='facturen'      && <FacturenView isDark={isDark} user={cUser} zzpProfile={cProf} onNavigate={setClientZzpView} activeCompanyId="main" />}
+          {clientZzpView==='kosten'        && <KostenView isDark={isDark} user={cUser} activeCompanyId="main" />}
+          {clientZzpView==='btw-aangifte'  && <BTWAangifteView isDark={isDark} user={cUser} activeCompanyId="main" userPlan={cPlan} />}
+          {clientZzpView==='bonnen'        && <BonnenView isDark={isDark} user={cUser} activeCompanyId="main" userPlan={cPlan} onUpgrade={() => {}} />}
+          {clientZzpView==='berichten'     && (
+            <div style={{ padding:'28px 32px', maxWidth:700, margin:'0 auto' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:24 }}>
+                <div style={{ width:42, height:42, borderRadius:12, background:'linear-gradient(135deg,#a855f7,#6366f1)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <Mail size={20} color="#fff"/>
+                </div>
+                <div>
+                  <div style={{ fontSize:20, fontWeight:800, color:C.text }}>Berichten</div>
+                  <div style={{ fontSize:13, color:C.muted }}>Communicatie met {cName}</div>
+                </div>
+              </div>
+              <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:16, padding:'20px 22px', minHeight:500, display:'flex', flexDirection:'column', boxShadow:isDark?'0 4px 24px rgba(0,0,0,0.2)':'0 2px 12px rgba(0,0,0,0.06)' }}>
+                <BerichtenChat isDark={isDark} user={user} otherUserId={selectedClient.client_user_id} otherName={cName} clientUserId={selectedClient.client_user_id}/>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  const navItems = [
+    { id:'dashboard', label:'Dashboard',     icon:BarChart2 },
+    { id:'aangifte',  label:'Aangifte doen', icon:FileText,  badge:nogTeDoen },
+    { id:'klanten',   label:'Klanten',       icon:Users },
+  ];
+
+  const pData    = getPanelQData(panelQ);
+  const nettoBtw = pData.btwOmzet - pData.btwKosten;
+  const panelAlIngediend = aangiftePanel ? getQS(aangiftePanel.client_user_id, panelQ)?.aangifte_ingediend : false;
+
+  return (
+    <div style={{ display:'flex', minHeight:'100vh', background:C.bg, fontFamily:"'Inter',sans-serif" }}>
+
+      {/* ── Sidebar ── */}
+      <div style={{ width:220, flexShrink:0, background:C.sidebar, borderRight:`1px solid ${C.border}`, display:'flex', flexDirection:'column', position:'sticky', top:0, height:'100vh' }}>
+        <div style={{ padding:'18px 14px 10px' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10, padding:'11px 13px', background:'rgba(168,85,247,0.08)', borderRadius:13, border:'1px solid rgba(168,85,247,0.15)' }}>
+            <div style={{ width:32, height:32, borderRadius:9, background:'linear-gradient(135deg,#a855f7,#6366f1)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+              <Briefcase size={15} color="#fff"/>
+            </div>
+            <div>
+              <div style={{ fontSize:13, fontWeight:800, color:C.text }}>Boekhouder</div>
+              <div style={{ fontSize:10, color:'#a855f7', fontWeight:700 }}>Portaal</div>
+            </div>
+          </div>
+        </div>
+        <nav style={{ padding:'6px 8px', flex:1 }}>
+          {navItems.map(item => {
+            const Icon = item.icon; const active = portalView === item.id;
+            return (
+              <button key={item.id} onClick={() => setPortalView(item.id)}
+                style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'11px 12px', borderRadius:10, border:'none', background:active?'rgba(168,85,247,0.12)':'transparent', color:active?'#a855f7':C.muted, cursor:'pointer', fontSize:13, fontWeight:active?700:500, fontFamily:'inherit', marginBottom:2, textAlign:'left', transition:'all 0.15s' }}>
+                <Icon size={16}/> {item.label}
+                {item.badge > 0 && <span style={{ marginLeft:'auto', fontSize:11, fontWeight:800, color:'#fff', background:'#f43f5e', borderRadius:20, padding:'2px 7px' }}>{item.badge}</span>}
+              </button>
+            );
+          })}
+        </nav>
+        <div style={{ padding:'10px 12px', borderTop:`1px solid ${C.border}` }}>
+          <button onClick={onSignOut} style={{ width:'100%', display:'flex', alignItems:'center', gap:8, padding:'9px 10px', borderRadius:9, border:`1px solid ${C.border}`, background:'transparent', color:C.muted, cursor:'pointer', fontSize:12, fontFamily:'inherit' }}>
+            <LogOut size={13}/> Uitloggen
+          </button>
+        </div>
+      </div>
+
+      {/* ── Main content ── */}
+      <div style={{ flex:1, overflowY:'auto' }}>
+
+        {/* Dashboard */}
+        {portalView === 'dashboard' && (
+          <div style={{ padding:'32px 36px', maxWidth:1000, margin:'0 auto' }}>
+            <div style={{ marginBottom:28 }}>
+              <div style={{ fontSize:22, fontWeight:900, color:C.text, marginBottom:4 }}>Dashboard</div>
+              <div style={{ fontSize:13, color:C.muted }}>{nextQ.label} {yr} · administratie deadline {fmtDate(nextQ.adminDeadline)}</div>
+            </div>
+            {linksLoading || qStatusLoading ? (
+              <div style={{ padding:60, textAlign:'center', color:C.muted }}>Laden…</div>
+            ) : (
+              <>
+                {/* Stat cards */}
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:14, marginBottom:18 }}>
+                  {[
+                    { label:'Totaal klanten',   value:links.length,    color:'#a855f7', icon:<Users size={15} color="#a855f7"/> },
+                    { label:'Admin compleet',    value:adminCompleet,   color:'#22c55e', icon:<Check size={15} color="#22c55e"/> },
+                    { label:'Aangifte gedaan',   value:aangifteGedaan,  color:'#4f8ef7', icon:<FileText size={15} color="#4f8ef7"/> },
+                    { label:'Admin incompleet',  value:adminIncompleet, color:'#f59e0b', icon:<Clock size={15} color="#f59e0b"/> },
+                  ].map(s => (
+                    <div key={s.label} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:16, padding:'18px 20px', position:'relative', overflow:'hidden', boxShadow:isDark?'0 4px 20px rgba(0,0,0,0.2)':'0 2px 10px rgba(0,0,0,0.05)' }}>
+                      <div style={{ position:'absolute', inset:0, background:`linear-gradient(135deg,${s.color}14,${s.color}04)`, pointerEvents:'none' }}/>
+                      <div style={{ position:'relative' }}>
+                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+                          <div style={{ fontSize:10, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.06em' }}>{s.label}</div>
+                          <div style={{ width:28, height:28, borderRadius:8, background:`${s.color}20`, display:'flex', alignItems:'center', justifyContent:'center', border:`1px solid ${s.color}30` }}>{s.icon}</div>
+                        </div>
+                        <div style={{ fontSize:32, fontWeight:900, color:C.text, letterSpacing:'-1px' }}>{s.value}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Deadline + nog te doen */}
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18 }}>
+                  <div style={{ background:C.card, border:`1.5px solid ${urgColor}40`, borderRadius:16, padding:'20px 22px', position:'relative', overflow:'hidden', boxShadow:isDark?'0 4px 20px rgba(0,0,0,0.2)':'0 2px 10px rgba(0,0,0,0.05)' }}>
+                    <div style={{ position:'absolute', inset:0, background:`linear-gradient(135deg,${urgColor}18,${urgColor}04)`, pointerEvents:'none' }}/>
+                    <div style={{ position:'relative' }}>
+                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+                        <div style={{ fontSize:10, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.06em' }}>Administratie deadline</div>
+                        <div style={{ width:28, height:28, borderRadius:8, background:`${urgColor}20`, display:'flex', alignItems:'center', justifyContent:'center', border:`1px solid ${urgColor}30` }}><Clock size={14} color={urgColor}/></div>
+                      </div>
+                      <div style={{ fontSize:32, fontWeight:900, color:urgColor, letterSpacing:'-1px' }}>{daysToDeadline} dagen</div>
+                      <div style={{ fontSize:12, color:C.muted, marginTop:2 }}>{nextQ.label} ({nextQ.periode}) · {fmtDate(nextQ.adminDeadline)}</div>
+                      <div style={{ fontSize:11, color:C.muted, marginTop:5 }}>BTW aangifte vóór {fmtDate(nextQ.aangifteDeadline)}</div>
+                    </div>
+                  </div>
+                  <div style={{ background:C.card, border:`1.5px solid ${nogTeDoen>0?'rgba(244,63,94,0.3)':C.border}`, borderRadius:16, padding:'20px 22px', position:'relative', overflow:'hidden', cursor:nogTeDoen>0?'pointer':'default', boxShadow:isDark?'0 4px 20px rgba(0,0,0,0.2)':'0 2px 10px rgba(0,0,0,0.05)' }}
+                    onClick={() => nogTeDoen>0 && setPortalView('aangifte')}>
+                    <div style={{ position:'absolute', inset:0, background:nogTeDoen>0?'linear-gradient(135deg,rgba(244,63,94,0.08),rgba(244,63,94,0.02))':'linear-gradient(135deg,rgba(34,197,94,0.08),rgba(34,197,94,0.02))', pointerEvents:'none' }}/>
+                    <div style={{ position:'relative' }}>
+                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+                        <div style={{ fontSize:10, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.06em' }}>Aangifte nog te doen</div>
+                        <div style={{ width:28, height:28, borderRadius:8, background:nogTeDoen>0?'rgba(244,63,94,0.15)':'rgba(34,197,94,0.15)', display:'flex', alignItems:'center', justifyContent:'center', border:nogTeDoen>0?'1px solid rgba(244,63,94,0.25)':'1px solid rgba(34,197,94,0.25)' }}><AlertCircle size={14} color={nogTeDoen>0?'#f43f5e':'#22c55e'}/></div>
+                      </div>
+                      <div style={{ fontSize:32, fontWeight:900, color:nogTeDoen>0?'#f43f5e':C.text, letterSpacing:'-1px' }}>{nogTeDoen}</div>
+                      <div style={{ fontSize:12, color:C.muted, marginTop:2 }}>{nogTeDoen>0?'klanten wachten op aangifte':'alle aangiftes gedaan'}</div>
+                      {nogTeDoen>0 && <div style={{ fontSize:11, color:'#f43f5e', marginTop:5, fontWeight:600 }}>→ Ga naar Aangifte doen</div>}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Notifications */}
+                <div style={{ background:C.card, border:`1px solid ${notifications.length>0?'rgba(168,85,247,0.25)':C.border}`, borderRadius:16, padding:'18px 22px', boxShadow:isDark?'0 4px 20px rgba(0,0,0,0.2)':'0 2px 10px rgba(0,0,0,0.05)' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom: notifications.length>0?14:0 }}>
+                    <Bell size={15} color={notifications.length>0?'#a855f7':C.muted}/>
+                    <div style={{ fontSize:14, fontWeight:800, color:C.text }}>Notificaties</div>
+                    {notifications.length>0 && <div style={{ fontSize:11, fontWeight:700, color:'#fff', background:'#a855f7', borderRadius:20, padding:'2px 8px' }}>{notifications.length}</div>}
+                  </div>
+                  {notifications.length===0 ? (
+                    <div style={{ fontSize:13, color:C.muted }}>Geen nieuwe notificaties. Klanten die hun administratie als compleet markeren verschijnen hier.</div>
+                  ) : (
+                    <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                      {notifications.map((l,i) => {
+                        const qs   = getQS(l.client_user_id, nextQ.q);
+                        const name = l.client?.company_name || l.client?.email || 'Klant';
+                        const when = qs?.marked_complete_at ? new Date(qs.marked_complete_at).toLocaleDateString('nl-NL',{day:'numeric',month:'short'}) : '';
+                        return (
+                          <div key={i} onClick={() => { setPortalView('aangifte'); openPanel(l); }}
+                            style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 14px', background:isDark?'rgba(168,85,247,0.06)':'rgba(168,85,247,0.04)', borderRadius:10, border:'1px solid rgba(168,85,247,0.12)', cursor:'pointer' }}>
+                            <div style={{ width:30, height:30, borderRadius:9, background:'rgba(168,85,247,0.12)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}><Check size={13} color="#a855f7"/></div>
+                            <div style={{ flex:1 }}>
+                              <div style={{ fontSize:13, fontWeight:700, color:C.text }}>{name}</div>
+                              <div style={{ fontSize:12, color:C.muted }}>Administratie compleet · {when}</div>
+                            </div>
+                            <ChevronRight size={14} color={C.muted}/>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Aangifte doen */}
+        {portalView === 'aangifte' && (
+          <div style={{ padding:'32px 36px', maxWidth:900, margin:'0 auto' }}>
+            <div style={{ marginBottom:24 }}>
+              <div style={{ fontSize:22, fontWeight:900, color:C.text, marginBottom:4 }}>Aangifte doen</div>
+              <div style={{ fontSize:13, color:C.muted }}>Klanten met complete administratie waarvoor aangifte nog gedaan moet worden · {nextQ.label} {yr}</div>
+            </div>
+            {linksLoading || qStatusLoading ? (
+              <div style={{ padding:60, textAlign:'center', color:C.muted }}>Laden…</div>
+            ) : needsAangifte.length===0 ? (
+              <div style={{ textAlign:'center', padding:'52px 20px', background:C.card, borderRadius:16, border:`1px solid ${C.border}` }}>
+                <div style={{ width:52, height:52, borderRadius:14, background:'rgba(34,197,94,0.1)', border:'1px solid rgba(34,197,94,0.25)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 14px' }}>
+                  <Check size={24} color="#22c55e"/>
+                </div>
+                <div style={{ fontSize:16, fontWeight:700, color:C.text, marginBottom:6 }}>Alles gedaan!</div>
+                <div style={{ fontSize:13, color:C.muted }}>Voor alle klanten met complete administratie is de aangifte al ingediend.</div>
+              </div>
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                {needsAangifte.map((link,i) => {
+                  const name    = link.client?.company_name || link.client?.email || 'Klant';
+                  const qs      = getQS(link.client_user_id, nextQ.q);
+                  const compOn  = qs?.marked_complete_at ? new Date(qs.marked_complete_at).toLocaleDateString('nl-NL',{day:'numeric',month:'short'}) : '';
+                  const isOpen  = aangiftePanel?.client_user_id === link.client_user_id;
+                  return (
+                    <div key={i} onClick={() => openPanel(link)}
+                      style={{ background:C.card, border:`1.5px solid ${isOpen?'rgba(168,85,247,0.5)':C.border}`, borderRadius:14, padding:'16px 20px', display:'flex', alignItems:'center', gap:14, cursor:'pointer', transition:'all 0.15s', boxShadow:isDark?'0 2px 12px rgba(0,0,0,0.2)':'0 2px 8px rgba(0,0,0,0.05)' }}
+                      onMouseEnter={e => { if (!isOpen) e.currentTarget.style.borderColor='rgba(168,85,247,0.3)'; }}
+                      onMouseLeave={e => { if (!isOpen) e.currentTarget.style.borderColor=isDark?'rgba(255,255,255,0.08)':'#e2e8f0'; }}>
+                      <div style={{ width:42, height:42, borderRadius:12, background:'linear-gradient(135deg,rgba(168,85,247,0.15),rgba(99,102,241,0.15))', display:'flex', alignItems:'center', justifyContent:'center', border:'1px solid rgba(168,85,247,0.2)', flexShrink:0 }}>
+                        <Building2 size={20} color="#a855f7"/>
+                      </div>
+                      <div style={{ flex:1 }}>
+                        <div style={{ fontSize:14, fontWeight:700, color:C.text }}>{name}</div>
+                        <div style={{ fontSize:12, color:C.muted }}>Admin compleet{compOn?` · ${compOn}`:''} · {nextQ.label} {yr}</div>
+                      </div>
+                      <div style={{ fontSize:11, fontWeight:700, color:'#f59e0b', background:'rgba(245,158,11,0.1)', border:'1px solid rgba(245,158,11,0.25)', borderRadius:20, padding:'3px 10px' }}>Aangifte nodig</div>
+                      <ChevronRight size={16} color={C.muted}/>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Klanten */}
+        {portalView === 'klanten' && (
+          <div style={{ padding:'32px 36px', maxWidth:1100, margin:'0 auto' }}>
+            <div style={{ marginBottom:24 }}>
+              <div style={{ fontSize:22, fontWeight:900, color:C.text, marginBottom:4 }}>Klanten</div>
+              <div style={{ fontSize:13, color:C.muted }}>{nextQ.label} {yr} · klik op een rij voor de volledige administratie</div>
+            </div>
+            {linksLoading ? (
+              <div style={{ padding:60, textAlign:'center', color:C.muted }}>Laden…</div>
+            ) : links.length===0 ? (
+              <div style={{ textAlign:'center', padding:'52px 20px', background:C.card, borderRadius:16, border:`1px dashed ${C.border}` }}>
+                <div style={{ width:52, height:52, borderRadius:14, background:'rgba(168,85,247,0.1)', border:'1px solid rgba(168,85,247,0.2)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 14px' }}>
+                  <Users size={24} color="#a855f7"/>
+                </div>
+                <div style={{ fontSize:15, fontWeight:700, color:C.text, marginBottom:6 }}>Nog geen klanten</div>
+                <div style={{ fontSize:13, color:C.muted }}>Klanten koppelen via Mijn Bedrijf → Medewerkers & Boekhouder.</div>
+              </div>
+            ) : (
+              <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:16, overflow:'hidden', boxShadow:isDark?'0 4px 24px rgba(0,0,0,0.2)':'0 2px 12px rgba(0,0,0,0.06)' }}>
+                <div style={{ overflowX:'auto' }}>
+                {/* Header row */}
+                <div style={{ display:'grid', gridTemplateColumns:'minmax(180px,2fr) minmax(120px,1fr) minmax(100px,1fr) 80px 140px 100px 36px', minWidth:760, padding:'11px 20px', borderBottom:`1px solid ${C.border}`, background:isDark?'rgba(255,255,255,0.03)':'rgba(0,0,0,0.02)' }}>
+                  {['Klant','Omzet kwartaal','BTW','Bonnen','Status','Berichten',''].map((h,i) => (
+                    <div key={i} style={{ fontSize:10, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.06em' }}>{h}</div>
+                  ))}
+                </div>
+                {/* Data rows */}
+                {links.map((link, i) => {
+                  const name   = link.client?.company_name || link.client?.email || 'Klant';
+                  const qs     = getQS(link.client_user_id, nextQ.q);
+                  const cd     = klantenData[link.client_user_id] || {};
+                  const nettoBtw = (cd.btwOmzet||0) - (cd.btwKosten||0);
+                  const statusColor = qs?.aangifte_ingediend ? '#22c55e' : qs?.is_complete ? '#f59e0b' : '#94a3b8';
+                  const statusLabel = qs?.aangifte_ingediend ? 'Aangifte gedaan' : qs?.is_complete ? 'Compleet' : 'Incompleet';
+                  return (
+                    <div key={i}
+                      onClick={() => { setSelectedClient(link); setClientZzpView('zzp-dashboard'); }}
+                      style={{ display:'grid', gridTemplateColumns:'minmax(180px,2fr) minmax(120px,1fr) minmax(100px,1fr) 80px 140px 100px 36px', minWidth:760, padding:'14px 20px', borderBottom: i<links.length-1?`1px solid ${C.border}`:'none', cursor:'pointer', transition:'background 0.12s', alignItems:'center', background:'transparent' }}
+                      onMouseEnter={e => e.currentTarget.style.background=isDark?'rgba(255,255,255,0.025)':'rgba(168,85,247,0.03)'}
+                      onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                      {/* Klant */}
+                      <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                        <div style={{ width:34, height:34, borderRadius:9, background:'linear-gradient(135deg,rgba(168,85,247,0.15),rgba(99,102,241,0.15))', display:'flex', alignItems:'center', justifyContent:'center', border:'1px solid rgba(168,85,247,0.2)', flexShrink:0 }}>
+                          <Building2 size={16} color="#a855f7"/>
+                        </div>
+                        <div style={{ minWidth:0, overflow:'hidden' }}>
+                          <div style={{ fontSize:13, fontWeight:700, color:C.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{name}</div>
+                          {link.client?.plan && <div style={{ fontSize:10, color:'#a855f7', fontWeight:600 }}>{link.client.plan.replace('_',' ').toUpperCase()}</div>}
+                        </div>
+                      </div>
+                      {/* Omzet kwartaal */}
+                      <div style={{ fontSize:13, fontWeight:700, color:C.text }}>
+                        {klantenDataLoading ? <span style={{ color:C.muted, fontSize:12 }}>…</span> : fmt(cd.omzetExcl||0)}
+                      </div>
+                      {/* BTW */}
+                      <div style={{ fontSize:13, fontWeight:700, color: klantenDataLoading ? C.muted : nettoBtw>0?'#f43f5e':nettoBtw<0?'#22c55e':C.text }}>
+                        {klantenDataLoading ? <span style={{ fontSize:12 }}>…</span> : fmt(nettoBtw)}
+                      </div>
+                      {/* Bonnen */}
+                      <div>
+                        {klantenDataLoading ? <span style={{ color:C.muted, fontSize:12 }}>…</span>
+                          : (cd.openBonnen||0) > 0
+                          ? <span style={{ fontSize:12, fontWeight:700, color:'#f59e0b', background:'rgba(245,158,11,0.1)', border:'1px solid rgba(245,158,11,0.3)', borderRadius:20, padding:'3px 9px' }}>{cd.openBonnen}</span>
+                          : <span style={{ fontSize:12, color:C.muted }}>—</span>}
+                      </div>
+                      {/* Status */}
+                      <div>
+                        <span style={{ fontSize:11, fontWeight:700, color:statusColor, background:`${statusColor}18`, border:`1px solid ${statusColor}35`, borderRadius:20, padding:'3px 10px' }}>{statusLabel}</span>
+                      </div>
+                      {/* Berichten */}
+                      <div>
+                        {klantenDataLoading ? <span style={{ color:C.muted, fontSize:12 }}>…</span>
+                          : (cd.openBerichten||0) > 0
+                          ? <span style={{ fontSize:12, fontWeight:800, color:'#fff', background:'#f43f5e', borderRadius:20, padding:'3px 9px' }}>{cd.openBerichten}</span>
+                          : <span style={{ fontSize:12, color:C.muted }}>—</span>}
+                      </div>
+                      <ChevronRight size={14} color={C.muted}/>
+                    </div>
+                  );
+                })}
+                </div>{/* end overflowX scroll wrapper */}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── Aangifte side panel (portal) ── */}
+      {aangiftePanel && createPortal(
+        <>
+          <div onClick={() => setAangiftePanel(null)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', backdropFilter:'blur(3px)', zIndex:9000 }}/>
+          <div style={{ position:'fixed', top:0, right:0, bottom:0, width:400, background:isDark?'#0f1e36':'#fff', borderLeft:`1px solid ${C.border}`, zIndex:9001, display:'flex', flexDirection:'column', boxShadow:'-8px 0 40px rgba(0,0,0,0.25)', overflow:'hidden' }}>
+            {/* Header */}
+            <div style={{ padding:'20px 24px 16px', borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:4 }}>
+                <div style={{ fontSize:16, fontWeight:800, color:C.text }}>Aangifte doen</div>
+                <button onClick={() => setAangiftePanel(null)} style={{ background:'none', border:'none', color:C.muted, cursor:'pointer', padding:4 }}><X size={18}/></button>
+              </div>
+              <div style={{ fontSize:13, fontWeight:600, color:'#a855f7' }}>{aangiftePanel.client?.company_name || aangiftePanel.client?.email}</div>
+            </div>
+            {/* Quarter tabs */}
+            <div style={{ padding:'12px 24px', borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
+              <div style={{ fontSize:10, fontWeight:700, color:C.muted, marginBottom:8, textTransform:'uppercase', letterSpacing:'0.06em' }}>Kwartaal</div>
+              <div style={{ display:'flex', gap:6 }}>
+                {quarters.map(q => (
+                  <button key={q.q} onClick={() => setPanelQ(q.q)}
+                    style={{ padding:'6px 14px', borderRadius:8, border:`1px solid ${panelQ===q.q?'#a855f7':C.border}`, background:panelQ===q.q?'rgba(168,85,247,0.12)':'transparent', color:panelQ===q.q?'#a855f7':C.muted, fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit', transition:'all 0.15s' }}>
+                    {q.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* Content */}
+            <div style={{ flex:1, overflowY:'auto', padding:'20px 24px' }}>
+              {panelLoading ? (
+                <div style={{ textAlign:'center', padding:40, color:C.muted }}>Laden…</div>
+              ) : (
+                <>
+                  <div style={{ fontSize:11, fontWeight:700, color:C.muted, marginBottom:14, textTransform:'uppercase', letterSpacing:'0.06em' }}>
+                    BTW overzicht {quarters.find(q=>q.q===panelQ)?.label} {yr}
+                  </div>
+                  {[
+                    { label:'Omzet (excl. BTW)',  value:pData.omzetExcl,  color:'#4f8ef7', icon:<TrendingUp size={14} color="#4f8ef7"/> },
+                    { label:'BTW op omzet',        value:pData.btwOmzet,   color:'#4f8ef7', icon:<ArrowUpRight size={14} color="#4f8ef7"/> },
+                    { label:'Kosten (excl. BTW)',  value:pData.kostenExcl, color:'#a855f7', icon:<TrendingDown size={14} color="#a855f7"/> },
+                    { label:'BTW op kosten',       value:pData.btwKosten,  color:'#22c55e', icon:<ArrowDownRight size={14} color="#22c55e"/> },
+                  ].map(s => (
+                    <div key={s.label} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'11px 0', borderBottom:`1px solid ${C.border}` }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, color:C.muted }}>{s.icon} {s.label}</div>
+                      <div style={{ fontSize:14, fontWeight:700, color:s.color }}>{fmt(s.value)}</div>
+                    </div>
+                  ))}
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 16px', background:nettoBtw>0?'rgba(244,63,94,0.08)':'rgba(34,197,94,0.08)', borderRadius:12, marginTop:14, border:`1px solid ${nettoBtw>0?'rgba(244,63,94,0.2)':'rgba(34,197,94,0.2)'}` }}>
+                    <div style={{ fontSize:13, fontWeight:700, color:C.text }}>BTW te betalen</div>
+                    <div style={{ fontSize:20, fontWeight:900, color:nettoBtw>0?'#f43f5e':'#22c55e' }}>{fmt(nettoBtw)}</div>
+                  </div>
+                  {panelAlIngediend && (
+                    <div style={{ display:'flex', alignItems:'center', gap:8, padding:'11px 14px', background:'rgba(34,197,94,0.08)', borderRadius:10, border:'1px solid rgba(34,197,94,0.2)', marginTop:14 }}>
+                      <Check size={15} color="#22c55e"/>
+                      <div style={{ fontSize:13, fontWeight:700, color:'#22c55e' }}>Aangifte al ingediend voor dit kwartaal</div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+            {/* Footer */}
+            <div style={{ padding:'16px 24px', borderTop:`1px solid ${C.border}`, flexShrink:0 }}>
+              {panelAlIngediend ? (
+                <button onClick={() => markAangifteDone(false)} disabled={markingAangifte}
+                  style={{ width:'100%', padding:'12px', borderRadius:11, border:'1px solid rgba(34,197,94,0.4)', background:'rgba(34,197,94,0.1)', color:'#22c55e', fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
+                  ↩ Aangifte intrekken
+                </button>
+              ) : (
+                <button onClick={() => markAangifteDone(true)} disabled={markingAangifte || panelLoading}
+                  style={{ width:'100%', padding:'13px', borderRadius:11, border:'none', background:'linear-gradient(135deg,#a855f7,#6366f1)', color:'#fff', fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:'inherit', opacity:markingAangifte?0.7:1, boxShadow:'0 4px 14px rgba(168,85,247,0.4)' }}>
+                  {markingAangifte ? 'Verwerken…' : '✓ Aangifte ingediend markeren'}
+                </button>
+              )}
+            </div>
+          </div>
+        </>,
+        document.body
+      )}
+    </div>
+  );
+}
+
+// ─── BTW AANGIFTE VIEW (Native Dynafy) ────────────────────────
+function BTWAangifteView({ isDark, user, activeCompanyId, userPlan }) {
+  const [invoices, setInvoices]             = useState([]);
+  const [costs, setCosts]                   = useState([]);
+  const [qStatus, setQStatus]               = useState([]);
+  const [loading, setLoading]               = useState(true);
+  const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
+  const [showBtwAfdragen, setShowBtwAfdragen]         = useState(false);
+  const [btwAfgedragen, setBtwAfgedragen]             = useState(false);
+
+  const C = { card:isDark?'#0f1e36':'#fff', border:isDark?'rgba(255,255,255,0.08)':'#e2e8f0', text:isDark?'#f1f5f9':'#0f172a', muted:isDark?'#64748b':'#94a3b8' };
+  const fmt = (n) => '€ ' + Number(n||0).toLocaleString('nl-NL', { minimumFractionDigits:2, maximumFractionDigits:2 });
+  const today = new Date();
+  const yr    = today.getFullYear();
+
+  useEffect(() => {
+    if (!user?.id) return;
+    (async () => {
+      setLoading(true);
+      const [invRes, costRes, qRes] = await Promise.all([
+        supabase.from('invoices').select('*, lines:invoice_lines(*)').eq('user_id', user.id),
+        supabase.from('costs').select('*').eq('user_id', user.id),
+        supabase.from('quarter_status').select('*').eq('user_id', user.id).eq('year', yr),
+      ]);
+      if (invRes.data)  setInvoices(invRes.data);
+      if (costRes.data) setCosts(costRes.data);
+      if (qRes.data)    setQStatus(qRes.data);
+      setLoading(false);
+    })();
+  }, [user?.id]);
+
+  const quarters = [
+    { q:1, label:'Q1', periode:'jan–mrt', aangifteDeadline:new Date(yr,3,30),   adminDeadline:new Date(yr,3,15) },
+    { q:2, label:'Q2', periode:'apr–jun', aangifteDeadline:new Date(yr,6,31),   adminDeadline:new Date(yr,6,16) },
+    { q:3, label:'Q3', periode:'jul–sep', aangifteDeadline:new Date(yr,9,31),   adminDeadline:new Date(yr,9,16) },
+    { q:4, label:'Q4', periode:'okt–dec', aangifteDeadline:new Date(yr+1,0,31), adminDeadline:new Date(yr+1,0,16) },
+  ];
+  const nextQ        = quarters.find(q => q.adminDeadline >= today) || quarters[0];
+  const daysToAdmin  = Math.ceil((nextQ.adminDeadline - today) / 86400000);
+  const daysToAng    = Math.ceil((nextQ.aangifteDeadline - today) / 86400000);
+  const urgColor     = daysToAdmin <= 7 ? '#f43f5e' : daysToAdmin <= 21 ? '#f59e0b' : '#22c55e';
+  const fmtDate      = (d) => d.toLocaleDateString('nl-NL', { day:'numeric', month:'long', year:'numeric' });
+
+  // Company-filtered data (client-side; null company_profile_id → 'main')
+  const companyInvoices = activeCompanyId ? invoices.filter(i => (i.company_profile_id || 'main') === activeCompanyId) : invoices;
+  const companyCosts    = activeCompanyId ? costs.filter(c => (c.company_profile_id || 'main') === activeCompanyId) : costs;
+
+  // Native BTW calculations
+  const openInv   = companyInvoices.filter(i => ['definitief','verstuurd','herinnering'].includes(i.status));
+  const paidYTD   = companyInvoices.filter(i => i.status==='betaald' && new Date(i.invoice_date||'').getFullYear()===yr);
+  const ytdCosts  = companyCosts.filter(c => new Date(c.date||'').getFullYear()===yr);
+
+  const btwVerschuldigd = openInv.reduce((s,i) => s + invoiceTotals(i).btw, 0);
+  const btwOntvangenYTD = paidYTD.reduce((s,i) => s + invoiceTotals(i).btw, 0);
+  const btwKosten       = ytdCosts.reduce((s,c) => s + parseFloat(c.amount_excl_btw||0) * parseFloat(c.btw_percentage||0) / 100, 0);
+  const btwSaldo        = btwOntvangenYTD - btwKosten;
+
+  // Quarter complete toggle
+  const toggleComplete = async (q) => {
+    const existing = qStatus.find(s => s.quarter === q.q);
+    const newVal   = !(existing?.is_complete);
+    const payload  = { user_id: user.id, year: yr, quarter: q.q, is_complete: newVal, marked_complete_at: newVal ? new Date().toISOString() : null };
+    await supabase.from('quarter_status').upsert(payload, { onConflict: 'user_id,year,quarter' });
+    setQStatus(prev => {
+      const filtered = prev.filter(s => s.quarter !== q.q);
+      return [...filtered, { ...payload }];
+    });
+  };
+
+  const qInvoiceBtw = (q) => {
+    const qStart = new Date(yr, (q-1)*3, 1);
+    const qEnd   = new Date(yr, q*3, 0);
+    return companyInvoices.filter(i => { const d = new Date(i.invoice_date||''); return !['geannuleerd','concept'].includes(i.status) && d >= qStart && d <= qEnd; }).reduce((s,i) => s + invoiceTotals(i).btw, 0);
+  };
+  const qCostBtw = (q) => {
+    const qStart = new Date(yr, (q-1)*3, 1);
+    const qEnd   = new Date(yr, q*3, 0);
+    return companyCosts.filter(c => { const d = new Date(c.date||''); return d >= qStart && d <= qEnd; }).reduce((s,c) => s + parseFloat(c.amount_excl_btw||0) * parseFloat(c.btw_percentage||0) / 100, 0);
+  };
+
+  // Is the next quarter's admin already marked complete?
+  const nextQComplete = qStatus.find(s => s.quarter === nextQ.q)?.is_complete || false;
+
+  const curQ               = Math.ceil((today.getMonth() + 1) / 3);
+  const btwVerschuldigdNextQ = btwAfgedragen ? 0 : Math.max(0, qInvoiceBtw(nextQ.q) - qCostBtw(nextQ.q));
+  const btwHuidigQ         = qInvoiceBtw(curQ) - qCostBtw(curQ);
+
+  if (loading) return <div style={{ padding:60, textAlign:'center', color:C.muted }}>Laden...</div>;
+
+  return (
+    <div style={{ padding:'28px 32px', maxWidth:900, margin:'0 auto' }}>
+      {/* Header */}
+      <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:24 }}>
+        <div style={{ width:42, height:42, borderRadius:12, background:'linear-gradient(135deg,#6366f1,#8b5cf6)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <Calendar size={20} color="#fff"/>
+        </div>
+        <div>
+          <div style={{ fontSize:20, fontWeight:800, color:C.text }}>BTW Aangifte</div>
+          <div style={{ fontSize:13, color:C.muted }}>Overzicht {yr}</div>
+        </div>
+      </div>
+
+      {/* Countdown + BTW cards */}
+      <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr', gap:16, marginBottom:24 }}>
+        {/* Countdown card — two states: counting / complete */}
+        <div style={{ background:isDark?C.card:'#fff', border:`1px solid ${nextQComplete ? 'rgba(245,158,11,0.4)' : C.border}`, borderRadius:18, padding:'22px 24px 20px', position:'relative', overflow:'hidden', boxShadow:isDark?'0 4px 24px rgba(0,0,0,0.2)':'0 2px 12px rgba(0,0,0,0.06)' }}>
+          <div style={{ position:'absolute', inset:0, background:`linear-gradient(135deg,${urgColor}18,${urgColor}05)`, pointerEvents:'none' }}/>
+          <div style={{ position:'relative' }}>
+            {nextQComplete ? (
+              /* ── Complete state ── */
+              <>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+                  <div style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.08em' }}>Administratie {nextQ.label}</div>
+                  <div style={{ width:32, height:32, borderRadius:9, background:'rgba(245,158,11,0.2)', display:'flex', alignItems:'center', justifyContent:'center', border:'1px solid rgba(245,158,11,0.35)' }}><Check size={16} color="#f59e0b"/></div>
+                </div>
+                <div style={{ fontSize:22, fontWeight:900, color:'#f59e0b', letterSpacing:'-0.5px', marginBottom:6 }}>Administratie Compleet</div>
+                <div style={{ fontSize:12, color:C.muted, display:'flex', alignItems:'center', gap:4, marginBottom:14 }}>
+                  <div style={{ width:6, height:6, borderRadius:'50%', background:'#f59e0b' }}/>
+                  {nextQ.label} ({nextQ.periode}) · BTW aangifte voor {fmtDate(nextQ.aangifteDeadline)}
+                </div>
+                <button onClick={() => toggleComplete(nextQ)} style={{ fontSize:12, color:C.muted, background:'none', border:`1px solid ${C.border}`, borderRadius:8, padding:'5px 12px', cursor:'pointer', fontFamily:'inherit' }}>
+                  Ongedaan maken
+                </button>
+              </>
+            ) : (
+              /* ── Countdown state ── */
+              <>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+                  <div style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.08em' }}>Administratie compleet vóór</div>
+                  <div style={{ width:32, height:32, borderRadius:9, background:`${urgColor}22`, display:'flex', alignItems:'center', justifyContent:'center', border:`1px solid ${urgColor}33` }}><Clock size={16} color={urgColor}/></div>
+                </div>
+                <div style={{ fontSize:32, fontWeight:900, color:urgColor, letterSpacing:'-1px', marginBottom:4 }}>{daysToAdmin} dagen</div>
+                <div style={{ fontSize:12, color:C.muted, display:'flex', alignItems:'center', gap:4, marginBottom:14 }}>
+                  <div style={{ width:6, height:6, borderRadius:'50%', background:urgColor }}/>
+                  {fmtDate(nextQ.adminDeadline)} · {nextQ.label} ({nextQ.periode})
+                </div>
+                <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap' }}>
+                  <button onClick={() => setShowCompleteConfirm(true)} style={{ display:'flex', alignItems:'center', gap:7, padding:'9px 18px', borderRadius:10, border:'none', background:'linear-gradient(135deg,#22c55e,#16a34a)', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', boxShadow:'0 4px 14px rgba(34,197,94,0.4)' }}>
+                    <Check size={14}/> Markeer administratie compleet
+                  </button>
+                  <div style={{ fontSize:11, color:C.muted }}>BTW aangifte: {fmtDate(nextQ.aangifteDeadline)} ({daysToAng}d)</div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+        {/* BTW Verschuldigd card */}
+        <div style={{ background:isDark?C.card:'#fff', border:`1px solid ${C.border}`, borderRadius:18, padding:'22px 22px 18px', position:'relative', overflow:'hidden', boxShadow:isDark?'0 4px 24px rgba(0,0,0,0.2)':'0 2px 12px rgba(0,0,0,0.06)' }}>
+          <div style={{ position:'absolute', inset:0, background:'linear-gradient(135deg,rgba(244,63,94,0.13),rgba(244,63,94,0.04))', pointerEvents:'none' }}/>
+          <div style={{ position:'relative' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+              <div style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.08em' }}>BTW Verschuldigd {nextQ.label}</div>
+              <div style={{ width:32, height:32, borderRadius:9, background:'rgba(244,63,94,0.18)', display:'flex', alignItems:'center', justifyContent:'center', border:'1px solid rgba(244,63,94,0.28)' }}><AlertCircle size={16} color="#f43f5e"/></div>
+            </div>
+            <div style={{ fontSize:24, fontWeight:900, color: btwAfgedragen ? '#22c55e' : C.text, letterSpacing:'-0.5px', marginBottom:4 }}>{fmt(btwVerschuldigdNextQ)}</div>
+            <div style={{ fontSize:12, color:C.muted, display:'flex', alignItems:'center', gap:4, marginBottom:btwAfgedragen?0:12 }}>
+              <div style={{ width:6, height:6, borderRadius:'50%', background: btwAfgedragen?'#22c55e':'#f43f5e' }}/>
+              {btwAfgedragen ? 'BTW afgedragen' : `openstaande administratie ${nextQ.label}`}
+            </div>
+            {!btwAfgedragen && (
+              <button onClick={() => setShowBtwAfdragen(true)} style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:9, border:'1px solid rgba(244,63,94,0.35)', background:'rgba(244,63,94,0.1)', color:'#f43f5e', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'inherit', marginTop:8 }}>
+                <ArrowUpRight size={13}/> Draag BTW af
+              </button>
+            )}
+          </div>
+        </div>
+        {/* BTW Huidig Kwartaal card */}
+        {(() => { const sc = btwHuidigQ>=0?'#22c55e':'#f43f5e'; return (
+        <div style={{ background:isDark?C.card:'#fff', border:`1px solid ${C.border}`, borderRadius:18, padding:'22px 22px 18px', position:'relative', overflow:'hidden', boxShadow:isDark?'0 4px 24px rgba(0,0,0,0.2)':'0 2px 12px rgba(0,0,0,0.06)' }}>
+          <div style={{ position:'absolute', inset:0, background:`linear-gradient(135deg,${sc}18,${sc}04)`, pointerEvents:'none' }}/>
+          <div style={{ position:'relative' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+              <div style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.08em' }}>BTW Q{curQ}</div>
+              <div style={{ width:32, height:32, borderRadius:9, background:`${sc}22`, display:'flex', alignItems:'center', justifyContent:'center', border:`1px solid ${sc}33` }}><Activity size={16} color={sc}/></div>
+            </div>
+            <div style={{ fontSize:24, fontWeight:900, color:sc, letterSpacing:'-0.5px', marginBottom:4 }}>{fmt(btwHuidigQ)}</div>
+            <div style={{ fontSize:12, color:C.muted, display:'flex', alignItems:'center', gap:4 }}>
+              <div style={{ width:6, height:6, borderRadius:'50%', background:sc }}/>lopend kwartaal
+            </div>
+          </div>
+        </div>
+        ); })()}
+      </div>
+
+      {/* ── Confirm Complete Modal ── */}
+      {showCompleteConfirm && createPortal(
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999, padding:20 }} onClick={() => setShowCompleteConfirm(false)}>
+          <div style={{ background:isDark?'#0f1e36':'#fff', borderRadius:20, padding:'28px 30px', maxWidth:440, width:'100%', boxShadow:'0 20px 60px rgba(0,0,0,0.3)', border:`1px solid ${C.border}` }} onClick={e => e.stopPropagation()}>
+            <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:18 }}>
+              <div style={{ width:42, height:42, borderRadius:12, background:'linear-gradient(135deg,#22c55e,#16a34a)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                <Check size={20} color="#fff"/>
+              </div>
+              <div>
+                <div style={{ fontSize:17, fontWeight:800, color:C.text }}>Administratie compleet?</div>
+                <div style={{ fontSize:13, color:C.muted }}>Weet je zeker dat de administratie volledig is voor {nextQ.label}?</div>
+              </div>
+            </div>
+            {(userPlan === 'zzp_premium' || userPlan === 'zzp_diamond') && (
+              <div style={{ background:'rgba(245,158,11,0.12)', border:'1px solid rgba(245,158,11,0.35)', borderRadius:12, padding:'12px 14px', marginBottom:18, display:'flex', gap:10, alignItems:'flex-start' }}>
+                <AlertCircle size={16} color="#f59e0b" style={{ flexShrink:0, marginTop:1 }}/>
+                <div style={{ fontSize:13, color:'#f59e0b', lineHeight:1.5 }}>
+                  <strong>Let op:</strong> Op het moment dat je akkoord geeft, gaat de boekhouder met deze administratie jouw BTW-aangifte doen. Achteraf wijzigen kan kosten met zich meebrengen.
+                </div>
+              </div>
+            )}
+            <div style={{ display:'flex', gap:10, justifyContent:'flex-end' }}>
+              <button onClick={() => setShowCompleteConfirm(false)} style={{ padding:'10px 20px', borderRadius:10, border:`1px solid ${C.border}`, background:'transparent', color:C.muted, fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
+                Annuleren
+              </button>
+              <button onClick={() => { toggleComplete(nextQ); setShowCompleteConfirm(false); }} style={{ padding:'10px 22px', borderRadius:10, border:'none', background:'linear-gradient(135deg,#22c55e,#16a34a)', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:'inherit', boxShadow:'0 4px 14px rgba(34,197,94,0.35)' }}>
+                Akkoord
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── BTW Afdragen Modal ── */}
+      {showBtwAfdragen && createPortal(
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999, padding:20 }} onClick={() => setShowBtwAfdragen(false)}>
+          <div style={{ background:isDark?'#0f1e36':'#fff', borderRadius:20, padding:'28px 30px', maxWidth:460, width:'100%', boxShadow:'0 20px 60px rgba(0,0,0,0.3)', border:`1px solid ${C.border}` }} onClick={e => e.stopPropagation()}>
+            <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:20 }}>
+              <div style={{ width:42, height:42, borderRadius:12, background:'linear-gradient(135deg,#f43f5e,#e11d48)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                <ArrowUpRight size={20} color="#fff"/>
+              </div>
+              <div>
+                <div style={{ fontSize:17, fontWeight:800, color:C.text }}>BTW afdragen</div>
+                <div style={{ fontSize:13, color:C.muted }}>{nextQ.label} · {fmt(btwVerschuldigdNextQ)}</div>
+              </div>
+            </div>
+            {!nextQComplete ? (
+              <div style={{ background:'rgba(245,158,11,0.12)', border:'1px solid rgba(245,158,11,0.35)', borderRadius:12, padding:'14px 16px', marginBottom:18, display:'flex', gap:10, alignItems:'flex-start' }}>
+                <AlertCircle size={16} color="#f59e0b" style={{ flexShrink:0, marginTop:1 }}/>
+                <div style={{ fontSize:13, color:'#f59e0b', lineHeight:1.5 }}>
+                  De aangifte is nog niet afgerond door de boekhouder. Je ontvangt een melding zodra de aangifte klaar is en je het bedrag kunt overmaken.
+                </div>
+              </div>
+            ) : (
+              <>
+                <div style={{ background:isDark?'rgba(255,255,255,0.04)':'#f8fafc', border:`1px solid ${C.border}`, borderRadius:12, padding:'16px 18px', marginBottom:16 }}>
+                  <div style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:10 }}>Overmaken naar</div>
+                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:8 }}>
+                    <span style={{ fontSize:13, color:C.muted }}>Rekening Belastingdienst</span>
+                    <span style={{ fontSize:13, fontWeight:700, color:C.text }}>NL86 INGB 0002 4455 88</span>
+                  </div>
+                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:8 }}>
+                    <span style={{ fontSize:13, color:C.muted }}>Ten name van</span>
+                    <span style={{ fontSize:13, fontWeight:700, color:C.text }}>Belastingdienst</span>
+                  </div>
+                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:8 }}>
+                    <span style={{ fontSize:13, color:C.muted }}>Bedrag</span>
+                    <span style={{ fontSize:15, fontWeight:900, color:'#f43f5e' }}>{fmt(btwVerschuldigdNextQ)}</span>
+                  </div>
+                  <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:10, marginTop:4 }}>
+                    <div style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:6 }}>Omschrijving (van boekhouder)</div>
+                    <div style={{ fontSize:13, color:C.text, fontStyle:'italic', lineHeight:1.5 }}>BTW aangifte {nextQ.label} {yr} — [omschrijving volgt van boekhouder]</div>
+                  </div>
+                </div>
+                <div style={{ display:'flex', gap:10, justifyContent:'flex-end' }}>
+                  <button onClick={() => setShowBtwAfdragen(false)} style={{ padding:'10px 20px', borderRadius:10, border:`1px solid ${C.border}`, background:'transparent', color:C.muted, fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
+                    Annuleren
+                  </button>
+                  <button onClick={() => { setBtwAfgedragen(true); setShowBtwAfdragen(false); }} style={{ padding:'10px 22px', borderRadius:10, border:'none', background:'linear-gradient(135deg,#22c55e,#16a34a)', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:'inherit', boxShadow:'0 4px 14px rgba(34,197,94,0.35)' }}>
+                    BTW afgedragen
+                  </button>
+                </div>
+              </>
+            )}
+            {!nextQComplete && (
+              <div style={{ display:'flex', justifyContent:'flex-end', marginTop:4 }}>
+                <button onClick={() => setShowBtwAfdragen(false)} style={{ padding:'10px 20px', borderRadius:10, border:`1px solid ${C.border}`, background:'transparent', color:C.muted, fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
+                  Sluiten
+                </button>
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Quarterly table */}
+      <div style={{ background:isDark?C.card:'#fff', border:`1px solid ${C.border}`, borderRadius:18, overflow:'hidden', boxShadow:isDark?'0 4px 24px rgba(0,0,0,0.15)':'0 2px 12px rgba(0,0,0,0.05)' }}>
+        <div style={{ padding:'16px 22px', borderBottom:`1px solid ${C.border}`, fontSize:14, fontWeight:700, color:C.text, display:'flex', alignItems:'center', gap:8 }}>
+          <Calendar size={16} color="#6366f1"/> Kwartaaloverzicht {yr}
+        </div>
+        {quarters.map((q, i) => {
+          const isPast   = q.adminDeadline < today;
+          const isNext   = q.q === nextQ.q;
+          const dLeft    = Math.ceil((q.adminDeadline - today) / 86400000);
+          const qs       = qStatus.find(s => s.quarter === q.q);
+          const complete = qs?.is_complete || false;
+          const qColor   = complete ? '#22c55e' : isPast ? '#f43f5e' : isNext ? urgColor : C.muted;
+          const btwIn    = qInvoiceBtw(q.q);
+          const btwOut   = qCostBtw(q.q);
+          const saldo    = btwIn - btwOut;
+          return (
+            <div key={q.q} style={{ display:'grid', gridTemplateColumns:'72px 1fr 120px 120px 120px 160px', padding:'16px 22px', borderBottom:i<3?`1px solid ${C.border}`:'none', alignItems:'center', background: isNext ? (isDark?'rgba(99,102,241,0.06)':'rgba(99,102,241,0.04)') : complete ? (isDark?'rgba(34,197,94,0.04)':'rgba(34,197,94,0.03)') : 'transparent', transition:'background 0.15s' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                <div style={{ width:32, height:32, borderRadius:8, background: complete?'rgba(34,197,94,0.15)':isPast?'rgba(244,63,94,0.12)':isNext?`${urgColor}18`:(isDark?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.05)'), display:'flex', alignItems:'center', justifyContent:'center', border:`1px solid ${complete?'rgba(34,197,94,0.3)':isPast?'rgba(244,63,94,0.2)':isNext?`${urgColor}33`:C.border}` }}>
+                  <span style={{ fontSize:12, fontWeight:800, color: complete?'#22c55e':isPast&&!complete?'#f43f5e':isNext?urgColor:C.muted }}>{q.label}</span>
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize:13, fontWeight:600, color:C.text }}>{q.periode}</div>
+                <div style={{ fontSize:11, color:C.muted, marginTop:2 }}>Aangifte: {fmtDate(q.aangifteDeadline)}</div>
+              </div>
+              <div>
+                <div style={{ fontSize:13, fontWeight:700, color:C.text }}>{fmt(btwIn)}</div>
+                <div style={{ fontSize:10, color:C.muted, marginTop:2 }}>BTW omzet</div>
+              </div>
+              <div>
+                <div style={{ fontSize:13, fontWeight:700, color:C.text }}>{fmt(btwOut)}</div>
+                <div style={{ fontSize:10, color:C.muted, marginTop:2 }}>BTW kosten</div>
+              </div>
+              <div>
+                <div style={{ fontSize:13, fontWeight:700, color:saldo>=0?'#22c55e':'#f43f5e' }}>{fmt(saldo)}</div>
+                <div style={{ fontSize:10, color:C.muted, marginTop:2 }}>te betalen</div>
+              </div>
+              <div>
+                <button onClick={() => toggleComplete(q)} style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:20, border:`1px solid ${complete?'rgba(34,197,94,0.4)':isNext?`${urgColor}44`:C.border}`, background:complete?'rgba(34,197,94,0.12)':isNext?`${urgColor}10`:'transparent', cursor:'pointer', fontSize:12, fontWeight:700, color:complete?'#22c55e':isNext?urgColor:C.muted, whiteSpace:'nowrap', transition:'all 0.15s' }}>
+                  {complete ? <><Check size={12}/> Compleet</> : isPast ? '⚠ Markeer compleet' : `${dLeft}d resterend`}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── KOSTEN FORM ───────────────────────────────────────────────
+function KostenForm({ isDark, user, cost, onClose, onSaved }) {
+  const isEdit = !!cost;
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+  const KOSTEN_CATS = ['advertising','car','food','home_office','insurance','material','phone','software','travel','other'];
+  const CAT_LABELS  = { advertising:'Reclame', car:'Auto/vervoer', food:'Eten & drinken', home_office:'Thuiskantoor', insurance:'Verzekeringen', material:'Materialen', phone:'Telefoon/internet', software:'Software', travel:'Reizen', other:'Overig' };
+  const [form, setForm] = useState({
+    date:            cost?.date           || new Date().toISOString().slice(0,10),
+    description:     cost?.description    || '',
+    supplier:        cost?.supplier       || '',
+    category:        cost?.category       || 'other',
+    amount_excl_btw: cost?.amount_excl_btw != null ? String(cost.amount_excl_btw) : '',
+    btw_percentage:  cost?.btw_percentage != null ? cost.btw_percentage : 21,
+    notes:           cost?.notes          || '',
+  });
+
+  const C = { card:isDark?'#0b1628':'#fff', border:isDark?'rgba(255,255,255,0.08)':'#e2e8f0', text:isDark?'#f1f5f9':'#0f172a', muted:isDark?'#64748b':'#94a3b8', input:isDark?'rgba(255,255,255,0.06)':'#f8fafc' };
+  const inp = { width:'100%', padding:'10px 12px', borderRadius:8, border:`1px solid ${C.border}`, background:C.input, color:C.text, fontSize:14, outline:'none', boxSizing:'border-box', fontFamily:'inherit' };
+  const lbl = { fontSize:11, fontWeight:700, color:C.muted, display:'block', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' };
+  const set = (k, v) => setForm(p => ({...p,[k]:v}));
+
+  const exclBtw = parseFloat(form.amount_excl_btw) || 0;
+  const btwAmt  = exclBtw * parseFloat(form.btw_percentage) / 100;
+  const inclBtw = exclBtw + btwAmt;
+  const fmtEur  = (n) => '€ ' + Number(n||0).toLocaleString('nl-NL', { minimumFractionDigits:2, maximumFractionDigits:2 });
+
+  const handleSave = async () => {
+    setErr('');
+    if (!form.description.trim()) return setErr('Omschrijving is verplicht');
+    if (!form.amount_excl_btw || isNaN(parseFloat(form.amount_excl_btw))) return setErr('Vul een geldig bedrag in');
+    setSaving(true);
+    try {
+      const payload = { ...form, amount_excl_btw: parseFloat(form.amount_excl_btw), btw_percentage: parseFloat(form.btw_percentage) };
+      if (isEdit) {
+        await supabase.from('costs').update(payload).eq('id', cost.id);
+      } else {
+        await supabase.from('costs').insert({ ...payload, user_id: user.id, booked_by: user.id });
+      }
+      await onSaved();
+    } catch(e) { setErr(e.message || 'Fout bij opslaan'); setSaving(false); }
+  };
+
+  return createPortal(
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', backdropFilter:'blur(4px)', zIndex:9999, overflowY:'auto', padding:'20px 16px', display:'flex', alignItems:'flex-start', justifyContent:'center' }}>
+      <div style={{ background:C.card, borderRadius:20, width:'100%', maxWidth:560, marginTop:20, border:`1px solid ${C.border}` }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 24px', borderBottom:`1px solid ${C.border}` }}>
+          <div style={{ fontSize:18, fontWeight:800, color:C.text }}>{isEdit ? 'Kostenpost bewerken' : 'Kostenpost toevoegen'}</div>
+          <button onClick={onClose} style={{ width:32, height:32, borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:C.muted }}><X size={16}/></button>
+        </div>
+        <div style={{ padding:24, display:'flex', flexDirection:'column', gap:16 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
+            <div><label style={lbl}>Datum</label><input type="date" style={inp} value={form.date} onChange={e => set('date',e.target.value)} /></div>
+            <div>
+              <label style={lbl}>Categorie</label>
+              <select style={inp} value={form.category} onChange={e => set('category',e.target.value)}>
+                {KOSTEN_CATS.map(c => <option key={c} value={c}>{CAT_LABELS[c]}</option>)}
+              </select>
+            </div>
+          </div>
+          <div><label style={lbl}>Omschrijving *</label><input style={inp} placeholder="Bijv. Adobe Acrobat abonnement" value={form.description} onChange={e => set('description',e.target.value)} /></div>
+          <div><label style={lbl}>Leverancier / betaald aan</label><input style={inp} placeholder="Bijv. Adobe Systems" value={form.supplier} onChange={e => set('supplier',e.target.value)} /></div>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
+            <div>
+              <label style={lbl}>Bedrag excl. BTW *</label>
+              <input style={inp} type="number" min="0" step="0.01" placeholder="0,00" value={form.amount_excl_btw} onChange={e => set('amount_excl_btw',e.target.value)} />
+            </div>
+            <div>
+              <label style={lbl}>BTW-tarief</label>
+              <select style={inp} value={form.btw_percentage} onChange={e => set('btw_percentage',Number(e.target.value))}>
+                <option value={0}>0% (vrijgesteld)</option>
+                <option value={9}>9% (laag tarief)</option>
+                <option value={21}>21% (hoog tarief)</option>
+              </select>
+            </div>
+          </div>
+          {/* Totals preview */}
+          <div style={{ background:isDark?'rgba(255,255,255,0.03)':'#f8fafc', border:`1px solid ${C.border}`, borderRadius:10, padding:'12px 16px', display:'flex', justifyContent:'space-between', fontSize:13 }}>
+            <span style={{ color:C.muted }}>BTW {form.btw_percentage}%: <b style={{ color:C.text }}>{fmtEur(btwAmt)}</b></span>
+            <span style={{ fontWeight:800, color:C.text }}>Totaal incl. BTW: {fmtEur(inclBtw)}</span>
+          </div>
+          <div><label style={lbl}>Opmerkingen (optioneel)</label><textarea style={{ ...inp, minHeight:60, resize:'vertical' }} value={form.notes} onChange={e => set('notes',e.target.value)} placeholder="Bijv. bonnetjesnummer, referentie..." /></div>
+          {err && <div style={{ padding:'10px 14px', borderRadius:10, background:'rgba(244,63,94,0.1)', border:'1px solid rgba(244,63,94,0.3)', color:'#f43f5e', fontSize:13 }}>{err}</div>}
+          <div style={{ display:'flex', gap:12 }}>
+            <button onClick={onClose} style={{ flex:1, padding:12, borderRadius:12, border:`1px solid ${C.border}`, background:'transparent', color:C.muted, fontSize:14, fontWeight:600, cursor:'pointer' }}>Annuleren</button>
+            <button onClick={handleSave} disabled={saving} style={{ flex:2, padding:12, borderRadius:12, border:'none', background:'linear-gradient(135deg,#f59e0b,#f97316)', color:'#fff', fontSize:14, fontWeight:700, cursor:saving?'wait':'pointer', opacity:saving?0.7:1 }}>
+              {saving ? 'Opslaan...' : isEdit ? 'Wijzigingen opslaan' : 'Kostenpost toevoegen'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// ─── KOSTEN VIEW (Native Dynafy) ───────────────────────────────
+function KostenView({ isDark, user, activeCompanyId, hasActiveCompany = false, onNavigate }) {
+  const [costs, setCosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editingCost, setEditingCost] = useState(null);
+
+  const C = { card:isDark?'#0f1e36':'#fff', border:isDark?'rgba(255,255,255,0.08)':'#e2e8f0', text:isDark?'#f1f5f9':'#0f172a', muted:isDark?'#64748b':'#94a3b8' };
+  const fmtEur = (n) => '€ ' + Number(n||0).toLocaleString('nl-NL', { minimumFractionDigits:2, maximumFractionDigits:2 });
+  const thisYear = new Date().getFullYear();
+  const CAT_LABELS = { advertising:'Reclame', car:'Auto/vervoer', food:'Eten & drinken', home_office:'Thuiskantoor', insurance:'Verzekeringen', material:'Materialen', phone:'Telefoon/internet', software:'Software', travel:'Reizen', other:'Overig' };
+
+  const load = useCallback(async () => {
+    if (!user?.id) return;
+    setLoading(true);
+    const { data } = await supabase.from('costs').select('*').eq('user_id', user.id).order('date', { ascending:false });
+    if (data) setCosts(data);
+    setLoading(false);
+  }, [user?.id]);
+
+  useEffect(() => { load(); }, [load]);
+
+  // Company-filtered costs (client-side; company_profile_id=null → belongs to 'main')
+  const companyCosts = activeCompanyId
+    ? costs.filter(c => (c.company_profile_id || 'main') === activeCompanyId)
+    : costs;
+
+  const ytdCosts = companyCosts.filter(c => new Date(c.date).getFullYear() === thisYear);
+  const totalExcl  = ytdCosts.reduce((s,c) => s + parseFloat(c.amount_excl_btw||0), 0);
+  const totalBtw   = ytdCosts.reduce((s,c) => s + parseFloat(c.amount_excl_btw||0) * parseFloat(c.btw_percentage||0) / 100, 0);
+  const totalIncl  = totalExcl + totalBtw;
+
+  const deleteCost = async (c) => {
+    if (!window.confirm('Kostenpost verwijderen?')) return;
+    await supabase.from('costs').delete().eq('id', c.id);
+    setCosts(prev => prev.filter(x => x.id !== c.id));
+  };
+
+  return (
+    <div style={{ padding:'28px 32px', maxWidth:1000, margin:'0 auto' }}>
+      {/* Header */}
+      <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:24 }}>
+        <div style={{ width:42, height:42, borderRadius:12, background:'linear-gradient(135deg,#f59e0b,#f97316)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <TrendingDown size={20} color="#fff"/>
+        </div>
+        <div>
+          <div style={{ fontSize:20, fontWeight:800, color:C.text }}>Kosten</div>
+          <div style={{ fontSize:13, color:C.muted }}>{companyCosts.length} kostenposten</div>
+        </div>
+        {hasActiveCompany ? (
+          <button onClick={() => { setEditingCost(null); setShowForm(true); }} style={{ marginLeft:'auto', padding:'9px 18px', borderRadius:20, border:'none', background:'linear-gradient(135deg,#f59e0b,#f97316)', color:'#fff', fontSize:14, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', gap:6 }}>
+            <Plus size={15}/> Kostenpost toevoegen
+          </button>
+        ) : (
+          <button onClick={() => onNavigate?.('mijn-bedrijf')} style={{ marginLeft:'auto', padding:'9px 18px', borderRadius:20, border:'1px solid rgba(245,158,11,0.4)', background:'rgba(245,158,11,0.08)', color:'#f59e0b', fontSize:13, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', gap:6 }}>
+            <Building2 size={14}/> Eerst bedrijfsprofiel aanmaken
+          </button>
+        )}
+      </div>
+
+      {/* No company banner */}
+      {!hasActiveCompany && (
+        <div style={{ display:'flex', alignItems:'center', gap:14, padding:'16px 20px', borderRadius:14, background:'rgba(245,158,11,0.07)', border:'1px solid rgba(245,158,11,0.3)', marginBottom:24 }}>
+          <Building2 size={20} color="#f59e0b" style={{ flexShrink:0 }} />
+          <div style={{ flex:1 }}>
+            <div style={{ fontSize:14, fontWeight:700, color:'#f59e0b', marginBottom:3 }}>Geen actief bedrijfsprofiel</div>
+            <div style={{ fontSize:12, color:C.muted }}>Je moet eerst een bedrijfsprofiel aanmaken om kostenposten te kunnen toevoegen.</div>
+          </div>
+          <button onClick={() => onNavigate?.('mijn-bedrijf')} style={{ padding:'8px 16px', borderRadius:10, border:'none', background:'linear-gradient(135deg,#f59e0b,#f97316)', color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap', flexShrink:0 }}>
+            Profiel aanmaken →
+          </button>
+        </div>
+      )}
+
+      {/* Summary cards */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:16, marginBottom:24 }}>
+        {[
+          { label:`Totaal excl. BTW (${thisYear})`, value:fmtEur(totalExcl), color:'#4f8ef7', sub:'excl. belasting', gradient:'linear-gradient(135deg,rgba(79,142,247,0.14),rgba(79,142,247,0.04))', icon:<TrendingDown size={16} color="#4f8ef7"/> },
+          { label:`BTW op kosten (${thisYear})`,    value:fmtEur(totalBtw),  color:'#a855f7', sub:'te vorderen bij aangifte', gradient:'linear-gradient(135deg,rgba(168,85,247,0.14),rgba(168,85,247,0.04))', icon:<PiggyBank size={16} color="#a855f7"/> },
+          { label:`Totaal incl. BTW (${thisYear})`, value:fmtEur(totalIncl), color:'#f43f5e', sub:'werkelijke uitgave', gradient:'linear-gradient(135deg,rgba(244,63,94,0.14),rgba(244,63,94,0.04))', icon:<CreditCard size={16} color="#f43f5e"/> },
+        ].map(s => (
+          <div key={s.label} style={{ background:isDark?C.card:'#fff', border:`1px solid ${C.border}`, borderRadius:18, padding:'20px 22px 16px', position:'relative', overflow:'hidden', boxShadow:isDark?'0 4px 24px rgba(0,0,0,0.2)':'0 2px 12px rgba(0,0,0,0.06)' }}>
+            <div style={{ position:'absolute', inset:0, background:s.gradient, pointerEvents:'none' }}/>
+            <div style={{ position:'relative' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.08em' }}>{s.label}</div>
+                <div style={{ width:32, height:32, borderRadius:9, background:`${s.color}22`, display:'flex', alignItems:'center', justifyContent:'center', border:`1px solid ${s.color}33` }}>{s.icon}</div>
+              </div>
+              <div style={{ fontSize:24, fontWeight:900, color:C.text, letterSpacing:'-0.5px', marginBottom:4 }}>{s.value}</div>
+              <div style={{ fontSize:12, color:C.muted, display:'flex', alignItems:'center', gap:4 }}>
+                <div style={{ width:6, height:6, borderRadius:'50%', background:s.color }}/>
+                {s.sub}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Cost list */}
+      <div style={{ background:isDark?C.card:'#fff', border:`1px solid ${C.border}`, borderRadius:18, overflow:'hidden', boxShadow:isDark?'0 4px 24px rgba(0,0,0,0.15)':'0 2px 12px rgba(0,0,0,0.05)' }}>
+        <div style={{ display:'grid', gridTemplateColumns:'100px 1fr 140px 100px 110px 110px 90px', padding:'13px 22px', borderBottom:`1px solid ${C.border}`, background:isDark?'rgba(255,255,255,0.02)':'rgba(0,0,0,0.015)' }}>
+          {['Datum','Omschrijving','Leverancier','Categorie','Excl. BTW','Incl. BTW',''].map(h => <div key={h} style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.07em' }}>{h}</div>)}
+        </div>
+        {loading ? <div style={{ padding:40, textAlign:'center', color:C.muted }}>Laden...</div>
+        : companyCosts.length===0 ? (
+          <div style={{ padding:60, textAlign:'center' }}>
+            <TrendingDown size={32} color={C.muted} style={{ margin:'0 auto 12px', display:'block' }}/>
+            <div style={{ color:C.muted, fontSize:14, marginBottom:16 }}>Nog geen kostenposten</div>
+            <button onClick={() => setShowForm(true)} style={{ padding:'10px 24px', borderRadius:12, border:'none', background:'linear-gradient(135deg,#f59e0b,#f97316)', color:'#fff', fontSize:14, fontWeight:700, cursor:'pointer' }}>Eerste kostenpost toevoegen</button>
+          </div>
+        ) : companyCosts.map((c, i) => {
+          const excl = parseFloat(c.amount_excl_btw||0);
+          const btw  = excl * parseFloat(c.btw_percentage||0) / 100;
+          const incl = excl + btw;
+          return (
+            <div key={c.id} style={{ display:'grid', gridTemplateColumns:'100px 1fr 140px 100px 110px 110px 90px', padding:'13px 20px', alignItems:'center', borderBottom:i<companyCosts.length-1?`1px solid ${C.border}`:'none', transition:'background 0.12s' }}
+              onMouseEnter={e => e.currentTarget.style.background=isDark?'rgba(255,255,255,0.02)':'rgba(0,0,0,0.015)'}
+              onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+              <div style={{ fontSize:13, color:C.muted }}>{new Date(c.date).toLocaleDateString('nl-NL')}</div>
+              <div>
+                <div style={{ fontSize:14, fontWeight:600, color:C.text }}>{c.description}</div>
+                {c.notes && <div style={{ fontSize:12, color:C.muted, marginTop:2 }}>{c.notes}</div>}
+              </div>
+              <div style={{ fontSize:13, color:C.muted }}>{c.supplier || '—'}</div>
+              <div><span style={{ padding:'3px 8px', borderRadius:20, fontSize:11, fontWeight:600, background:isDark?'rgba(255,255,255,0.08)':'rgba(0,0,0,0.06)', color:C.muted }}>{CAT_LABELS[c.category] || c.category || '—'}</span></div>
+              <div style={{ fontSize:13, fontWeight:600, color:C.text }}>{fmtEur(excl)}</div>
+              <div style={{ fontSize:13, fontWeight:700, color:C.text }}>{fmtEur(incl)}<span style={{ fontSize:11, color:C.muted, marginLeft:4 }}>{c.btw_percentage}%</span></div>
+              <div style={{ display:'flex', gap:5 }}>
+                <button onClick={() => { setEditingCost(c); setShowForm(true); }} title="Bewerken" style={{ width:30, height:30, borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#4f8ef7' }}><Edit2 size={13}/></button>
+                <button onClick={() => deleteCost(c)} title="Verwijderen" style={{ width:30, height:30, borderRadius:8, border:'1px solid rgba(244,63,94,0.3)', background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#f43f5e' }}><Trash2 size={13}/></button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {showForm && <KostenForm isDark={isDark} user={user} cost={editingCost} onClose={() => { setShowForm(false); setEditingCost(null); }} onSaved={async () => { setShowForm(false); setEditingCost(null); await load(); }} />}
+    </div>
+  );
+}
+
+// ─── MB KOSTEN VIEW (Moneybird) ────────────────────────────────
+function MbKostenView({ isDark, connected, kosten, loading, error, onRefresh, setView }) {
+  const parseAmt = (v) => parseFloat(v || 0);
+  const btwOf = (f) => Math.max(0, parseAmt(f.total_price_incl_tax) - parseAmt(f.total_price_excl_tax || f.total_price_excl_tax_with_discount));
+  const fmt = (n) => "€ " + n.toLocaleString("nl-NL", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const contactName = (c) => { if (!c) return "—"; return c.company_name || [c.firstname,c.lastname].filter(Boolean).join(" ") || "—"; };
+  const thisYear = new Date().getFullYear();
+  const totaalYTD = kosten.filter(f => new Date(f.date||"").getFullYear()===thisYear).reduce((s,f) => s+parseAmt(f.total_price_incl_tax), 0);
+  const btwYTD    = kosten.filter(f => new Date(f.date||"").getFullYear()===thisYear).reduce((s,f) => s + btwOf(f), 0);
+  const exclYTD   = totaalYTD - btwYTD;
+
+  if (!connected) return (
+    <div style={{ maxWidth: 480, margin: "40px auto", textAlign: "center" }}>
+      <div style={{ ...card(isDark), padding: 32 }}>
+        <TrendingDown size={36} color="#f43f5e" style={{ marginBottom: 12 }} />
+        <div style={{ fontSize:16, fontWeight:700, color:isDark?"#f1f5f9":"#111827", marginBottom:8 }}>Moneybird niet verbonden</div>
+        <div style={{ fontSize:13, color:"#64748b", marginBottom:20 }}>Koppel eerst Moneybird via de Facturen pagina.</div>
+        <button onClick={() => setView("facturen")} style={{ ...pillBtn(), padding:"10px 24px" }}>Ga naar Facturen</button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{ display:"flex", gap:14, marginBottom:24, flexWrap:"wrap" }}>
+        {[
+          { label:"Totaal incl. BTW YTD", value:fmt(totaalYTD), color:"#f43f5e" },
+          { label:"Excl. BTW YTD",        value:fmt(exclYTD),   color:"#4f8ef7" },
+          { label:"BTW op kosten YTD",    value:fmt(btwYTD),    color:"#8b5cf6" },
+        ].map(sc => (
+          <div key={sc.label} style={{ ...card(isDark), flex:1, minWidth:160, position:"relative", overflow:"hidden", borderTop: isDark?`1px solid ${sc.color}30`:`2.5px solid ${sc.color}` }}>
+            <div style={{ position:"absolute", top:-20, right:-20, width:80, height:80, borderRadius:"50%", background:sc.color, opacity:0.07, filter:"blur(18px)" }} />
+            <div style={{ fontSize:11, fontWeight:700, color:"#64748b", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:8 }}>{sc.label}</div>
+            <div style={{ fontSize:22, fontWeight:800, color:isDark?"#f1f5f9":"#111827" }}>{sc.value}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:18 }}>
+        <button onClick={onRefresh} disabled={loading} style={{ display:"flex", alignItems:"center", gap:6, padding:"7px 14px", borderRadius:20, border:`1px solid ${isDark?"rgba(255,255,255,0.1)":"#e2e8f0"}`, background:"transparent", color:isDark?"#94a3b8":"#64748b", fontSize:13, cursor:"pointer" }}>
+          <RefreshCw size={13} style={{ animation: loading?"spin 0.8s linear infinite":"none" }} /> Vernieuwen
+        </button>
+      </div>
+      {error && <div style={{ padding:"10px 14px", borderRadius:8, background:"rgba(244,63,94,0.1)", border:"1px solid rgba(244,63,94,0.2)", color:"#f43f5e", fontSize:13, marginBottom:16 }}>{error}</div>}
+      <div style={{ ...card(isDark), padding:0, overflow:"hidden" }}>
+        <div style={{ display:"grid", gridTemplateColumns:"80px 1fr 140px 120px 120px", padding:"12px 20px", borderBottom:`1px solid ${isDark?"rgba(255,255,255,0.06)":"#f0f0f0"}` }}>
+          {["Ref.","Leverancier","Datum","Excl. BTW","Incl. BTW"].map(h => <div key={h} style={{ fontSize:11, fontWeight:700, color:"#64748b", textTransform:"uppercase", letterSpacing:"0.06em" }}>{h}</div>)}
+        </div>
+        {loading ? <div style={{ padding:40, textAlign:"center", color:"#64748b" }}><div style={{ width:28, height:28, border:"3px solid rgba(79,142,247,0.2)", borderTopColor:"#4f8ef7", borderRadius:"50%", animation:"spin 0.8s linear infinite", margin:"0 auto 12px" }} />Laden…</div>
+        : kosten.length===0 ? <div style={{ padding:40, textAlign:"center", color:"#64748b", fontSize:14 }}>Geen kosten gevonden.</div>
+        : kosten.map((item, i) => (
+          <div key={item.id||i} style={{ display:"grid", gridTemplateColumns:"80px 1fr 140px 120px 120px", padding:"13px 20px", borderBottom: i<kosten.length-1?`1px solid ${isDark?"rgba(255,255,255,0.04)":"#f8f8f8"}`:"none", alignItems:"center" }}>
+            <div style={{ fontSize:13, fontWeight:700, color:isDark?"#94a3b8":"#64748b" }}>{item.reference||`#${i+1}`}</div>
+            <div style={{ fontSize:14, fontWeight:600, color:isDark?"#f1f5f9":"#111827" }}>{contactName(item.contact)}</div>
+            <div style={{ fontSize:13, color:isDark?"#94a3b8":"#64748b" }}>{item.date||"—"}</div>
+            <div style={{ fontSize:13, color:isDark?"#94a3b8":"#64748b" }}>{fmt(parseAmt(item.total_price_excl_tax_with_discount))}</div>
+            <div style={{ fontSize:14, fontWeight:700, color:isDark?"#f1f5f9":"#111827" }}>{fmt(parseAmt(item.total_price_incl_tax))}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── MONEYBIRD VIEW (wrapper with tabs) ────────────────────────
+function MoneybirdView({ isDark, connected, onConnect, onDisconnect, facturen, kosten, mbLoading, mbError, onRefresh }) {
+  const [tab, setTab] = useState('facturen');
+  const C = { text:isDark?'#f1f5f9':'#0f172a', muted:isDark?'#64748b':'#94a3b8', border:isDark?'rgba(255,255,255,0.08)':'#e2e8f0' };
+  return (
+    <div style={{ padding:'28px 32px', maxWidth:1100, margin:'0 auto' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:24 }}>
+        <div style={{ width:42, height:42, borderRadius:12, background:'linear-gradient(135deg,#22c55e,#16a34a)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <RefreshCw size={20} color="#fff"/>
+        </div>
+        <div>
+          <div style={{ fontSize:20, fontWeight:800, color:C.text }}>Moneybird Koppeling</div>
+          <div style={{ fontSize:13, color:C.muted }}>Optionele integratie — lees data uit Moneybird</div>
+        </div>
+      </div>
+      <div style={{ display:'flex', gap:8, marginBottom:20 }}>
+        {['facturen','kosten'].map(t => (
+          <button key={t} onClick={() => setTab(t)} style={{ padding:'8px 20px', borderRadius:20, border:'none', cursor:'pointer', fontWeight:tab===t?700:500, fontSize:14, background:tab===t?(isDark?'rgba(34,197,94,0.15)':'rgba(34,197,94,0.1)'):'transparent', color:tab===t?'#22c55e':C.muted }}>
+            {t==='facturen'?'Facturen':'Kosten'}
+          </button>
+        ))}
+      </div>
+      {tab==='facturen' && <MbFacturenView isDark={isDark} connected={connected} onConnect={onConnect} onDisconnect={onDisconnect} facturen={facturen} loading={mbLoading} error={mbError} onRefresh={onRefresh} />}
+      {tab==='kosten'   && <MbKostenView   isDark={isDark} connected={connected} kosten={kosten}     loading={mbLoading} error={mbError} onRefresh={onRefresh} onDisconnect={onDisconnect} setView={() => {}} />}
+    </div>
+  );
+}
+
+// ─── MIJN BEDRIJF VIEW ─────────────────────────────────────────
+// ─── ZZP DASHBOARD VIEW ────────────────────────────────────────
+function ZZPDashboardView({ isDark, user, zzpProfile, onNavigate, activeCompanyId, userPlan, accounts }) {
+  const [invoices, setInvoices] = useState([]);
+  const [costs,    setCosts]    = useState([]);
+  const [loading,  setLoading]  = useState(true);
+
+  // No-company popup
+  const PLAN_LEVELS_ZZP = { normal: 0, premium: 1, zzp_premium: 2, zzp_diamond: 3 };
+  const hasCompanyProfile = !!(zzpProfile?.company_name?.trim());
+  const planLevelZZP = PLAN_LEVELS_ZZP[userPlan] ?? 0;
+  const isZZPPlan = planLevelZZP >= 2; // zzp_premium or zzp_diamond
+  const hasBank = (accounts || []).length > 0;
+  // Show popup if no company profile set
+  const showNoCompanyPopup = !hasCompanyProfile;
+
+  const C = {
+    card:  isDark ? '#0f1e36' : '#fff',
+    border:isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0',
+    text:  isDark ? '#f1f5f9' : '#0f172a',
+    muted: isDark ? '#64748b' : '#94a3b8',
+    bg:    isDark ? '#07111f' : '#f8fafc',
+  };
+  const fmt = (n) => '€ ' + Number(n||0).toLocaleString('nl-NL', { minimumFractionDigits:2, maximumFractionDigits:2 });
+  const now = new Date();
+  const yr  = now.getFullYear();
+  const curQ = Math.ceil((now.getMonth()+1)/3);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    (async () => {
+      setLoading(true);
+      const [invRes, costRes] = await Promise.all([
+        supabase.from('invoices').select('*, lines:invoice_lines(*)').eq('user_id', user.id),
+        supabase.from('costs').select('*').eq('user_id', user.id),
+      ]);
+      if (invRes.data)  setInvoices(invRes.data);
+      if (costRes.data) setCosts(costRes.data);
+      setLoading(false);
+    })();
+  }, [user?.id]);
+
+  // ── Derived numbers ──────────────────────────────────────────
+  // Filter by active company (client-side; null company_profile_id → 'main')
+  const companyInvoices = activeCompanyId ? invoices.filter(i => (i.company_profile_id || 'main') === activeCompanyId) : invoices;
+  const companyCosts    = activeCompanyId ? costs.filter(c => (c.company_profile_id || 'main') === activeCompanyId) : costs;
+
+  const ytdInvoices  = companyInvoices.filter(i => new Date(i.invoice_date||'').getFullYear() === yr);
+  const openInvoices = ytdInvoices.filter(i => ['definitief','verstuurd','herinnering'].includes(i.status));
+  const paidInvoices = ytdInvoices.filter(i => i.status === 'betaald');
+  const overdueInv   = openInvoices.filter(i => i.due_date && new Date(i.due_date) < now);
+
+  const omzetYTD    = paidInvoices.reduce((s,i) => s + invoiceTotals(i).exclBtw, 0);
+  const openBedrag  = openInvoices.reduce((s,i) => s + invoiceTotals(i).inclBtw, 0);
+  const overdueBedrag = overdueInv.reduce((s,i) => s + invoiceTotals(i).inclBtw, 0);
+  const kostenYTD   = companyCosts.filter(c => new Date(c.date||'').getFullYear()===yr).reduce((s,c) => s + parseFloat(c.amount_excl_btw||0), 0);
+  const nettoYTD    = omzetYTD - kostenYTD;
+
+  // BTW this quarter (non-concept, non-cancelled)
+  const qStart = new Date(yr, (curQ-1)*3, 1);
+  const qEnd   = new Date(yr, curQ*3, 0);
+  const btwDitQ = companyInvoices.filter(i => {
+    const d = new Date(i.invoice_date||'');
+    return !['geannuleerd','concept'].includes(i.status) && d >= qStart && d <= qEnd;
+  }).reduce((s,i) => s + invoiceTotals(i).btw, 0);
+
+  // BTW verschuldigd: net revenue this quarter (set aside)
+  const omzetDitQ = companyInvoices.filter(i => {
+    const d = new Date(i.invoice_date||'');
+    return !['geannuleerd','concept'].includes(i.status) && d >= qStart && d <= qEnd;
+  }).reduce((s,i) => s + invoiceTotals(i).exclBtw, 0);
+
+  // Monthly revenue bar chart data
+  const months = Array.from({length:12}, (_,m) => {
+    const label = new Date(yr,m,1).toLocaleDateString('nl-NL', {month:'short'});
+    const val   = companyInvoices.filter(i => {
+      const d = new Date(i.invoice_date||'');
+      return !['geannuleerd','concept'].includes(i.status) && d.getFullYear()===yr && d.getMonth()===m;
+    }).reduce((s,i) => s + invoiceTotals(i).exclBtw, 0);
+    return { label, val, m };
+  });
+  const maxMonth = Math.max(1, ...months.map(m => m.val));
+  const currentMonth = now.getMonth();
+
+  if (loading) return <div style={{ padding:60, textAlign:'center', color:C.muted }}>Laden...</div>;
+
+  // ── No-company popup overlay ─────────────────────────────────
+  if (showNoCompanyPopup) {
+    const canAdd = isZZPPlan || !hasBank; // zzp_premium/diamond always can; others only if no bank yet
+    return (
+      <div style={{ padding:'28px 32px', maxWidth:1100, margin:'0 auto', display:'flex', alignItems:'center', justifyContent:'center', minHeight:400 }}>
+        <div style={{ background: isDark ? '#0f1e36' : '#fff', border:`1px solid ${isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0'}`, borderRadius:24, padding:'44px 40px', maxWidth:460, width:'100%', textAlign:'center', boxShadow: isDark ? '0 8px 40px rgba(0,0,0,0.4)' : '0 8px 40px rgba(0,0,0,0.08)' }}>
+          <div style={{ width:64, height:64, borderRadius:20, background:'linear-gradient(135deg,#a855f722,#4f8ef722)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 20px' }}>
+            <Building2 size={28} color="#a855f7" />
+          </div>
+          <h2 style={{ margin:'0 0 10px', fontSize:20, fontWeight:700, color: isDark ? '#f1f5f9' : '#0f172a' }}>
+            Geen bedrijfsprofiel gevonden
+          </h2>
+          <p style={{ margin:'0 0 28px', fontSize:14, color: isDark ? '#94a3b8' : '#64748b', lineHeight:1.6 }}>
+            {canAdd
+              ? 'Je hebt nog geen bedrijfsprofiel aangemaakt. Stel je bedrijfsgegevens in om gebruik te kunnen maken van het ZZP dashboard, facturen en meer.'
+              : 'Je hebt al een bankrekening gekoppeld. Met het Gratis plan kun je óf een bankrekening óf een bedrijfsprofiel gebruiken. Upgrade naar een betaald plan om beide te gebruiken.'}
+          </p>
+          {canAdd ? (
+            <button
+              onClick={() => onNavigate('mijn-bedrijf')}
+              style={{ background:'linear-gradient(135deg,#a855f7,#7c3aed)', color:'#fff', border:'none', borderRadius:12, padding:'12px 28px', fontSize:14, fontWeight:700, cursor:'pointer', width:'100%' }}>
+              Bedrijfsprofiel aanmaken →
+            </button>
+          ) : (
+            <button
+              onClick={() => onNavigate('pricing')}
+              style={{ background:'linear-gradient(135deg,#a855f7,#7c3aed)', color:'#fff', border:'none', borderRadius:12, padding:'12px 28px', fontSize:14, fontWeight:700, cursor:'pointer', width:'100%' }}>
+              Bekijk upgrades →
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  const NavBtn = ({ to, label }) => (
+    <button onClick={() => onNavigate(to)} style={{ fontSize:12, color:'#4f8ef7', background:'none', border:'none', cursor:'pointer', padding:'4px 10px', borderRadius:8, fontWeight:600, textDecoration:'none' }}>
+      {label} →
+    </button>
+  );
+
+  const Card = ({ children, style={} }) => (
+    <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:18, padding:'20px 22px', ...style }}>{children}</div>
+  );
+
+  return (
+    <div style={{ padding:'28px 32px', maxWidth:1100, margin:'0 auto' }}>
+      {/* Company + year subtitle */}
+      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:24 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:7, padding:'5px 12px 5px 8px', borderRadius:20, background: isDark ? 'rgba(79,142,247,0.1)' : 'rgba(79,142,247,0.07)', border:'1px solid rgba(79,142,247,0.2)' }}>
+          <Building2 size={13} color="#4f8ef7" />
+          <span style={{ fontSize:13, fontWeight:700, color:'#4f8ef7' }}>{zzpProfile.company_name || 'Mijn bedrijf'}</span>
+        </div>
+        <span style={{ fontSize:12, color:C.muted }}>{yr}</span>
+      </div>
+
+      {/* Top KPI row */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:14, marginBottom:20 }}>
+        {[
+          { label:'Omzet YTD', value:fmt(omzetYTD), sub:'excl. BTW · betaald', color:'#22c55e', gradient:'linear-gradient(135deg,#22c55e22,#22c55e08)', icon:<TrendingUp size={18} color="#22c55e"/> },
+          { label:'Openstaand', value:fmt(openBedrag), sub:`${openInvoices.length} facturen`, color:'#f59e0b', gradient:'linear-gradient(135deg,#f59e0b22,#f59e0b08)', icon:<Clock size={18} color="#f59e0b"/> },
+          { label:'Kosten YTD', value:fmt(kostenYTD), sub:'excl. BTW', color:'#f43f5e', gradient:'linear-gradient(135deg,#f43f5e22,#f43f5e08)', icon:<TrendingDown size={18} color="#f43f5e"/> },
+          { label:'Netto resultaat', value:fmt(nettoYTD), sub:'omzet − kosten', color: nettoYTD >= 0 ? '#22c55e' : '#f43f5e', gradient: nettoYTD >= 0 ? 'linear-gradient(135deg,#22c55e22,#22c55e08)' : 'linear-gradient(135deg,#f43f5e22,#f43f5e08)', icon:<Activity size={18} color={nettoYTD>=0?'#22c55e':'#f43f5e'}/> },
+        ].map(k => (
+          <div key={k.label} style={{ background: isDark ? `${C.card}` : '#fff', border:`1px solid ${C.border}`, borderRadius:18, padding:'22px 22px 18px', position:'relative', overflow:'hidden', boxShadow: isDark ? '0 4px 24px rgba(0,0,0,0.2)' : '0 2px 12px rgba(0,0,0,0.06)' }}>
+            {/* Accent glow background */}
+            <div style={{ position:'absolute', inset:0, background:k.gradient, pointerEvents:'none' }}/>
+            <div style={{ position:'relative' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.08em' }}>{k.label}</div>
+                <div style={{ width:34, height:34, borderRadius:10, background:`${k.color}22`, display:'flex', alignItems:'center', justifyContent:'center', border:`1px solid ${k.color}33` }}>{k.icon}</div>
+              </div>
+              <div style={{ fontSize:26, fontWeight:900, color:C.text, letterSpacing:'-0.5px', marginBottom:4 }}>{k.value}</div>
+              <div style={{ fontSize:12, color:C.muted, display:'flex', alignItems:'center', gap:4 }}>
+                <div style={{ width:6, height:6, borderRadius:'50%', background:k.color }}/>
+                {k.sub}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Main row: bar chart + BTW spaarpot + overdue */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 340px', gap:16, marginBottom:16 }}>
+
+        {/* Monthly revenue bar chart */}
+        <Card>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+            <div>
+              <div style={{ fontSize:15, fontWeight:800, color:C.text }}>Omzet per maand {yr}</div>
+              <div style={{ fontSize:12, color:C.muted }}>excl. BTW · definitief + verstuurd + betaald</div>
+            </div>
+            <NavBtn to="facturen" label="Facturen" />
+          </div>
+          <div style={{ display:'flex', alignItems:'flex-end', gap:6, height:120 }}>
+            {months.map(({ label, val, m }) => {
+              const pct = val / maxMonth;
+              const isCur = m === currentMonth;
+              const isFut = m > currentMonth;
+              return (
+                <div key={m} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
+                  <div style={{ fontSize:9, color:C.muted, fontWeight:700 }}>{val > 0 ? '€' + Math.round(val/1000) + 'k' : ''}</div>
+                  <div style={{ width:'100%', borderRadius:6, height:Math.max(4, pct*88), background: isFut ? (isDark?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.05)') : isCur ? 'linear-gradient(180deg,#a855f7,#6366f1)' : 'linear-gradient(180deg,#4f8ef7,#6366f1)', transition:'height 0.3s', border: isFut ? `1px solid ${C.border}` : 'none' }} />
+                  <div style={{ fontSize:9, color: isCur ? '#a855f7' : C.muted, fontWeight: isCur ? 700 : 400 }}>{label}</div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+
+        {/* Right column: BTW Spaarpot + alerts */}
+        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+
+          {/* BTW verschuldigd - Premium card */}
+          <div style={{ background: isDark ? C.card : '#fff', border:`1px solid ${C.border}`, borderRadius:18, padding:'22px 22px 18px', position:'relative', overflow:'hidden', boxShadow: isDark ? '0 4px 24px rgba(0,0,0,0.2)' : '0 2px 12px rgba(0,0,0,0.06)' }}>
+            <div style={{ position:'absolute', inset:0, background:'linear-gradient(135deg,rgba(139,92,246,0.13),rgba(168,85,247,0.05))', pointerEvents:'none' }}/>
+            <div style={{ position:'relative' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.08em' }}>BTW verschuldigd Q{curQ}</div>
+                <div style={{ width:34, height:34, borderRadius:10, background:'rgba(139,92,246,0.18)', display:'flex', alignItems:'center', justifyContent:'center', border:'1px solid rgba(139,92,246,0.28)' }}>
+                  <PiggyBank size={18} color="#8b5cf6"/>
+                </div>
+              </div>
+              <div style={{ fontSize:26, fontWeight:900, color:C.text, letterSpacing:'-0.5px', marginBottom:4 }}>{fmt(btwDitQ)}</div>
+              <div style={{ fontSize:12, color:C.muted, display:'flex', alignItems:'center', gap:4, marginBottom:12 }}>
+                <div style={{ width:6, height:6, borderRadius:'50%', background:'#8b5cf6' }}/>
+                {omzetDitQ > 0 ? Math.round(btwDitQ/omzetDitQ*100) : 0}% van omzet dit kwartaal
+              </div>
+              <div style={{ height:5, borderRadius:3, background:isDark?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.06)', overflow:'hidden', marginBottom:10 }}>
+                <div style={{ height:'100%', borderRadius:3, background:'linear-gradient(90deg,#8b5cf6,#a855f7)', width: omzetDitQ > 0 ? `${Math.min(100, btwDitQ/omzetDitQ*100)}%` : '0%', transition:'width 0.5s' }} />
+              </div>
+              <div style={{ display:'flex', justifyContent:'flex-end' }}>
+                <NavBtn to="btw-aangifte" label="Aangifte" />
+              </div>
+            </div>
+          </div>
+
+          {/* Openstaand alert */}
+          <Card style={{ borderTop: overdueBedrag > 0 ? '2.5px solid #f43f5e' : `2.5px solid ${C.border}` }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8 }}>
+              <div style={{ fontSize:13, fontWeight:800, color:C.text }}>Openstaande facturen</div>
+              <NavBtn to="facturen" label="Bekijken" />
+            </div>
+            <div style={{ display:'flex', gap:16 }}>
+              <div>
+                <div style={{ fontSize:18, fontWeight:800, color:'#f59e0b' }}>{openInvoices.length}</div>
+                <div style={{ fontSize:10, color:C.muted }}>openstaand</div>
+              </div>
+              {overdueBedrag > 0 && (
+                <div>
+                  <div style={{ fontSize:18, fontWeight:800, color:'#f43f5e' }}>{overdueInv.length}</div>
+                  <div style={{ fontSize:10, color:C.muted }}>verlopen</div>
+                </div>
+              )}
+            </div>
+            {overdueBedrag > 0 && (
+              <div style={{ marginTop:8, padding:'6px 10px', borderRadius:8, background:'rgba(244,63,94,0.1)', fontSize:11, color:'#f43f5e', fontWeight:600 }}>
+                {fmt(overdueBedrag)} verlopen — stuur herinnering
+              </div>
+            )}
+          </Card>
+        </div>
+      </div>
+
+      {/* Bottom row: quick actions */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12 }}>
+        {[
+          { label:'Nieuwe factuur', sub:'Maak een factuur aan', color:'#4f8ef7', icon:<FileText size={18}/>, to:'facturen' },
+          { label:'Kosten boeken', sub:'Voeg kosten toe', color:'#f59e0b', icon:<TrendingDown size={18}/>, to:'kosten' },
+          { label:'BTW aangifte', sub:'Kwartaaloverzicht', color:'#8b5cf6', icon:<Calendar size={18}/>, to:'btw-aangifte' },
+          { label:'Mijn bedrijf', sub:'Bedrijfsgegevens', color:'#22c55e', icon:<Building2 size={18}/>, to:'mijn-bedrijf' },
+        ].map(a => (
+          <button key={a.label} onClick={() => onNavigate(a.to)} style={{ padding:'16px 18px', borderRadius:14, border:`1px solid ${C.border}`, background:C.card, cursor:'pointer', textAlign:'left', transition:'all 0.15s' }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor=a.color; e.currentTarget.style.background=isDark?`rgba(${a.color},0.05)`:C.card; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor=C.border; e.currentTarget.style.background=C.card; }}>
+            <div style={{ width:34, height:34, borderRadius:10, background:`${a.color}22`, display:'flex', alignItems:'center', justifyContent:'center', marginBottom:10, color:a.color }}>{a.icon}</div>
+            <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:2 }}>{a.label}</div>
+            <div style={{ fontSize:11, color:C.muted }}>{a.sub}</div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── BONNEN VIEW ───────────────────────────────────────────────
+function BonnenView({ isDark, user, activeCompanyId, userPlan, onUpgrade }) {
+  const C = {
+    card:  isDark ? '#0f1e36' : '#fff',
+    border:isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0',
+    text:  isDark ? '#f1f5f9' : '#0f172a',
+    muted: isDark ? '#64748b' : '#94a3b8',
+    input: isDark ? 'rgba(255,255,255,0.06)' : '#f8fafc',
+    bg:    isDark ? '#07111f' : '#f8fafc',
+  };
+
+  const isDiamond = userPlan === 'zzp_diamond';
+  const CATS = ['Kantoor','Reizen','Maaltijden','Software','Hardware','Marketing','Overig'];
+
+  const [bonnen, setBonnen] = useState([]);
+  const [bonnenLoading, setBonnenLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [showAiForm, setShowAiForm] = useState(false);
+  const [editIdx, setEditIdx] = useState(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [filter, setFilter] = useState('alle');
+  const fileRef = useRef(null);
+  const aiFileRef = useRef(null);
+
+  const emptyForm = { datum:'', leverancier:'', beschrijving:'', bedrag_excl:'', btw_pct:'21', bedrag_incl:'', categorie:'Overig', geboekt:false, bestand:null, bestand_naam:'' };
+  const [form, setForm] = useState({ ...emptyForm });
+
+  const emptyAiForm = { titel:'', bestand:null, bestand_naam:'' };
+  const [aiForm, setAiForm] = useState({ ...emptyAiForm });
+
+  useEffect(() => {
+    if (!user?.id) return;
+    (async () => {
+      setBonnenLoading(true);
+      const { data } = await supabase.from('bonnen').select('*').eq('user_id', user.id).order('datum', { ascending: false });
+      if (data) setBonnen(data);
+      setBonnenLoading(false);
+    })();
+  }, [user?.id]);
+
+  const setF = (k, v) => setForm(prev => {
+    const next = { ...prev, [k]: v };
+    if (k === 'bedrag_excl' || k === 'btw_pct') {
+      const excl = parseFloat(next.bedrag_excl) || 0;
+      const pct  = parseFloat(next.btw_pct) || 0;
+      next.bedrag_incl = excl > 0 ? (excl * (1 + pct / 100)).toFixed(2) : '';
+    }
+    if (k === 'bedrag_incl' && v) {
+      const incl = parseFloat(v) || 0;
+      const pct  = parseFloat(next.btw_pct) || 0;
+      if (incl > 0 && pct >= 0) next.bedrag_excl = (incl / (1 + pct / 100)).toFixed(2);
+    }
+    return next;
+  });
+
+  const handleFile = (file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => setForm(prev => ({ ...prev, bestand: e.target.result, bestand_naam: file.name }));
+    reader.readAsDataURL(file);
+  };
+
+  const saveBon = async () => {
+    if (!form.datum || !form.leverancier || !form.bedrag_excl) return;
+    if (editIdx !== null) {
+      const existing = bonnen[editIdx];
+      const updated = { ...form, id: existing.id, user_id: user.id, company_profile_id: activeCompanyId || 'main' };
+      await supabase.from('bonnen').update(updated).eq('id', existing.id);
+      setBonnen(prev => prev.map((b, i) => i === editIdx ? updated : b));
+    } else {
+      const bon = { ...form, user_id: user.id, company_profile_id: activeCompanyId || 'main' };
+      const { data } = await supabase.from('bonnen').insert(bon).select().single();
+      if (data) setBonnen(prev => [data, ...prev]);
+    }
+    setForm({ ...emptyForm });
+    setShowForm(false);
+    setEditIdx(null);
+  };
+
+  const handleAiFile = (file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => setAiForm(prev => ({ ...prev, bestand: e.target.result, bestand_naam: file.name }));
+    reader.readAsDataURL(file);
+  };
+
+  const saveAiBon = async () => {
+    if (!aiForm.titel.trim() || !aiForm.bestand) return;
+    const bon = { beschrijving: aiForm.titel, leverancier: '', bestand: aiForm.bestand, bestand_naam: aiForm.bestand_naam, datum: new Date().toISOString().slice(0,10), categorie: 'Overig', bedrag_excl: null, btw_pct: 21, bedrag_incl: null, geboekt: false, ai_scan: true, company_profile_id: activeCompanyId || 'main', user_id: user.id };
+    const { data } = await supabase.from('bonnen').insert(bon).select().single();
+    if (data) setBonnen(prev => [data, ...prev]);
+    setAiForm({ ...emptyAiForm });
+    setShowAiForm(false);
+  };
+
+  const deleteBon = async (idx) => {
+    const bon = bonnen[idx];
+    await supabase.from('bonnen').delete().eq('id', bon.id);
+    setBonnen(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const toggleGeboekt = async (idx) => {
+    const bon = bonnen[idx];
+    const newVal = !bon.geboekt;
+    await supabase.from('bonnen').update({ geboekt: newVal }).eq('id', bon.id);
+    setBonnen(prev => prev.map((b, i) => i === idx ? { ...b, geboekt: newVal } : b));
+  };
+
+  // Company-filtered bonnen
+  const companyBonnen = activeCompanyId
+    ? bonnen.filter(b => (b.company_profile_id || 'main') === activeCompanyId)
+    : bonnen;
+
+  const filtered = filter === 'alle' ? companyBonnen : filter === 'geboekt' ? companyBonnen.filter(b => b.geboekt) : companyBonnen.filter(b => !b.geboekt);
+  const totalExcl = companyBonnen.reduce((s, b) => s + (parseFloat(b.bedrag_excl) || 0), 0);
+  const totalBtw  = companyBonnen.reduce((s, b) => {
+    const excl = parseFloat(b.bedrag_excl) || 0;
+    const pct  = parseFloat(b.btw_pct) || 0;
+    return s + excl * pct / 100;
+  }, 0);
+  const totalIncl = totalExcl + totalBtw;
+  const fmt = (n) => '€ ' + Number(n).toLocaleString('nl-NL', { minimumFractionDigits:2, maximumFractionDigits:2 });
+
+  const inp = { width:'100%', padding:'10px 13px', borderRadius:9, border:`1px solid ${C.border}`, background:C.input, color:C.text, fontSize:13, outline:'none', boxSizing:'border-box', fontFamily:'inherit' };
+  const lbl = { fontSize:11, fontWeight:700, color:C.muted, display:'block', marginBottom:5, textTransform:'uppercase', letterSpacing:'0.05em' };
+
+  if (bonnenLoading) return <div style={{ padding:40, textAlign:'center', color:C.muted }}>Bonnen laden…</div>;
+
+  return (
+    <div style={{ padding:'28px 32px', maxWidth:1000, margin:'0 auto' }}>
+      {/* Header */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:24 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+          <div style={{ width:44, height:44, borderRadius:13, background:'linear-gradient(135deg,#f59e0b,#f97316)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <Upload size={20} color="#fff"/>
+          </div>
+          <div>
+            <div style={{ fontSize:20, fontWeight:800, color:C.text }}>Bonnen</div>
+            <div style={{ fontSize:13, color:C.muted }}>{companyBonnen.length} bon{companyBonnen.length !== 1 ? 'nen' : ''} · totaal {fmt(totalIncl)} incl. BTW</div>
+          </div>
+        </div>
+        <div style={{ display:'flex', gap:10, alignItems:'center' }}>
+          {/* AI button — primary for Diamond, upgrade prompt for others */}
+          <button onClick={() => isDiamond ? setShowAiForm(true) : onUpgrade?.()}
+            style={{ display:'flex', alignItems:'center', gap:7, padding:'10px 18px', borderRadius:11, border:'none', background: isDiamond ? 'linear-gradient(135deg,#06b6d4,#8b5cf6)' : 'linear-gradient(135deg,rgba(6,182,212,0.15),rgba(139,92,246,0.15))', color: isDiamond ? '#fff' : '#06b6d4', fontWeight:700, fontSize:13, cursor:'pointer', border: isDiamond ? 'none' : '1px solid rgba(6,182,212,0.35)' }}>
+            <Zap size={15}/> Laat bonnen automatisch inlezen door AI
+            {!isDiamond && <span style={{ fontSize:11, background:'rgba(6,182,212,0.2)', padding:'2px 7px', borderRadius:6, marginLeft:2 }}>♦ Diamond</span>}
+          </button>
+          {/* Manual add — always available */}
+          <button onClick={() => { setForm({ ...emptyForm }); setEditIdx(null); setShowForm(true); }}
+            style={{ display:'flex', alignItems:'center', gap:7, padding:'10px 18px', borderRadius:11, border:'none', background:'linear-gradient(135deg,#f59e0b,#f97316)', color:'#fff', fontWeight:700, fontSize:13, cursor:'pointer' }}>
+            <Plus size={15}/> Bon toevoegen
+          </button>
+        </div>
+      </div>
+
+      {/* Summary cards */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14, marginBottom:24 }}>
+        {[
+          { label:'Totaal excl. BTW', value:fmt(totalExcl), color:'#4f8ef7', sub:`${companyBonnen.filter(b=>!b.geboekt).length} nog te boeken`, gradient:'linear-gradient(135deg,rgba(79,142,247,0.14),rgba(79,142,247,0.04))', icon:<FileText size={16} color="#4f8ef7"/> },
+          { label:'BTW te vorderen', value:fmt(totalBtw), color:'#a855f7', sub:'op basis van bonnen', gradient:'linear-gradient(135deg,rgba(168,85,247,0.14),rgba(168,85,247,0.04))', icon:<PiggyBank size={16} color="#a855f7"/> },
+          { label:'Totaal incl. BTW', value:fmt(totalIncl), color:'#22c55e', sub:`${companyBonnen.filter(b=>b.geboekt).length} geboekt`, gradient:'linear-gradient(135deg,rgba(34,197,94,0.14),rgba(34,197,94,0.04))', icon:<Check size={16} color="#22c55e"/> },
+        ].map(s => (
+          <div key={s.label} style={{ background:isDark?C.card:'#fff', border:`1px solid ${C.border}`, borderRadius:18, padding:'20px 22px 16px', position:'relative', overflow:'hidden', boxShadow:isDark?'0 4px 24px rgba(0,0,0,0.2)':'0 2px 12px rgba(0,0,0,0.06)' }}>
+            <div style={{ position:'absolute', inset:0, background:s.gradient, pointerEvents:'none' }}/>
+            <div style={{ position:'relative' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.08em' }}>{s.label}</div>
+                <div style={{ width:32, height:32, borderRadius:9, background:`${s.color}22`, display:'flex', alignItems:'center', justifyContent:'center', border:`1px solid ${s.color}33` }}>{s.icon}</div>
+              </div>
+              <div style={{ fontSize:24, fontWeight:900, color:C.text, letterSpacing:'-0.5px', marginBottom:4 }}>{s.value}</div>
+              <div style={{ fontSize:12, color:C.muted, display:'flex', alignItems:'center', gap:4 }}>
+                <div style={{ width:6, height:6, borderRadius:'50%', background:s.color }}/>
+                {s.sub}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Drop zone — only for non-Diamond (Premium manual flow) */}
+      {!isDiamond && (
+        <div
+          onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={e => { e.preventDefault(); setDragOver(false); const file = e.dataTransfer.files[0]; if (file) { handleFile(file); setForm(prev => ({ ...prev })); setShowForm(true); } }}
+          onClick={() => fileRef.current?.click()}
+          style={{ border:`2px dashed ${dragOver ? '#f59e0b' : C.border}`, borderRadius:14, padding:'24px 20px', textAlign:'center', cursor:'pointer', marginBottom:20, background: dragOver ? 'rgba(245,158,11,0.06)' : 'transparent', transition:'all 0.2s' }}>
+          <Upload size={24} color={dragOver ? '#f59e0b' : C.muted} style={{ marginBottom:8 }}/>
+          <div style={{ fontSize:14, fontWeight:600, color: dragOver ? '#f59e0b' : C.muted }}>Sleep een bon hierheen of klik om te uploaden</div>
+          <div style={{ fontSize:12, color:C.muted, marginTop:4 }}>JPG, PNG, PDF — max 10 MB</div>
+          <input ref={fileRef} type="file" accept="image/*,.pdf" style={{ display:'none' }}
+            onChange={e => { const file = e.target.files[0]; if (file) { handleFile(file); setShowForm(true); } }} />
+        </div>
+      )}
+      {/* Diamond: AI upload prompt banner */}
+      {isDiamond && companyBonnen.length === 0 && (
+        <div onClick={() => setShowAiForm(true)} style={{ border:'2px dashed rgba(6,182,212,0.3)', borderRadius:14, padding:'28px 20px', textAlign:'center', cursor:'pointer', marginBottom:20, background:'linear-gradient(135deg,rgba(6,182,212,0.06),rgba(139,92,246,0.06))', transition:'all 0.2s' }}
+          onMouseEnter={e => e.currentTarget.style.borderColor='rgba(6,182,212,0.6)'}
+          onMouseLeave={e => e.currentTarget.style.borderColor='rgba(6,182,212,0.3)'}>
+          <div style={{ width:48, height:48, borderRadius:14, background:'linear-gradient(135deg,#06b6d4,#8b5cf6)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 12px' }}>
+            <Zap size={22} color="#fff"/>
+          </div>
+          <div style={{ fontSize:15, fontWeight:700, color:C.text, marginBottom:4 }}>Bon toevoegen voor AI inlezen</div>
+          <div style={{ fontSize:13, color:C.muted }}>Upload een bon — de boekhouder boekt het automatisch in</div>
+        </div>
+      )}
+
+      {/* Filter tabs */}
+      {bonnen.length > 0 && (
+        <div style={{ display:'flex', gap:8, marginBottom:16 }}>
+          {['alle','openstaand','geboekt'].map(f => (
+            <button key={f} onClick={() => setFilter(f)}
+              style={{ padding:'6px 14px', borderRadius:8, border:`1px solid ${filter===f?'#4f8ef7':C.border}`, background: filter===f ? 'rgba(79,142,247,0.12)' : 'transparent', color: filter===f ? '#4f8ef7' : C.muted, fontSize:12, fontWeight:600, cursor:'pointer', textTransform:'capitalize' }}>
+              {f}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Bonnen list */}
+      {filtered.length === 0 ? (
+        <div style={{ textAlign:'center', padding:'48px 20px', color:C.muted }}>
+          <Upload size={36} color={C.muted} style={{ marginBottom:12, opacity:0.4 }}/>
+          <div style={{ fontSize:15, fontWeight:600 }}>Nog geen bonnen</div>
+          <div style={{ fontSize:13, marginTop:4 }}>Voeg een bon toe of sleep een bestand hierheen</div>
+        </div>
+      ) : (
+        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+          {filtered.map((bon, idx) => {
+            const realIdx = bonnen.indexOf(bon);
+            const excl = parseFloat(bon.bedrag_excl) || 0;
+            const pct  = parseFloat(bon.btw_pct) || 0;
+            const btw  = excl * pct / 100;
+            const incl = excl + btw;
+            return (
+              <div key={bon.id} style={{ background:C.card, border:`1px solid ${bon.geboekt ? 'rgba(34,197,94,0.25)' : C.border}`, borderRadius:14, padding:'16px 18px', display:'flex', alignItems:'center', gap:16, transition:'border-color 0.2s' }}>
+                {/* Thumbnail */}
+                <div style={{ width:44, height:44, borderRadius:10, background: bon.bestand ? 'transparent' : isDark?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.05)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, overflow:'hidden' }}>
+                  {bon.bestand && bon.bestand_naam?.match(/\.(jpg|jpeg|png|gif)$/i)
+                    ? <img src={bon.bestand} alt="" style={{ width:'100%', height:'100%', objectFit:'cover', borderRadius:10 }}/>
+                    : <Upload size={18} color={C.muted}/>}
+                </div>
+                {/* Info */}
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:14, fontWeight:700, color:C.text, marginBottom:2 }}>{bon.leverancier || '—'}</div>
+                  <div style={{ fontSize:12, color:C.muted, display:'flex', gap:10, flexWrap:'wrap' }}>
+                    <span>{bon.datum || '—'}</span>
+                    {bon.categorie && <span style={{ padding:'1px 7px', borderRadius:5, background:isDark?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.06)', fontSize:11 }}>{bon.categorie}</span>}
+                    {bon.beschrijving && <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:160 }}>{bon.beschrijving}</span>}
+                  </div>
+                </div>
+                {/* Bedragen / AI badge */}
+                <div style={{ textAlign:'right', flexShrink:0 }}>
+                  {bon.geboekt && !bon.bedrag_excl ? (
+                    <div style={{ display:'flex', alignItems:'center', gap:5, justifyContent:'flex-end' }}>
+                      <span style={{ padding:'3px 9px', borderRadius:6, fontSize:11, fontWeight:700, background:'rgba(34,197,94,0.12)', color:'#22c55e', border:'1px solid rgba(34,197,94,0.3)' }}>
+                        ✓ Geboekt
+                      </span>
+                    </div>
+                  ) : bon.ai_scan && !bon.bedrag_excl ? (
+                    <div style={{ display:'flex', alignItems:'center', gap:5, justifyContent:'flex-end' }}>
+                      <span style={{ padding:'3px 9px', borderRadius:6, fontSize:11, fontWeight:700, background:'linear-gradient(135deg,rgba(6,182,212,0.15),rgba(139,92,246,0.15))', color:'#06b6d4', border:'1px solid rgba(6,182,212,0.25)' }}>
+                        ♦ Wacht op boekhouder
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ fontSize:15, fontWeight:800, color:C.text }}>{fmt(incl)}</div>
+                      <div style={{ fontSize:11, color:C.muted }}>{fmt(excl)} excl. · {pct}% BTW</div>
+                    </>
+                  )}
+                </div>
+                {/* Actions */}
+                <div style={{ display:'flex', gap:6, flexShrink:0 }}>
+                  <button onClick={() => toggleGeboekt(realIdx)} title={bon.geboekt ? 'Markeer als niet geboekt' : 'Markeer als geboekt'}
+                    style={{ width:32, height:32, borderRadius:8, border:`1px solid ${bon.geboekt ? '#22c55e' : C.border}`, background: bon.geboekt ? 'rgba(34,197,94,0.12)' : 'transparent', color: bon.geboekt ? '#22c55e' : C.muted, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    <Check size={14}/>
+                  </button>
+                  {!bon.ai_scan && (
+                    <button onClick={() => { setForm({ ...bon }); setEditIdx(realIdx); setShowForm(true); }}
+                      style={{ width:32, height:32, borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', color:C.muted, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                      <Edit2 size={13}/>
+                    </button>
+                  )}
+                  <button onClick={() => deleteBon(realIdx)}
+                    style={{ width:32, height:32, borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', color:'#f43f5e', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    <Trash2 size={13}/>
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* AI upload modal (Diamond only) */}
+      {showAiForm && createPortal(
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.65)', backdropFilter:'blur(6px)', zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
+          onClick={e => { if (e.target === e.currentTarget) { setShowAiForm(false); setAiForm({ ...emptyAiForm }); } }}>
+          <div style={{ background:isDark?'#0f1e36':'#fff', borderRadius:22, padding:32, maxWidth:460, width:'100%', border:`1px solid rgba(6,182,212,0.25)`, boxShadow:'0 24px 64px rgba(0,0,0,0.4)' }}>
+            {/* Header */}
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:24 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                <div style={{ width:36, height:36, borderRadius:10, background:'linear-gradient(135deg,#06b6d4,#8b5cf6)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <Zap size={16} color="#fff"/>
+                </div>
+                <div>
+                  <div style={{ fontSize:16, fontWeight:800, color:C.text }}>Bon uploaden voor AI</div>
+                  <div style={{ fontSize:11, color:'#06b6d4', fontWeight:600 }}>♦ ZZP Diamond — boekhouder boekt in</div>
+                </div>
+              </div>
+              <button onClick={() => { setShowAiForm(false); setAiForm({ ...emptyAiForm }); }} style={{ background:'none', border:'none', color:C.muted, cursor:'pointer', padding:4 }}><X size={18}/></button>
+            </div>
+
+            {/* File upload */}
+            <div onClick={() => aiFileRef.current?.click()}
+              style={{ border:`2px dashed ${aiForm.bestand ? 'rgba(6,182,212,0.5)' : 'rgba(6,182,212,0.25)'}`, borderRadius:14, padding:'24px 16px', textAlign:'center', cursor:'pointer', marginBottom:20, background: aiForm.bestand ? 'rgba(6,182,212,0.06)' : 'transparent', transition:'all 0.2s' }}
+              onDragOver={e => e.preventDefault()}
+              onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleAiFile(f); }}>
+              {aiForm.bestand && aiForm.bestand_naam?.match(/\.(jpg|jpeg|png|gif)$/i)
+                ? <img src={aiForm.bestand} alt="" style={{ maxHeight:90, maxWidth:'100%', borderRadius:8, marginBottom:8 }}/>
+                : <div style={{ width:44, height:44, borderRadius:12, background:'linear-gradient(135deg,rgba(6,182,212,0.2),rgba(139,92,246,0.2))', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 10px' }}>
+                    <Upload size={20} color={aiForm.bestand ? '#06b6d4' : C.muted}/>
+                  </div>}
+              <div style={{ fontSize:13, fontWeight:600, color: aiForm.bestand ? '#06b6d4' : C.muted }}>
+                {aiForm.bestand_naam || 'Klik of sleep een bon hierheen'}
+              </div>
+              {!aiForm.bestand && <div style={{ fontSize:11, color:C.muted, marginTop:4 }}>JPG, PNG, PDF — max 10 MB</div>}
+              <input ref={aiFileRef} type="file" accept="image/*,.pdf" style={{ display:'none' }}
+                onChange={e => { const f = e.target.files[0]; if (f) handleAiFile(f); }} />
+            </div>
+
+            {/* Titel */}
+            <div style={{ marginBottom:24 }}>
+              <label style={{ fontSize:11, fontWeight:700, color:C.muted, display:'block', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>Titel / omschrijving</label>
+              <input style={{ width:'100%', padding:'11px 14px', borderRadius:10, border:`1px solid ${C.border}`, background:C.input, color:C.text, fontSize:14, outline:'none', boxSizing:'border-box', fontFamily:'inherit' }}
+                placeholder="Bijv. Lunch met klant, Laptop oplader..."
+                value={aiForm.titel}
+                onChange={e => setAiForm(prev => ({ ...prev, titel: e.target.value }))} />
+            </div>
+
+            <div style={{ padding:'10px 14px', borderRadius:10, background:isDark?'rgba(6,182,212,0.07)':'rgba(6,182,212,0.06)', border:'1px solid rgba(6,182,212,0.18)', fontSize:12, color:'#06b6d4', marginBottom:20, lineHeight:1.6 }}>
+              De boekhouder verwerkt dit automatisch. Bedrag, categorie en BTW worden ingevuld.
+            </div>
+
+            <div style={{ display:'flex', gap:10 }}>
+              <button onClick={() => { setShowAiForm(false); setAiForm({ ...emptyAiForm }); }} style={{ flex:1, padding:'12px', borderRadius:11, border:`1px solid ${C.border}`, background:'transparent', color:C.muted, fontSize:14, fontWeight:600, cursor:'pointer' }}>Annuleren</button>
+              <button onClick={saveAiBon} disabled={!aiForm.titel.trim() || !aiForm.bestand} style={{ flex:2, padding:'12px', borderRadius:11, border:'none', background: (!aiForm.titel.trim()||!aiForm.bestand) ? 'rgba(6,182,212,0.3)' : 'linear-gradient(135deg,#06b6d4,#8b5cf6)', color:'#fff', fontSize:14, fontWeight:700, cursor: (!aiForm.titel.trim()||!aiForm.bestand) ? 'not-allowed' : 'pointer' }}>
+                <Zap size={14} style={{ marginRight:6, verticalAlign:'middle' }}/>Opslaan & versturen
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Add/Edit form modal */}
+      {showForm && createPortal(
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', backdropFilter:'blur(4px)', zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
+          onClick={e => { if (e.target === e.currentTarget) { setShowForm(false); setEditIdx(null); } }}>
+          <div style={{ background:isDark?'#0f1e36':'#fff', borderRadius:20, padding:28, maxWidth:520, width:'100%', border:`1px solid ${C.border}`, maxHeight:'90vh', overflowY:'auto' }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:22 }}>
+              <div style={{ fontSize:17, fontWeight:800, color:C.text }}>{editIdx !== null ? 'Bon bewerken' : 'Bon toevoegen'}</div>
+              <button onClick={() => { setShowForm(false); setEditIdx(null); }} style={{ background:'none', border:'none', color:C.muted, cursor:'pointer', padding:4 }}><X size={18}/></button>
+            </div>
+
+            {/* File upload in modal */}
+            <div onClick={() => fileRef.current?.click()} style={{ border:`1.5px dashed ${form.bestand ? '#22c55e' : C.border}`, borderRadius:12, padding:'14px', textAlign:'center', cursor:'pointer', marginBottom:18, background: form.bestand ? 'rgba(34,197,94,0.06)' : 'transparent' }}>
+              {form.bestand && form.bestand_naam?.match(/\.(jpg|jpeg|png|gif)$/i)
+                ? <img src={form.bestand} alt="" style={{ maxHeight:80, maxWidth:'100%', borderRadius:8, marginBottom:6 }}/>
+                : <Upload size={20} color={form.bestand ? '#22c55e' : C.muted} style={{ marginBottom:4 }}/>}
+              <div style={{ fontSize:12, color: form.bestand ? '#22c55e' : C.muted, fontWeight:600 }}>
+                {form.bestand_naam || 'Klik om bon te uploaden'}
+              </div>
+            </div>
+
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
+              <div>
+                <label style={lbl}>Datum *</label>
+                <input type="date" style={inp} value={form.datum} onChange={e => setF('datum', e.target.value)} />
+              </div>
+              <div>
+                <label style={lbl}>Categorie</label>
+                <select style={{ ...inp, cursor:'pointer' }} value={form.categorie} onChange={e => setF('categorie', e.target.value)}>
+                  {CATS.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div style={{ gridColumn:'1/-1' }}>
+                <label style={lbl}>Leverancier *</label>
+                <input style={inp} placeholder="Bijv. Albert Heijn, Apple..." value={form.leverancier} onChange={e => setF('leverancier', e.target.value)} />
+              </div>
+              <div style={{ gridColumn:'1/-1' }}>
+                <label style={lbl}>Beschrijving</label>
+                <input style={inp} placeholder="Optionele omschrijving..." value={form.beschrijving} onChange={e => setF('beschrijving', e.target.value)} />
+              </div>
+              <div>
+                <label style={lbl}>Bedrag excl. BTW *</label>
+                <input type="number" step="0.01" style={inp} placeholder="0,00" value={form.bedrag_excl} onChange={e => setF('bedrag_excl', e.target.value)} />
+              </div>
+              <div>
+                <label style={lbl}>BTW %</label>
+                <select style={{ ...inp, cursor:'pointer' }} value={form.btw_pct} onChange={e => setF('btw_pct', e.target.value)}>
+                  <option value="0">0%</option>
+                  <option value="9">9%</option>
+                  <option value="21">21%</option>
+                </select>
+              </div>
+              <div style={{ gridColumn:'1/-1' }}>
+                <label style={lbl}>Bedrag incl. BTW</label>
+                <input type="number" step="0.01" style={{ ...inp, background: isDark?'rgba(34,197,94,0.06)':'rgba(34,197,94,0.04)', borderColor:'rgba(34,197,94,0.3)' }} placeholder="Auto berekend" value={form.bedrag_incl} onChange={e => setF('bedrag_incl', e.target.value)} />
+              </div>
+            </div>
+
+            <label style={{ display:'flex', alignItems:'center', gap:10, marginTop:16, cursor:'pointer' }}>
+              <div onClick={() => setF('geboekt', !form.geboekt)} style={{ width:20, height:20, borderRadius:6, border:`2px solid ${form.geboekt ? '#22c55e' : C.border}`, background: form.geboekt ? '#22c55e' : 'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                {form.geboekt && <Check size={12} color="#fff" strokeWidth={3}/>}
+              </div>
+              <span style={{ fontSize:13, color:C.text }}>Bon is al geboekt in administratie</span>
+            </label>
+
+            <div style={{ display:'flex', gap:10, marginTop:22 }}>
+              <button onClick={() => { setShowForm(false); setEditIdx(null); }} style={{ flex:1, padding:12, borderRadius:11, border:`1px solid ${C.border}`, background:'transparent', color:C.muted, fontSize:14, fontWeight:600, cursor:'pointer' }}>Annuleren</button>
+              <button onClick={saveBon} style={{ flex:2, padding:12, borderRadius:11, border:'none', background:'linear-gradient(135deg,#f59e0b,#f97316)', color:'#fff', fontSize:14, fontWeight:700, cursor:'pointer' }}>
+                {editIdx !== null ? 'Opslaan' : 'Bon toevoegen'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
+function MijnBedrijfView({ isDark, user, profile, onSave, onNavigate, userPlan, onCompanyChange, accounts = [] }) {
+  const C = {
+    bg:    isDark ? "#0b1628" : "#f8fafc",
+    card:  isDark ? "#0f1e36" : "#ffffff",
+    border:isDark ? "rgba(255,255,255,0.08)" : "#e2e8f0",
+    text:  isDark ? "#f1f5f9" : "#0f172a",
+    muted: isDark ? "#64748b" : "#94a3b8",
+    input: isDark ? "rgba(255,255,255,0.06)" : "#f8fafc",
+  };
+
+  const EMPTY_PROFILE = { company_name:'', kvk:'', btw_number:'', iban:'', address:'', city:'', postal_code:'', payment_term_days:14, moneybird_enabled:false };
+
+  // ── Multi-profile state ────────────────────────────────────────
+  const storageKey = `dynafy_company_profiles_${user?.id}`;
+  const activeKey  = `dynafy_active_profile_${user?.id}`;
+
+  const [companyProfiles, setCompanyProfiles] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(storageKey));
+      if (saved && saved.length > 0) return saved;
+    } catch {}
+    // Bootstrap from current profile
+    return [{ ...EMPTY_PROFILE, ...profile, _id: 'main' }];
+  });
+
+  const [activeIdx, setActiveIdx] = useState(() => {
+    const saved = parseInt(localStorage.getItem(activeKey) || '0');
+    return isNaN(saved) ? 0 : saved;
+  });
+
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showDiamondModal, setShowDiamondModal] = useState(false);
+  const [hasExistingZzpData, setHasExistingZzpData] = useState(false);
+
+  // Check of er al ZZP data in Supabase staat (facturen, kosten, bonnen)
+  useEffect(() => {
+    if (!user?.id) return;
+    Promise.all([
+      supabase.from('invoices').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+      supabase.from('costs').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+      supabase.from('bonnen').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+    ]).then(([inv, cost, bon]) => {
+      if ((inv.count || 0) + (cost.count || 0) + (bon.count || 0) > 0) setHasExistingZzpData(true);
+    });
+  }, [user?.id]);
+
+  // Heeft de gebruiker al een actief bedrijfsprofiel met naam?
+  const hasActiveCompany = companyProfiles.some(p => p.company_name?.trim()) || hasExistingZzpData;
+  // Alleen ZZP Premium/Diamond mag bank + ZZP combineren
+  const PLAN_LEVELS_MB = { normal: 0, premium: 1, zzp_premium: 2, zzp_diamond: 3 };
+  const isZZPPlanMB = (PLAN_LEVELS_MB[userPlan] ?? 0) >= 2;
+  const gratisHasBankConflict = !isZZPPlanMB && accounts.length > 0 && !hasActiveCompany;
+
+  // Active profile form
+  const [form, setForm] = useState(() => ({ ...EMPTY_PROFILE, ...companyProfiles[activeIdx] }));
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [mbPopup, setMbPopup] = useState(false);
+  const [addingCompany, setAddingCompany] = useState(false);
+
+  // (boekhouder toegang now handled via Medewerkers section)
+
+  // Machtiging
+  const [machtigingEnabled, setMachtigingEnabled] = useState(false);
+  const [machtigingTooltip, setMachtigingTooltip] = useState(false);
+  const [geboortedatum, setGeboortedatum] = useState('');
+  const [bsn, setBsn] = useState('');
+  const [machtigingBtw, setMachtigingBtw] = useState(false);
+  const [machtigingIb, setMachtigingIb] = useState(false);
+
+  // Medewerkers (direct koppeling)
+  const [showMedewerkers, setShowMedewerkers]       = useState(false);
+  const [availableAccounts, setAvailableAccounts]   = useState([]);
+  const [accountsLoading, setAccountsLoading]       = useState(false);
+  const [selectedAccountId, setSelectedAccountId]   = useState('');
+  const [activeLinks, setActiveLinks]               = useState([]);
+  const [linksLoading, setLinksLoading]             = useState(false);
+  const [linkErr, setLinkErr]                       = useState('');
+
+  // Persist profiles to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem(storageKey, JSON.stringify(companyProfiles));
+  }, [companyProfiles]);
+  useEffect(() => {
+    localStorage.setItem(activeKey, String(activeIdx));
+  }, [activeIdx]);
+
+  // Load accounts and active links when medewerkers section opens
+  useEffect(() => {
+    if (!showMedewerkers || !user?.id) return;
+    setLinksLoading(true);
+    setAccountsLoading(true);
+    supabase.from('client_links').select('*').eq('client_user_id', user.id)
+      .then(async ({ data: links }) => {
+        if (!links) { setLinksLoading(false); return; }
+        // Fetch linked profile emails separately
+        const ids = links.map(l => l.linked_user_id).filter(Boolean);
+        const { data: profs } = ids.length
+          ? await supabase.from('profiles').select('id, email, role').in('id', ids)
+          : { data: [] };
+        const profMap = Object.fromEntries((profs || []).map(p => [p.id, p]));
+        setActiveLinks(links.map(l => ({ ...l, linked: profMap[l.linked_user_id] || null })));
+        setLinksLoading(false);
+      });
+    supabase.from('profiles').select('id, email, role').in('role', ['boekhouder', 'administrateur'])
+      .then(({ data }) => { setAvailableAccounts(data || []); setAccountsLoading(false); });
+  }, [showMedewerkers, user?.id]);
+
+  const linkAccount = async () => {
+    if (!selectedAccountId) return;
+    setLinkErr('');
+    const account = availableAccounts.find(a => a.id === selectedAccountId);
+    if (!account) return;
+    if (activeLinks.some(l => l.linked_user_id === selectedAccountId && l.status === 'accepted')) {
+      setLinkErr('Dit account is al gekoppeld');
+      return;
+    }
+    const { data, error } = await supabase.from('client_links').insert({
+      client_user_id: user.id,
+      linked_user_id: selectedAccountId,
+      role: account.role,
+      invite_code: 'DIRECT-' + Date.now(),
+      status: 'accepted',
+    }).select().single();
+    if (error) { setLinkErr('Fout: ' + error.message); return; }
+    if (data) {
+      setActiveLinks(prev => [...prev, { ...data, linked: { id: account.id, email: account.email, role: account.role } }]);
+      setSelectedAccountId('');
+    }
+  };
+
+  const revokeLink = async (linkId) => {
+    await supabase.from('client_links').delete().eq('id', linkId);
+    setActiveLinks(prev => prev.filter(l => l.id !== linkId));
+  };
+
+  // Switch profile: save current form into array, load new
+  const switchProfile = (idx) => {
+    const updated = companyProfiles.map((p, i) => i === activeIdx ? { ...p, ...form } : p);
+    setCompanyProfiles(updated);
+    setActiveIdx(idx);
+    setForm({ ...EMPTY_PROFILE, ...companyProfiles[idx] });
+    setDeleteConfirm(false);
+    onCompanyChange?.(updated, updated[idx]?._id || 'main');
+  };
+
+  // Add new profile — direct, no name dialog
+  const addProfile = () => {
+    const newP = { ...EMPTY_PROFILE, company_name: '', _id: Date.now().toString() };
+    const updated = [...companyProfiles, newP];
+    setCompanyProfiles(updated);
+    setActiveIdx(updated.length - 1);
+    setForm({ ...newP });
+    onCompanyChange?.(updated, newP._id);
+  };
+
+  // Delete current profile + all associated Supabase data
+  const deleteProfile = async () => {
+    if (!user?.id) return;
+    setDeleting(true);
+    const cid = companyProfiles[activeIdx]?._id || 'main';
+
+    try {
+      // Haal invoice IDs op voor deze company, zodat we ook invoice_lines kunnen verwijderen
+      let invQ = supabase.from('invoices').select('id').eq('user_id', user.id);
+      invQ = cid === 'main' ? invQ.is('company_profile_id', null) : invQ.eq('company_profile_id', cid);
+      const { data: invRows } = await invQ;
+      const invIds = (invRows || []).map(r => r.id);
+      if (invIds.length) {
+        await supabase.from('invoice_lines').delete().in('invoice_id', invIds);
+        await supabase.from('invoices').delete().in('id', invIds);
+      }
+
+      // Verwijder kosten voor deze company
+      let costQ = supabase.from('costs').delete().eq('user_id', user.id);
+      costQ = cid === 'main' ? costQ.is('company_profile_id', null) : costQ.eq('company_profile_id', cid);
+      await costQ;
+
+      // Verwijder bonnen voor deze company
+      let bonQ = supabase.from('bonnen').delete().eq('user_id', user.id);
+      bonQ = cid === 'main' ? bonQ.is('company_profile_id', null) : bonQ.eq('company_profile_id', cid);
+      await bonQ;
+    } catch (e) {
+      console.error('[Dynafy] deleteProfile error:', e);
+    }
+
+    // Update lokale profiles
+    if (companyProfiles.length <= 1) {
+      // Laatste profiel: reset naar leeg i.p.v. verwijderen
+      const empty = { ...EMPTY_PROFILE, _id: 'main' };
+      setCompanyProfiles([empty]);
+      setActiveIdx(0);
+      setForm({ ...empty });
+      onCompanyChange?.([empty], 'main');
+    } else {
+      const updated = companyProfiles.filter((_, i) => i !== activeIdx);
+      const newIdx = Math.max(0, activeIdx - 1);
+      setCompanyProfiles(updated);
+      setActiveIdx(newIdx);
+      setForm({ ...EMPTY_PROFILE, ...updated[newIdx] });
+      onCompanyChange?.(updated, updated[newIdx]?._id || 'main');
+    }
+
+    setDeleting(false);
+    setShowDeleteModal(false);
+    setDeleteConfirm(false);
+  };
+
+
+  // Sync als profile prop verandert (bijv. na initieel laden)
+  useEffect(() => {
+    setCompanyProfiles(prev => prev.map((p, i) => i === 0 ? { ...p, ...profile } : p));
+    if (activeIdx === 0) setForm(prev => ({ ...prev, ...profile }));
+  }, [profile.company_name]);
+
+  const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
+
+  const handleSave = async () => {
+    setSaving(true);
+    // Save into profiles array
+    const updated = companyProfiles.map((p, i) => i === activeIdx ? { ...p, ...form } : p);
+    setCompanyProfiles(updated);
+    // If it's the main/first profile, also save to Supabase
+    if (activeIdx === 0) await onSave(form);
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  };
+
+  const inputStyle = {
+    width: '100%', padding: '11px 14px', borderRadius: 10,
+    border: `1px solid ${C.border}`, background: C.input,
+    color: C.text, fontSize: 14, outline: 'none',
+    boxSizing: 'border-box', fontFamily: 'inherit',
+  };
+  const labelStyle = { fontSize: 12, fontWeight: 700, color: C.muted, display: 'block', marginBottom: 6, letterSpacing: '0.05em', textTransform: 'uppercase' };
+  const row2 = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 };
+
+  // ── Gratis blocker: heeft al een bankrekening ──
+  if (gratisHasBankConflict) {
+    return (
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:400, gap:20, textAlign:'center', padding:32 }}>
+        <div style={{ width:72, height:72, borderRadius:20, background:'rgba(245,158,11,0.1)', display:'flex', alignItems:'center', justifyContent:'center', border:'1px solid rgba(245,158,11,0.3)' }}>
+          <Building2 size={32} color="#f59e0b" style={{ opacity:0.8 }} />
+        </div>
+        <div>
+          <div style={{ fontSize:18, fontWeight:800, color:C.text, marginBottom:8 }}>ZZP + bankrekening vereist ZZP abonnement</div>
+          <div style={{ fontSize:14, color:C.muted, maxWidth:400, lineHeight:1.7 }}>
+            Je hebt al <strong style={{ color:C.text }}>{accounts.length} bankrekening{accounts.length !== 1 ? 'en' : ''}</strong> gekoppeld.
+            Om tegelijk een bankrekening én een bedrijfsprofiel te gebruiken heb je minimaal <strong style={{ color:'#a855f7' }}>ZZP Premium</strong> nodig.
+            Gratis en Premium abonnementen: óf bank óf ZZP — niet beide.
+          </div>
+        </div>
+        <div style={{ display:'flex', gap:10, flexWrap:'wrap', justifyContent:'center' }}>
+          <button onClick={() => onNavigate?.('rekeningen')} style={{ padding:'11px 20px', borderRadius:12, border:`1px solid ${C.border}`, background:'transparent', color:C.text, fontSize:14, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:7 }}>
+            <CreditCard size={15}/> Verwijder bankrekening(en)
+          </button>
+          <button onClick={() => onNavigate?.('pricing')} style={{ padding:'11px 20px', borderRadius:12, border:'none', background:'linear-gradient(135deg,#a855f7,#6366f1)', color:'#fff', fontSize:14, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', gap:7 }}>
+            <Zap size={15}/> Upgrade naar ZZP Premium
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Empty state: nog geen bedrijf aangemaakt ──
+  if (!hasActiveCompany && !addingCompany) {
+    return (
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:400, gap:20, textAlign:'center', padding:32 }}>
+        <div style={{ width:72, height:72, borderRadius:20, background:'rgba(245,158,11,0.1)', display:'flex', alignItems:'center', justifyContent:'center', border:'1px solid rgba(245,158,11,0.3)' }}>
+          <Building2 size={32} color="#f59e0b" style={{ opacity:0.8 }} />
+        </div>
+        <div>
+          <div style={{ fontSize:18, fontWeight:800, color:C.text, marginBottom:8 }}>Nog geen bedrijf</div>
+          <div style={{ fontSize:14, color:C.muted, maxWidth:340, lineHeight:1.7 }}>
+            Voeg je eerste bedrijfsprofiel toe. Deze gegevens worden automatisch ingevuld op je facturen.
+          </div>
+        </div>
+        <button onClick={() => {
+          const newP = { ...EMPTY_PROFILE, _id: 'main' };
+          setCompanyProfiles([newP]);
+          setForm({ ...newP });
+          setAddingCompany(true);
+        }} style={{ display:'flex', alignItems:'center', gap:8, padding:'13px 28px', borderRadius:14, border:'none', background:'linear-gradient(135deg,#f59e0b,#f97316)', color:'#fff', fontWeight:700, fontSize:15, cursor:'pointer' }}>
+          <Plus size={16}/> Bedrijf toevoegen
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: '28px 32px', maxWidth: 680, margin: '0 auto' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ width: 44, height: 44, borderRadius: 13, background: 'linear-gradient(135deg,#f59e0b,#f97316)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Building2 size={22} color="#fff" />
+          </div>
+          <div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: C.text }}>Mijn Bedrijf</div>
+            <div style={{ fontSize: 13, color: C.muted }}>Deze gegevens verschijnen op je facturen</div>
+          </div>
+        </div>
+        {/* Add profile button */}
+        <button onClick={() => { if (userPlan !== 'zzp_diamond') { setShowDiamondModal(true); return; } addProfile(); setDeleteConfirm(false); }}
+          style={{ display:'flex', alignItems:'center', gap:6, padding:'9px 14px', borderRadius:10, border:`1px solid ${C.border}`, background:'transparent', color:C.text, fontSize:13, fontWeight:600, cursor:'pointer' }}>
+          <Plus size={15}/> Bedrijf toevoegen
+        </button>
+      </div>
+
+      {/* ── Profile switcher tabs ── */}
+      {companyProfiles.length > 1 && (
+        <div style={{ display:'flex', gap:8, marginBottom:20, flexWrap:'wrap' }}>
+          {companyProfiles.map((p, i) => (
+            <button key={p._id || i} onClick={() => switchProfile(i)}
+              style={{ padding:'8px 16px', borderRadius:10, border:`2px solid ${i === activeIdx ? '#f59e0b' : C.border}`, background: i === activeIdx ? 'rgba(245,158,11,0.12)' : 'transparent', color: i === activeIdx ? '#f59e0b' : C.muted, fontWeight: i === activeIdx ? 700 : 500, fontSize:13, cursor:'pointer', transition:'all 0.18s', display:'flex', alignItems:'center', gap:6 }}>
+              <Building2 size={13}/> {p.company_name || `Bedrijf ${i+1}`}
+              {i === activeIdx && <span style={{ width:6, height:6, borderRadius:'50%', background:'#f59e0b', display:'inline-block', marginLeft:2 }}/>}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Diamond upgrade modal */}
+      {showDiamondModal && createPortal(
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.65)', backdropFilter:'blur(6px)', zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+          <div style={{ background:isDark?'#0f1e36':'#fff', borderRadius:22, padding:36, maxWidth:400, width:'100%', border:`1px solid ${C.border}`, textAlign:'center', boxShadow:'0 24px 60px rgba(0,0,0,0.4)' }}>
+            <div style={{ width:60, height:60, borderRadius:18, background:'linear-gradient(135deg,#a855f7,#6366f1)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 18px' }}>
+              <Crown size={28} color="#fff"/>
+            </div>
+            <div style={{ fontSize:20, fontWeight:800, color:C.text, marginBottom:8 }}>ZZP Diamond vereist</div>
+            <div style={{ fontSize:14, color:C.muted, lineHeight:1.7, marginBottom:24 }}>
+              Meerdere bedrijfsprofielen zijn beschikbaar in het <strong style={{color:'#a855f7'}}>ZZP Diamond</strong> pakket. Upgrade om onbeperkt bedrijven te beheren.
+            </div>
+            <div style={{ background:isDark?'rgba(168,85,247,0.08)':'rgba(168,85,247,0.05)', border:'1px solid rgba(168,85,247,0.2)', borderRadius:12, padding:'12px 16px', marginBottom:24, fontSize:13, color:C.muted, textAlign:'left' }}>
+              <div style={{fontWeight:700,color:'#a855f7',marginBottom:6}}>✦ Diamond voordelen</div>
+              <div>✓ Onbeperkt bedrijfsprofielen</div>
+              <div>✓ Prioriteit support</div>
+              <div>✓ Geavanceerde rapportages</div>
+              <div>✓ Team accounts</div>
+            </div>
+            <div style={{ display:'flex', gap:10 }}>
+              <button onClick={() => setShowDiamondModal(false)} style={{ flex:1, padding:13, borderRadius:12, border:`1px solid ${C.border}`, background:'transparent', color:C.muted, fontSize:14, fontWeight:600, cursor:'pointer' }}>Later</button>
+              <button onClick={() => setShowDiamondModal(false)} style={{ flex:2, padding:13, borderRadius:12, border:'none', background:'linear-gradient(135deg,#a855f7,#6366f1)', color:'#fff', fontSize:14, fontWeight:700, cursor:'pointer' }}>Upgrade naar Diamond →</button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 18, padding: 28, display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+        {/* Bedrijfsnaam */}
+        <div>
+          <label style={labelStyle}>Bedrijfsnaam *</label>
+          <input style={inputStyle} value={form.company_name} onChange={e => set('company_name', e.target.value)} placeholder="Jouw Bedrijf BV / ZZP" />
+        </div>
+
+        {/* KvK + BTW */}
+        <div style={row2}>
+          <div>
+            <label style={labelStyle}>KvK-nummer *</label>
+            <input style={inputStyle} value={form.kvk} onChange={e => set('kvk', e.target.value)} placeholder="12345678" maxLength={8} />
+          </div>
+          <div>
+            <label style={labelStyle}>BTW-nummer *</label>
+            <input style={inputStyle} value={form.btw_number} onChange={e => set('btw_number', e.target.value)} placeholder="NL123456789B01" />
+          </div>
+        </div>
+
+        {/* IBAN */}
+        <div>
+          <label style={labelStyle}>IBAN *</label>
+          <input style={inputStyle} value={form.iban} onChange={e => set('iban', e.target.value.toUpperCase())} placeholder="NL00 BANK 0000 0000 00" />
+        </div>
+
+        {/* Adres */}
+        <div>
+          <label style={labelStyle}>Straat en huisnummer *</label>
+          <input style={inputStyle} value={form.address} onChange={e => set('address', e.target.value)} placeholder="Voorbeeldstraat 1" />
+        </div>
+        <div style={row2}>
+          <div>
+            <label style={labelStyle}>Postcode *</label>
+            <input style={inputStyle} value={form.postal_code} onChange={e => set('postal_code', e.target.value.toUpperCase())} placeholder="1234 AB" maxLength={7} />
+          </div>
+          <div>
+            <label style={labelStyle}>Plaats *</label>
+            <input style={inputStyle} value={form.city} onChange={e => set('city', e.target.value)} placeholder="Amsterdam" />
+          </div>
+        </div>
+
+        {/* E-mail (readonly, van auth) */}
+        <div>
+          <label style={labelStyle}>E-mailadres</label>
+          <input style={{ ...inputStyle, opacity: 0.6, cursor: 'not-allowed' }} value={user?.email || ''} readOnly />
+          <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Wijzig via instellingen → account</div>
+        </div>
+
+        {/* Standaard betaaltermijn */}
+        <div>
+          <label style={labelStyle}>Standaard betaaltermijn (dagen)</label>
+          <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+            <input type="number" min={1} max={365} style={{ ...inputStyle, width:120 }} value={form.payment_term_days ?? 14} onChange={e => set('payment_term_days', parseInt(e.target.value)||14)} />
+            <span style={{ fontSize:13, color:C.muted }}>dagen na factuurdatum</span>
+          </div>
+          <div style={{ fontSize:11, color:C.muted, marginTop:4 }}>Wordt automatisch ingevuld bij nieuwe facturen.</div>
+        </div>
+
+        {/* ── Machtiging ── */}
+        <div style={{ borderRadius:12, border:`1px solid ${C.border}`, overflow:'hidden' }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 18px', background:isDark?'rgba(255,255,255,0.02)':'#f8fafc' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <Shield size={15} color="#a855f7" />
+              <div>
+                <div style={{ fontSize:14, fontWeight:700, color:C.text }}>Machtiging boekhouder</div>
+                <div style={{ fontSize:12, color:C.muted, marginTop:1 }}>Geef je boekhouder toestemming om namens jou BTW en/of inkomstenbelasting te doen</div>
+              </div>
+              <div style={{ position:'relative' }}
+                onMouseEnter={() => setMachtigingTooltip(true)}
+                onMouseLeave={() => setMachtigingTooltip(false)}>
+                <div style={{ width:18, height:18, borderRadius:'50%', background:isDark?'rgba(255,255,255,0.1)':'rgba(0,0,0,0.07)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'default', fontSize:11, fontWeight:700, color:C.muted }}>?</div>
+                {machtigingTooltip && (
+                  <div style={{ position:'absolute', left:24, top:-8, width:280, background:isDark?'#1e3a5f':'#1e293b', color:'#f1f5f9', fontSize:12, lineHeight:1.6, padding:'12px 14px', borderRadius:10, zIndex:200, boxShadow:'0 8px 24px rgba(0,0,0,0.3)', pointerEvents:'none' }}>
+                    <div style={{ fontWeight:700, marginBottom:4 }}>🔐 Machtiging</div>
+                    Hiermee geef je jouw boekhouder toestemming om je te machtigen voor officiële belasting- en boekhoudhandelingen, zoals het indienen van de BTW-aangifte namens jou.
+                  </div>
+                )}
+              </div>
+            </div>
+            <button onClick={() => setMachtigingEnabled(v => !v)}
+              style={{ width:46, height:26, borderRadius:13, border:'none', cursor:'pointer', background:machtigingEnabled?'#a855f7':'rgba(100,116,139,0.3)', position:'relative', transition:'background 0.2s', flexShrink:0 }}>
+              <div style={{ width:20, height:20, borderRadius:'50%', background:'#fff', position:'absolute', top:3, left:machtigingEnabled?23:3, transition:'left 0.2s', boxShadow:'0 1px 4px rgba(0,0,0,0.2)' }}/>
+            </button>
+          </div>
+          {machtigingEnabled && (
+            <div style={{ padding:'16px 18px', borderTop:`1px solid ${C.border}`, display:'flex', flexDirection:'column', gap:14 }}>
+              <div style={{ padding:'10px 14px', borderRadius:8, background:'rgba(168,85,247,0.08)', border:'1px solid rgba(168,85,247,0.2)', fontSize:12, color:'#c084fc', lineHeight:1.6 }}>
+                🔒 Je gegevens worden versleuteld opgeslagen en alleen gedeeld met jouw geselecteerde boekhouder.
+              </div>
+              {/* Selectie: waarvoor machtigen */}
+              <div>
+                <div style={{ fontSize:12, fontWeight:700, color:C.muted, marginBottom:10, textTransform:'uppercase', letterSpacing:'0.05em' }}>Waarvoor geef je toestemming?</div>
+                <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                  {[
+                    { key:'ib', label:'Inkomstenbelasting', desc:'Aangifte inkomstenbelasting namens jou indienen', checked:machtigingIb, set:setMachtigingIb, color:'#f59e0b' },
+                    { key:'btw', label:'BTW aangifte', desc:'Kwartaal BTW-aangifte namens jou indienen', checked:machtigingBtw, set:setMachtigingBtw, color:'#a855f7' },
+                  ].map(opt => (
+                    <label key={opt.key} onClick={() => opt.set(v => !v)} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 14px', borderRadius:10, border:`1px solid ${opt.checked ? opt.color : C.border}`, background: opt.checked ? (isDark?`${opt.color}18`:`${opt.color}10`) : 'transparent', cursor:'pointer', transition:'all 0.18s' }}>
+                      <div style={{ width:20, height:20, borderRadius:6, border:`2px solid ${opt.checked ? opt.color : C.border}`, background: opt.checked ? opt.color : 'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all 0.18s' }}>
+                        {opt.checked && <Check size={12} color="#fff" strokeWidth={3}/>}
+                      </div>
+                      <div>
+                        <div style={{ fontSize:13, fontWeight:700, color:C.text }}>{opt.label}</div>
+                        <div style={{ fontSize:11, color:C.muted, marginTop:1 }}>{opt.desc}</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label style={{ fontSize:12, fontWeight:700, color:C.muted, display:'block', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>Geboortedatum</label>
+                <input type="text" placeholder="DD-MM-JJJJ" maxLength={10}
+                  value={geboortedatum}
+                  onChange={e => {
+                    let v = e.target.value.replace(/[^0-9]/g,'');
+                    if (v.length >= 3) v = v.slice(0,2) + '-' + v.slice(2);
+                    if (v.length >= 6) v = v.slice(0,5) + '-' + v.slice(5);
+                    setGeboortedatum(v.slice(0,10));
+                  }}
+                  style={{ width:'100%', padding:'11px 14px', borderRadius:10, border:`1px solid ${C.border}`, background:C.input, color:C.text, fontSize:14, outline:'none', boxSizing:'border-box', fontFamily:'inherit' }} />
+              </div>
+              <div>
+                <label style={{ fontSize:12, fontWeight:700, color:C.muted, display:'block', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>BSN-nummer</label>
+                <input type="text" placeholder="123456789" maxLength={9}
+                  value={bsn}
+                  onChange={e => setBsn(e.target.value.replace(/[^0-9]/g,'').slice(0,9))}
+                  style={{ width:'100%', padding:'11px 14px', borderRadius:10, border:`1px solid ${C.border}`, background:C.input, color:C.text, fontSize:14, outline:'none', boxSizing:'border-box', fontFamily:'inherit' }} />
+                <div style={{ fontSize:11, color:C.muted, marginTop:4 }}>Alleen cijfers, 9 tekens</div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Medewerkers & Boekhouder toegang ── */}
+        <div style={{ borderRadius:12, border:`1px solid ${C.border}`, overflow:'hidden' }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 18px', background:isDark?'rgba(255,255,255,0.02)':'#f8fafc' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <Users size={15} color="#4f8ef7" />
+              <div>
+                <div style={{ fontSize:14, fontWeight:700, color:C.text }}>Medewerkers & Boekhouder</div>
+                <div style={{ fontSize:12, color:C.muted, marginTop:1 }}>Koppel een boekhouder of administrateur aan jouw account</div>
+              </div>
+            </div>
+            <button onClick={() => setShowMedewerkers(v => !v)}
+              style={{ width:46, height:26, borderRadius:13, border:'none', cursor:'pointer', background:showMedewerkers?'#4f8ef7':'rgba(100,116,139,0.3)', position:'relative', transition:'background 0.2s', flexShrink:0 }}>
+              <div style={{ width:20, height:20, borderRadius:'50%', background:'#fff', position:'absolute', top:3, left:showMedewerkers?23:3, transition:'left 0.2s', boxShadow:'0 1px 4px rgba(0,0,0,0.2)' }}/>
+            </button>
+          </div>
+          {showMedewerkers && (
+            <div style={{ padding:'18px 18px', borderTop:`1px solid ${C.border}`, display:'flex', flexDirection:'column', gap:16 }}>
+              {/* Account koppelen */}
+              <div>
+                <div style={{ fontSize:12, fontWeight:700, color:C.muted, marginBottom:10, textTransform:'uppercase', letterSpacing:'0.05em' }}>Account koppelen</div>
+                {accountsLoading ? (
+                  <div style={{ fontSize:13, color:C.muted }}>Laden...</div>
+                ) : availableAccounts.length === 0 ? (
+                  <div style={{ padding:'14px 16px', borderRadius:10, background:isDark?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.03)', border:`1px dashed ${C.border}`, textAlign:'center' }}>
+                    <div style={{ fontSize:13, color:C.muted, marginBottom:4 }}>Geen boekhouder of administrateur accounts gevonden</div>
+                    <div style={{ fontSize:12, color:C.muted }}>Vraag je boekhouder of administrateur om een Dynafy account aan te maken.</div>
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{ display:'flex', gap:10 }}>
+                      <select value={selectedAccountId} onChange={e => setSelectedAccountId(e.target.value)}
+                        style={{ flex:1, padding:'11px 14px', borderRadius:10, border:`1px solid ${C.border}`, background:C.input, color:C.text, fontSize:14, outline:'none', fontFamily:'inherit', cursor:'pointer' }}>
+                        <option value="">— Kies een account —</option>
+                        {availableAccounts.map(a => (
+                          <option key={a.id} value={a.id}>{a.email} ({a.role})</option>
+                        ))}
+                      </select>
+                      <button onClick={linkAccount} disabled={!selectedAccountId}
+                        style={{ padding:'11px 18px', borderRadius:10, border:'none', background: selectedAccountId ? '#4f8ef7' : 'rgba(79,142,247,0.3)', color:'#fff', fontSize:14, fontWeight:700, cursor: selectedAccountId ? 'pointer' : 'not-allowed', whiteSpace:'nowrap', fontFamily:'inherit' }}>
+                        Koppelen
+                      </button>
+                    </div>
+                    {linkErr && <div style={{ marginTop:8, fontSize:12, color:'#f43f5e' }}>{linkErr}</div>}
+                  </div>
+                )}
+              </div>
+
+              {/* Actieve koppelingen */}
+              <div>
+                <div style={{ fontSize:12, fontWeight:700, color:C.muted, marginBottom:10, textTransform:'uppercase', letterSpacing:'0.05em' }}>Actieve koppelingen</div>
+                {linksLoading ? (
+                  <div style={{ fontSize:13, color:C.muted }}>Laden...</div>
+                ) : activeLinks.filter(l => l.status === 'accepted').length === 0 ? (
+                  <div style={{ fontSize:13, color:C.muted, padding:'12px 14px', borderRadius:10, background:isDark?'rgba(255,255,255,0.03)':'#f1f5f9', textAlign:'center' }}>
+                    Nog geen actieve koppelingen
+                  </div>
+                ) : (
+                  <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                    {activeLinks.filter(l => l.status === 'accepted').map(link => (
+                      <div key={link.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px', borderRadius:10, border:`1px solid ${C.border}`, background:isDark?'rgba(255,255,255,0.03)':'#f8fafc' }}>
+                        <div style={{ width:32, height:32, borderRadius:9, background: link.role==='boekhouder'?'rgba(168,85,247,0.12)':'rgba(79,142,247,0.12)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                          <Users size={14} color={link.role==='boekhouder'?'#a855f7':'#4f8ef7'} />
+                        </div>
+                        <div style={{ flex:1 }}>
+                          <div style={{ fontSize:13, fontWeight:700, color:C.text }}>{link.linked?.email || '—'}</div>
+                          <div style={{ fontSize:11, color: link.role==='boekhouder'?'#a855f7':'#4f8ef7', fontWeight:600, marginTop:1, textTransform:'capitalize' }}>{link.role}</div>
+                        </div>
+                        <div style={{ fontSize:11, color:'#22c55e', fontWeight:700 }}>● Actief</div>
+                        <button onClick={() => revokeLink(link.id)}
+                          style={{ padding:'5px 10px', borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', color:C.muted, fontSize:11, cursor:'pointer', fontFamily:'inherit' }}>
+                          Intrekken
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Moneybird koppeling — minst belangrijk, onderaan */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 18px', borderRadius:12, border:`1px solid ${C.border}`, background:isDark?'rgba(255,255,255,0.02)':'#f8fafc' }}>
+          <div>
+            <div style={{ fontSize:14, fontWeight:700, color:C.text, display:'flex', alignItems:'center', gap:8 }}>
+              <RefreshCw size={15} color="#4f8ef7" /> Moneybird koppeling
+            </div>
+            <div style={{ fontSize:12, color:C.muted, marginTop:2 }}>Synchroniseer facturen via Moneybird</div>
+          </div>
+          <button onClick={() => {
+            const newVal = !(form.moneybird_enabled);
+            set('moneybird_enabled', newVal);
+            if (newVal) setMbPopup(true);
+          }} style={{ width:46, height:26, borderRadius:13, border:'none', cursor:'pointer', background:form.moneybird_enabled?'#22c55e':'rgba(100,116,139,0.3)', position:'relative', transition:'background 0.2s', flexShrink:0 }}>
+            <div style={{ width:20, height:20, borderRadius:'50%', background:'#fff', position:'absolute', top:3, left:form.moneybird_enabled?23:3, transition:'left 0.2s', boxShadow:'0 1px 4px rgba(0,0,0,0.2)' }}/>
+          </button>
+        </div>
+
+        {/* Opslaan + verwijder */}
+        <div style={{ display:'flex', gap:10 }}>
+          <button onClick={handleSave} disabled={saving}
+            style={{ flex:1, padding: '13px 0', borderRadius: 12, border: 'none', cursor: saving ? 'wait' : 'pointer', background: saved ? 'linear-gradient(135deg,#22c55e,#16a34a)' : 'linear-gradient(135deg,#f59e0b,#f97316)', color: '#fff', fontSize: 15, fontWeight: 700, transition: 'background 0.3s' }}>
+            {saved ? '✓ Opgeslagen' : saving ? 'Opslaan...' : 'Opslaan'}
+          </button>
+          <button onClick={() => setShowDeleteModal(true)} title="Verwijder dit bedrijfsprofiel en alle bijbehorende data"
+            style={{ padding:'13px 14px', borderRadius:12, border:'1px solid rgba(244,63,94,0.3)', background:'rgba(244,63,94,0.06)', color:'#f43f5e', cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontSize:13, fontWeight:600 }}>
+            <Trash2 size={15}/> Bedrijf verwijderen
+          </button>
+        </div>
+      </div>
+
+      {/* Tip */}
+      <div style={{ marginTop: 20, padding: '14px 18px', borderRadius: 12, background: isDark ? 'rgba(79,142,247,0.08)' : 'rgba(79,142,247,0.06)', border: `1px solid ${isDark?'rgba(79,142,247,0.2)':'rgba(79,142,247,0.15)'}` }}>
+        <div style={{ fontSize: 12, color: '#4f8ef7', fontWeight: 600, marginBottom: 4 }}>💡 Wettelijke verplichting</div>
+        <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
+          Op elke factuur moeten staan: je bedrijfsnaam, KvK-nummer, BTW-nummer, IBAN, adres en het factuurnummer. Dynafy vult dit automatisch in zodra je een factuur aanmaakt.
+        </div>
+      </div>
+
+      {/* ── Bedrijf verwijderen modal ── */}
+      {showDeleteModal && createPortal(
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', backdropFilter:'blur(6px)', zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+          <div style={{ background:isDark?'#0f1e36':'#fff', borderRadius:22, padding:36, maxWidth:420, width:'100%', border:`1px solid rgba(244,63,94,0.3)`, boxShadow:'0 24px 60px rgba(0,0,0,0.5)' }}>
+            <div style={{ width:56, height:56, borderRadius:16, background:'rgba(244,63,94,0.12)', border:'1px solid rgba(244,63,94,0.3)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 20px' }}>
+              <Trash2 size={24} color="#f43f5e" />
+            </div>
+            <div style={{ fontSize:20, fontWeight:800, color:C.text, marginBottom:8, textAlign:'center' }}>
+              Bedrijf verwijderen
+            </div>
+            <div style={{ fontSize:14, color:C.muted, textAlign:'center', marginBottom:20, lineHeight:1.6 }}>
+              Je staat op het punt <strong style={{ color:C.text }}>{companyProfiles[activeIdx]?.company_name || 'dit bedrijf'}</strong> te verwijderen. Dit kan niet ongedaan worden gemaakt.
+            </div>
+            <div style={{ background:'rgba(244,63,94,0.06)', border:'1px solid rgba(244,63,94,0.2)', borderRadius:12, padding:'14px 16px', marginBottom:24 }}>
+              <div style={{ fontSize:12, fontWeight:700, color:'#f43f5e', marginBottom:8, textTransform:'uppercase', letterSpacing:'0.05em' }}>Wordt permanent verwijderd</div>
+              {[
+                { icon:'📄', label:'Alle facturen van dit bedrijf' },
+                { icon:'💸', label:'Alle kosten van dit bedrijf' },
+                { icon:'🧾', label:'Alle bonnen van dit bedrijf' },
+                { icon:'🏢', label:'Het bedrijfsprofiel zelf' },
+              ].map(item => (
+                <div key={item.label} style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, color:C.muted, marginBottom:4 }}>
+                  <span>{item.icon}</span> {item.label}
+                </div>
+              ))}
+            </div>
+            <div style={{ display:'flex', gap:10 }}>
+              <button onClick={() => setShowDeleteModal(false)} disabled={deleting}
+                style={{ flex:1, padding:'13px 0', borderRadius:12, border:`1px solid ${C.border}`, background:'transparent', color:C.muted, fontSize:14, fontWeight:600, cursor:'pointer' }}>
+                Annuleren
+              </button>
+              <button onClick={deleteProfile} disabled={deleting}
+                style={{ flex:1, padding:'13px 0', borderRadius:12, border:'none', background: deleting ? 'rgba(244,63,94,0.4)' : '#f43f5e', color:'#fff', fontSize:14, fontWeight:700, cursor: deleting ? 'wait' : 'pointer' }}>
+                {deleting ? 'Verwijderen...' : 'Ja, verwijderen'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Moneybird activated popup */}
+      {mbPopup && createPortal(
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', backdropFilter:'blur(4px)', zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+          <div style={{ background:isDark?'#0f1e36':'#fff', borderRadius:20, padding:32, maxWidth:380, width:'100%', border:`1px solid ${C.border}`, textAlign:'center' }}>
+            <div style={{ width:52, height:52, borderRadius:14, background:'linear-gradient(135deg,#22c55e,#16a34a)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px' }}><RefreshCw size={24} color="#fff"/></div>
+            <div style={{ fontSize:18, fontWeight:800, color:C.text, marginBottom:8 }}>Moneybird geactiveerd</div>
+            <div style={{ fontSize:14, color:C.muted, lineHeight:1.6, marginBottom:24 }}>Sla de instellingen op en ga naar Moneybird om de koppeling in te stellen.</div>
+            <div style={{ display:'flex', gap:10 }}>
+              <button onClick={() => setMbPopup(false)} style={{ flex:1, padding:12, borderRadius:12, border:`1px solid ${C.border}`, background:'transparent', color:C.muted, fontSize:14, fontWeight:600, cursor:'pointer' }}>Sluiten</button>
+              <button onClick={async () => { setMbPopup(false); await onSave(form); if(onNavigate) onNavigate('moneybird'); }} style={{ flex:2, padding:12, borderRadius:12, border:'none', background:'linear-gradient(135deg,#22c55e,#16a34a)', color:'#fff', fontSize:14, fontWeight:700, cursor:'pointer' }}>Instellingen opslaan →</button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
+// ─── MB FACTUREN VIEW (Moneybird integration) ──────────────────
+function MbFacturenView({ isDark, connected, onConnect, onDisconnect, facturen, loading, error, onRefresh }) {
+  const [tokenInput, setTokenInput] = useState("");
+  const [adminInput, setAdminInput] = useState(() => localStorage.getItem("dynafy_mb_admin") || "");
+
+  const parseAmt = (v) => parseFloat(v || 0);
+  const btwOf = (f) => Math.max(0, parseAmt(f.total_price_incl_tax) - parseAmt(f.total_price_excl_tax || f.total_price_excl_tax_with_discount));
+  const thisYear = new Date().getFullYear();
+  const fmt = (n) => "€ " + n.toLocaleString("nl-NL", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const contactName = (c) => { if (!c) return "—"; return c.company_name || [c.firstname,c.lastname].filter(Boolean).join(" ") || "—"; };
+
+  const openstaand = facturen
+    .filter(f => ["open","late","reminded","pending_payment"].includes((f.state||"").toLowerCase()))
+    .reduce((s,f) => s + parseAmt(f.total_price_incl_tax), 0);
+
+  const ontvangenYTD = facturen
+    .filter(f => new Date(f.invoice_date||"").getFullYear()===thisYear && (f.state||"").toLowerCase()==="paid")
+    .reduce((s,f) => s + parseAmt(f.total_price_incl_tax), 0);
+
+  const btwVerschuldigd = facturen
+    .filter(f => ["open","late","reminded","pending_payment"].includes((f.state||"").toLowerCase()))
+    .reduce((s,f) => s + btwOf(f), 0);
+
+  const statusColor = (s = "") => { switch((s||"").toLowerCase()) { case "paid": return "#22c55e"; case "late": return "#f43f5e"; case "open": case "reminded": case "pending_payment": return "#f59e0b"; default: return "#64748b"; } };
+  const statusLabel = (s = "") => { switch((s||"").toLowerCase()) { case "paid": return "Betaald"; case "late": return "Te laat"; case "open": return "Open"; case "reminded": return "Herinnerd"; case "pending_payment": return "In behandeling"; case "draft": return "Concept"; case "scheduled": return "Gepland"; case "uncollectible": return "Oninbaar"; default: return s || "—"; } };
+  const iStyle = { width:"100%", padding:"11px 14px", borderRadius:10, border:`1px solid ${isDark?"rgba(255,255,255,0.1)":"#d1d5db"}`, background:isDark?"rgba(255,255,255,0.05)":"#f9fafb", color:isDark?"#f1f5f9":"#111827", fontSize:14, boxSizing:"border-box", outline:"none", fontFamily:"inherit" };
+
+  if (!connected) return (
+    <div style={{ maxWidth: 520, margin: "0 auto", paddingTop: 24 }}>
+      <div style={{ ...card(isDark), padding: 32 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:8 }}>
+          <div style={{ width:46, height:46, borderRadius:14, background:"linear-gradient(135deg,#4f8ef7,#6366f1)", display:"flex", alignItems:"center", justifyContent:"center" }}><FileText size={22} color="#fff" /></div>
+          <div>
+            <div style={{ fontSize:18, fontWeight:700, color:isDark?"#f1f5f9":"#111827" }}>Moneybird koppelen</div>
+            <div style={{ fontSize:13, color:"#64748b", marginTop:2 }}>Bekijk je facturen &amp; kosten in Dynafy</div>
+          </div>
+        </div>
+        <div style={{ height:1, background:isDark?"rgba(255,255,255,0.06)":"#f0f0f0", margin:"20px 0" }} />
+        <div style={{ fontSize:13, color:"#64748b", lineHeight:1.7, marginBottom:20 }}>
+          <strong style={{ color:isDark?"#cbd5e1":"#374151", display:"block", marginBottom:6 }}>Hoe verbinden?</strong>
+          <ol style={{ margin:0, paddingLeft:18 }}>
+            <li>Log in op <strong>moneybird.com</strong></li>
+            <li>Ga naar <em>Instellingen → Externe en AI-koppelingen</em></li>
+            <li>Klik <strong>API token aanmaken</strong> en kopieer het token</li>
+            <li>Je <strong>Administratie-ID</strong> vind je in de URL:<br /><code style={{ fontSize:12, background:isDark?"rgba(255,255,255,0.06)":"#f1f5f9", padding:"2px 6px", borderRadius:4 }}>moneybird.com/<strong>397727568951772297</strong>/...</code></li>
+          </ol>
+        </div>
+        <div style={{ marginBottom:14 }}>
+          <label style={{ fontSize:12, fontWeight:600, color:"#64748b", display:"block", marginBottom:6, letterSpacing:"0.04em" }}>API TOKEN</label>
+          <input type="password" placeholder="Plak hier je Moneybird API-token" value={tokenInput} onChange={e => setTokenInput(e.target.value)} style={iStyle} />
+        </div>
+        <div style={{ marginBottom:24 }}>
+          <label style={{ fontSize:12, fontWeight:600, color:"#64748b", display:"block", marginBottom:6, letterSpacing:"0.04em" }}>ADMINISTRATIE-ID</label>
+          <input type="text" placeholder="bijv. 397727568951772297" value={adminInput} onChange={e => setAdminInput(e.target.value)} style={iStyle} />
+        </div>
+        {error && <div style={{ padding:"10px 14px", borderRadius:8, background:"rgba(244,63,94,0.1)", border:"1px solid rgba(244,63,94,0.2)", color:"#f43f5e", fontSize:13, marginBottom:16 }}>{error}</div>}
+        <button onClick={() => onConnect(tokenInput.trim(), adminInput.trim())} disabled={!tokenInput.trim()||!adminInput.trim()} style={{ ...pillBtn(), width:"100%", padding:"12px 0", opacity:(!tokenInput.trim()||!adminInput.trim())?0.45:1 }}>Verbinden</button>
+        <div style={{ fontSize:12, color:"#64748b", marginTop:14, textAlign:"center" }}>🔒 Je token wordt alleen lokaal opgeslagen en nooit gedeeld</div>
+      </div>
+    </div>
+  );
+
+  const summaryCards = [
+    { label:"Openstaand",    value:fmt(openstaand),      color:"#f59e0b" },
+    { label:"Ontvangen YTD", value:fmt(ontvangenYTD),    color:"#22c55e" },
+    { label:"BTW verschuldigd", value:fmt(btwVerschuldigd), color:"#8b5cf6" },
+    { label:`Facturen (${facturen.length})`, value:"", color:"#4f8ef7", count: true },
+  ];
+
+  return (
+    <div>
+      <div style={{ display:"flex", gap:14, marginBottom:24, flexWrap:"wrap" }}>
+        {summaryCards.filter(s=>!s.count).map(sc => (
+          <div key={sc.label} style={{ ...card(isDark), flex:1, minWidth:150, position:"relative", overflow:"hidden", borderTop:isDark?`1px solid ${sc.color}30`:`2.5px solid ${sc.color}` }}>
+            <div style={{ position:"absolute", top:-20, right:-20, width:80, height:80, borderRadius:"50%", background:sc.color, opacity:0.07, filter:"blur(18px)" }} />
+            <div style={{ fontSize:11, fontWeight:700, color:"#64748b", letterSpacing:"0.08em", marginBottom:8, textTransform:"uppercase" }}>{sc.label}</div>
+            <div style={{ fontSize:22, fontWeight:800, color:isDark?"#f1f5f9":"#111827", letterSpacing:"-0.5px" }}>{sc.value}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:18 }}>
+        <div style={{ flex:1 }} />
+        <button onClick={onRefresh} disabled={loading} style={{ display:"flex", alignItems:"center", gap:6, padding:"7px 14px", borderRadius:20, border:`1px solid ${isDark?"rgba(255,255,255,0.1)":"#e2e8f0"}`, background:"transparent", color:isDark?"#94a3b8":"#64748b", fontSize:13, cursor:"pointer" }}>
+          <RefreshCw size={13} style={{ animation:loading?"spin 0.8s linear infinite":"none" }} /> Vernieuwen
+        </button>
+        <button onClick={onDisconnect} style={{ display:"flex", alignItems:"center", gap:6, padding:"7px 14px", borderRadius:20, border:"1px solid rgba(244,63,94,0.3)", background:"transparent", color:"#f43f5e", fontSize:13, cursor:"pointer" }}>
+          <X size={13} /> Loskoppelen
+        </button>
+      </div>
+      {error && <div style={{ padding:"10px 14px", borderRadius:8, background:"rgba(244,63,94,0.1)", border:"1px solid rgba(244,63,94,0.2)", color:"#f43f5e", fontSize:13, marginBottom:16 }}>{error}</div>}
+      <div style={{ ...card(isDark), padding:0, overflow:"hidden" }}>
+        <div style={{ display:"grid", gridTemplateColumns:"80px 1fr 140px 130px 110px", padding:"12px 20px", borderBottom:`1px solid ${isDark?"rgba(255,255,255,0.06)":"#f0f0f0"}` }}>
+          {["Nummer","Relatie","Datum","Bedrag incl. BTW","Status"].map(h => <div key={h} style={{ fontSize:11, fontWeight:700, color:"#64748b", textTransform:"uppercase", letterSpacing:"0.06em" }}>{h}</div>)}
+        </div>
+        {loading ? <div style={{ padding:40, textAlign:"center", color:"#64748b" }}><div style={{ width:28, height:28, border:"3px solid rgba(79,142,247,0.2)", borderTopColor:"#4f8ef7", borderRadius:"50%", animation:"spin 0.8s linear infinite", margin:"0 auto 12px" }} />Laden…</div>
+        : facturen.length===0 ? <div style={{ padding:40, textAlign:"center", color:"#64748b", fontSize:14 }}>Geen facturen gevonden.</div>
+        : facturen.map((item, i) => {
+            const num = item.invoice_id || item.reference || `#${i+1}`;
+            const rel = contactName(item.contact);
+            const status = item.state || "";
+            return (
+              <div key={item.id||i} style={{ display:"grid", gridTemplateColumns:"80px 1fr 140px 130px 110px", padding:"13px 20px", borderBottom: i<facturen.length-1?`1px solid ${isDark?"rgba(255,255,255,0.04)":"#f8f8f8"}`:"none", alignItems:"center" }}>
+                <div style={{ fontSize:13, fontWeight:700, color:isDark?"#94a3b8":"#64748b" }}>{num}</div>
+                <div style={{ fontSize:14, fontWeight:600, color:isDark?"#f1f5f9":"#111827" }}>{rel}</div>
+                <div style={{ fontSize:13, color:isDark?"#94a3b8":"#64748b" }}>{item.invoice_date||"—"}</div>
+                <div style={{ fontSize:14, fontWeight:700, color:isDark?"#f1f5f9":"#111827" }}>{fmt(parseAmt(item.total_price_incl_tax))}</div>
+                <div><span style={{ display:"inline-block", padding:"3px 10px", borderRadius:20, fontSize:11, fontWeight:700, background:statusColor(status)+"22", color:statusColor(status) }}>{statusLabel(status)}</span></div>
+              </div>
+            );
+          })
+        }
+      </div>
+    </div>
+  );
+}
+
+// ─── ADMIN VIEW ────────────────────────────────────────────────
+function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted }) {
+  const [profiles, setProfiles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [confirm, setConfirm] = useState(null); // { type, profile }
+  const [actionMsg, setActionMsg] = useState(null);
+  const [viewingUser, setViewingUser] = useState(null);
+  const [userData, setUserData] = useState(null);
+  const [userDataLoading, setUserDataLoading] = useState(false);
+  const [userDataTab, setUserDataTab] = useState("transactions");
+
+  // Bulk selection
+  const [selected, setSelected] = useState(new Set());
+  const [bulkPlan, setBulkPlan] = useState('premium');
+  const [bulkApplying, setBulkApplying] = useState(false);
+
+  // Role overrides — persists local changes even when loadProfiles() re-fetches
+  const [roleOverrides, setRoleOverrides] = useState({});
+
+  // Add user modal
+  const [showAddUser, setShowAddUser] = useState(false);
+  const [newEmail, setNewEmail]       = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [newRole, setNewRole]         = useState('');
+  const [newPlan, setNewPlan]         = useState('normal');
+  const [addingUser, setAddingUser]   = useState(false);
+
+  const C = {
+    bg:    isDark ? "#0b1628" : "#f8fafc",
+    card:  isDark ? "#0f1e36" : "#ffffff",
+    border:isDark ? "rgba(255,255,255,0.08)" : "#e2e8f0",
+    text:  isDark ? "#f1f5f9" : "#0f172a",
+    muted: isDark ? "#64748b" : "#94a3b8",
+    input: isDark ? "rgba(255,255,255,0.06)" : "#f1f5f9",
+  };
+
+  const flash = (msg, ok = true) => {
+    setActionMsg({ msg, ok });
+    setTimeout(() => setActionMsg(null), 3000);
+  };
+
+  const PLANS       = ['normal', 'premium', 'zzp_premium', 'zzp_diamond'];
+  const PLAN_LABELS = { normal: 'Gratis', premium: 'Premium', zzp_premium: 'ZZP Premium', zzp_diamond: 'ZZP Diamond' };
+  const PLAN_ICONS  = { normal: '○', premium: '★', zzp_premium: '⚡', zzp_diamond: '♦' };
+  const PLAN_COLORS = { normal: C.muted, premium: '#f59e0b', zzp_premium: '#a855f7', zzp_diamond: '#06b6d4' };
+  const PLAN_BG     = { normal: 'rgba(100,116,139,0.15)', premium: 'rgba(245,158,11,0.15)', zzp_premium: 'rgba(168,85,247,0.15)', zzp_diamond: 'rgba(6,182,212,0.15)' };
+
+  const ROLES       = ['', 'admin', 'boekhouder', 'administrateur'];
+  const ROLE_LABELS = { '': 'Geen rol', admin: 'Admin', boekhouder: 'Boekhouder', administrateur: 'Administrateur' };
+  const ROLE_ICONS  = { '': '—', admin: '🔐', boekhouder: '📊', administrateur: '📝' };
+  const ROLE_COLORS = { '': C.muted, admin: '#f43f5e', boekhouder: '#a855f7', administrateur: '#4f8ef7' };
+  const ROLE_BG     = { '': 'rgba(100,116,139,0.1)', admin: 'rgba(244,63,94,0.12)', boekhouder: 'rgba(168,85,247,0.12)', administrateur: 'rgba(79,142,247,0.12)' };
+
+  // Load all profiles (admin sees all via RLS policy)
+  const loadProfiles = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (!error && data) setProfiles(data);
+    setLoading(false);
+  };
+
+  useEffect(() => { loadProfiles(); }, []);
+
+  const sendPasswordReset = async (profile) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(profile.email, {
+      redirectTo: window.location.origin,
+    });
+    if (!error) flash(`Reset-link verstuurd naar ${profile.email}`);
+    else flash(`Reset fout: ${error.message}`, false);
+  };
+
+  const openUserData = async (profile) => {
+    setViewingUser(profile);
+    setUserDataTab("transactions");
+    setUserDataLoading(true);
+    setUserData(null);
+    const uid = profile.id;
+    const [txRes, invRes, goalRes] = await Promise.all([
+      supabase.from('transactions').select('*').eq('user_id', uid).order('date', { ascending: false }),
+      supabase.from('investments').select('*').eq('user_id', uid),
+      supabase.from('goals').select('*').eq('user_id', uid),
+    ]);
+    setUserData({
+      transactions: txRes.data || [],
+      investments:  invRes.data || [],
+      goals:        goalRes.data || [],
+    });
+    setUserDataLoading(false);
+  };
+
+  const setPlan = async (profile, newPlan) => {
+    const { error } = await supabase.from('profiles').update({ plan: newPlan }).eq('id', profile.id);
+    if (!error) {
+      setProfiles(prev => prev.map(p => p.id === profile.id ? { ...p, plan: newPlan } : p));
+      if (profile.id === user?.id) onOwnPlanChange?.(newPlan);
+      flash(`${profile.email} → ${PLAN_LABELS[newPlan]}`);
+    } else flash('Fout bij bijwerken', false);
+  };
+
+  const setRole = async (profile, newRole) => {
+    const isAdmin = newRole === 'admin';
+    const { error: e1 } = await supabase.from('profiles').update({ is_admin: isAdmin }).eq('id', profile.id);
+    if (e1) { flash('Fout bij bijwerken', false); return; }
+    const { error: e2 } = await supabase.from('profiles').update({ role: newRole || null }).eq('id', profile.id);
+    // Always persist locally — survives Verversen even if DB column missing
+    setRoleOverrides(prev => ({ ...prev, [profile.id]: { role: newRole || null, is_admin: isAdmin } }));
+    setProfiles(prev => prev.map(p => p.id === profile.id ? { ...p, is_admin: isAdmin, role: newRole || null } : p));
+    if (e2 && newRole !== '' && newRole !== 'admin') {
+      flash(`${profile.email} → ${ROLE_LABELS[newRole]} · voer SQL migratie uit om permanent op te slaan`);
+    } else {
+      flash(`${profile.email} → ${ROLE_LABELS[newRole] || 'Geen rol'}`);
+    }
+  };
+
+  const createUser = async () => {
+    if (!newEmail.trim()) return;
+    setAddingUser(true);
+    const { data: { session: adminSession } } = await supabase.auth.getSession();
+    const pw = newPassword.trim() || Math.random().toString(36).slice(-8) + 'Aa1!';
+    const { data, error } = await supabase.auth.signUp({ email: newEmail.trim(), password: pw });
+    if (error) { flash(`Fout: ${error.message}`, false); setAddingUser(false); return; }
+    // Restore admin session if signUp changed it
+    if (adminSession) {
+      const { data: { session: curr } } = await supabase.auth.getSession();
+      if (curr?.user?.id !== adminSession.user.id) {
+        await supabase.auth.setSession({ access_token: adminSession.access_token, refresh_token: adminSession.refresh_token });
+      }
+    }
+    if (data?.user) {
+      await supabase.from('profiles').upsert({ id: data.user.id, email: newEmail.trim(), role: newRole || null, is_admin: newRole === 'admin', plan: newPlan }, { onConflict: 'id' });
+    }
+    flash(`Gebruiker ${newEmail.trim()} aangemaakt`);
+    setShowAddUser(false);
+    setNewEmail(''); setNewPassword(''); setNewRole(''); setNewPlan('normal');
+    loadProfiles();
+    setAddingUser(false);
+  };
+
+  const applyBulkPlan = async () => {
+    if (!selected.size) return;
+    setBulkApplying(true);
+    const ids = [...selected];
+    await Promise.all(ids.map(id => supabase.from('profiles').update({ plan: bulkPlan }).eq('id', id)));
+    setProfiles(prev => prev.map(p => selected.has(p.id) ? { ...p, plan: bulkPlan } : p));
+    flash(`${ids.length} gebruiker${ids.length > 1 ? 's' : ''} → ${PLAN_LABELS[bulkPlan]}`);
+    setSelected(new Set());
+    setBulkApplying(false);
+  };
+
+  const toggleDisable = async (profile) => {
+    const newVal = !profile.disabled;
+    const { error } = await supabase
+      .from('profiles')
+      .update({ disabled: newVal })
+      .eq('id', profile.id);
+    if (!error) {
+      setProfiles(prev => prev.map(p => p.id === profile.id ? { ...p, disabled: newVal } : p));
+      flash(newVal ? `${profile.email} uitgeschakeld` : `${profile.email} ingeschakeld`);
+    } else flash('Fout bij bijwerken', false);
+    setConfirm(null);
+  };
+
+  const deleteUserData = async (profile) => {
+    const uid = profile.id;
+    // Haal invoice IDs op voor foreign key cascade
+    const { data: invRows } = await supabase.from('invoices').select('id').eq('user_id', uid);
+    const invIds = (invRows || []).map(r => r.id);
+    await Promise.all([
+      supabase.from('transactions').delete().eq('user_id', uid),
+      supabase.from('investments').delete().eq('user_id', uid),
+      supabase.from('goals').delete().eq('user_id', uid),
+      supabase.from('recurring').delete().eq('user_id', uid),
+      ...(invIds.length ? [supabase.from('invoice_lines').delete().in('invoice_id', invIds)] : []),
+      supabase.from('invoices').delete().eq('user_id', uid),
+      supabase.from('costs').delete().eq('user_id', uid),
+      supabase.from('bonnen').delete().eq('user_id', uid),
+    ]);
+    // Mark account as "intentionally cleared" in both Supabase AND localStorage
+    await supabase.from('profiles').update({ data_cleared: true }).eq('id', uid);
+    localStorage.setItem(`dynafy_${uid}_cleared`, 'true');
+    // If admin deleted their own data, reset the live app state too
+    if (onDataDeleted) onDataDeleted(uid);
+    flash(`Data van ${profile.email} verwijderd`);
+    setConfirm(null);
+  };
+
+  const filtered = profiles.filter(p =>
+    !search || p.email?.toLowerCase().includes(search.toLowerCase()) || p.name?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  // Stats
+  const now = new Date();
+  const weekAgo = new Date(now - 7 * 86400000).toISOString();
+  const monthAgo = new Date(now - 30 * 86400000).toISOString();
+  const stats = {
+    total:     profiles.length,
+    newWeek:   profiles.filter(p => p.created_at > weekAgo).length,
+    premium:   profiles.filter(p => p.plan && p.plan !== 'normal').length,
+    active:    profiles.filter(p => p.last_seen > monthAgo).length,
+  };
+
+  const fmt_date = (iso) => {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return d.toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: '2-digit' });
+  };
+
+  const relativeTime = (iso) => {
+    if (!iso) return '—';
+    const diff = Date.now() - new Date(iso).getTime();
+    const days = Math.floor(diff / 86400000);
+    if (days === 0) return 'vandaag';
+    if (days === 1) return 'gisteren';
+    if (days < 7) return `${days}d geleden`;
+    if (days < 30) return `${Math.floor(days/7)}w geleden`;
+    return fmt_date(iso);
+  };
+
+  const statCards = [
+    { label: 'Totaal gebruikers', value: stats.total, icon: Users, color: '#4f8ef7' },
+    { label: 'Nieuw deze week', value: stats.newWeek, icon: TrendingUp, color: '#22c55e' },
+    { label: 'Premium', value: stats.premium, icon: Crown, color: '#f59e0b' },
+    { label: 'Actief (30d)', value: stats.active, icon: Activity, color: '#a855f7' },
+  ];
+
+  return (
+    <div style={{ padding: "28px 32px", maxWidth: 1100, margin: "0 auto" }}>
+      {/* Flash message */}
+      {actionMsg && (
+        <div style={{
+          position: 'fixed', top: 20, right: 24, zIndex: 9999,
+          padding: '12px 20px', borderRadius: 12, fontSize: 14, fontWeight: 600,
+          background: actionMsg.ok ? 'rgba(34,197,94,0.15)' : 'rgba(244,63,94,0.15)',
+          border: `1px solid ${actionMsg.ok ? '#22c55e' : '#f43f5e'}40`,
+          color: actionMsg.ok ? '#22c55e' : '#f43f5e',
+        }}>{actionMsg.ok ? '✓' : '✗'} {actionMsg.msg}</div>
+      )}
+
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
+        <div style={{ width: 42, height: 42, borderRadius: 12, background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Shield size={20} color="#6366f1" />
+        </div>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: C.text }}>Admin Portal</div>
+          <div style={{ fontSize: 12, color: C.muted }}>Gebruikersbeheer · {profiles.length} accounts</div>
+        </div>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          <button onClick={() => setShowAddUser(true)}
+            style={{ padding: '8px 16px', borderRadius: 10, border: '1px solid rgba(99,102,241,0.4)', background: 'rgba(99,102,241,0.1)', color: '#6366f1', fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit' }}>
+            <UserPlus size={14} /> Gebruiker toevoegen
+          </button>
+          <button onClick={loadProfiles} style={{ padding: '8px 14px', borderRadius: 10, border: `1px solid ${C.border}`, background: 'transparent', color: C.muted, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <RotateCcw size={14} /> Verversen
+          </button>
+        </div>
+      </div>
+
+      {/* Add user modal */}
+      {showAddUser && createPortal(
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', backdropFilter:'blur(6px)', zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
+          onClick={e => { if (e.target === e.currentTarget) setShowAddUser(false); }}>
+          <div style={{ background:isDark?'#0f1e36':'#fff', borderRadius:22, padding:32, maxWidth:440, width:'100%', border:`1px solid rgba(99,102,241,0.2)`, boxShadow:'0 24px 64px rgba(0,0,0,0.4)' }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:24 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                <div style={{ width:36, height:36, borderRadius:10, background:'linear-gradient(135deg,#6366f1,#a855f7)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <UserPlus size={16} color="#fff"/>
+                </div>
+                <div style={{ fontSize:16, fontWeight:800, color:C.text }}>Gebruiker toevoegen</div>
+              </div>
+              <button onClick={() => setShowAddUser(false)} style={{ background:'none', border:'none', color:C.muted, cursor:'pointer', padding:4 }}>✕</button>
+            </div>
+            {[
+              { label:'E-mailadres', value:newEmail, set:setNewEmail, type:'email', placeholder:'naam@voorbeeld.nl' },
+              { label:'Wachtwoord (optioneel)', value:newPassword, set:setNewPassword, type:'password', placeholder:'Automatisch gegenereerd als leeg' },
+            ].map(f => (
+              <div key={f.label} style={{ marginBottom:16 }}>
+                <label style={{ fontSize:11, fontWeight:700, color:C.muted, display:'block', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>{f.label}</label>
+                <input type={f.type} value={f.value} onChange={e => f.set(e.target.value)} placeholder={f.placeholder}
+                  style={{ width:'100%', padding:'10px 13px', borderRadius:9, border:`1px solid ${C.border}`, background:isDark?'rgba(255,255,255,0.06)':'#f8fafc', color:C.text, fontSize:13, outline:'none', boxSizing:'border-box', fontFamily:'inherit' }}/>
+              </div>
+            ))}
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:24 }}>
+              <div>
+                <label style={{ fontSize:11, fontWeight:700, color:C.muted, display:'block', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>Plan</label>
+                <select value={newPlan} onChange={e => setNewPlan(e.target.value)}
+                  style={{ width:'100%', padding:'10px 12px', borderRadius:9, border:`1px solid ${C.border}`, background:isDark?'rgba(255,255,255,0.06)':'#f8fafc', color:C.text, fontSize:13, outline:'none', fontFamily:'inherit' }}>
+                  {PLANS.map(p => <option key={p} value={p}>{PLAN_LABELS[p]}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize:11, fontWeight:700, color:C.muted, display:'block', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>Rol</label>
+                <select value={newRole} onChange={e => setNewRole(e.target.value)}
+                  style={{ width:'100%', padding:'10px 12px', borderRadius:9, border:`1px solid ${C.border}`, background:isDark?'rgba(255,255,255,0.06)':'#f8fafc', color:C.text, fontSize:13, outline:'none', fontFamily:'inherit' }}>
+                  {ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+                </select>
+              </div>
+            </div>
+            <button onClick={createUser} disabled={addingUser || !newEmail.trim()}
+              style={{ width:'100%', padding:'12px', borderRadius:11, border:'none', background: addingUser || !newEmail.trim() ? 'rgba(99,102,241,0.3)' : 'linear-gradient(135deg,#6366f1,#a855f7)', color:'#fff', fontSize:14, fontWeight:700, cursor: addingUser || !newEmail.trim() ? 'not-allowed' : 'pointer', fontFamily:'inherit' }}>
+              {addingUser ? 'Aanmaken…' : 'Gebruiker aanmaken'}
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Stat cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 28 }}>
+        {statCards.map(s => (
+          <div key={s.label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, padding: '18px 20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s.label}</span>
+              <div style={{ width: 30, height: 30, borderRadius: 8, background: `${s.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <s.icon size={15} color={s.color} />
+              </div>
+            </div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: C.text, fontFamily: "'DM Mono', monospace" }}>{s.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Search + filter bar */}
+      <div style={{ display:'flex', gap:10, marginBottom:16, alignItems:'center' }}>
+        <div style={{ position: 'relative', flex:1 }}>
+          <Search size={15} color={C.muted} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Zoeken op email of naam..."
+            style={{ width: '100%', padding: '11px 14px 11px 40px', borderRadius: 12, border: `1px solid ${C.border}`, background: C.input, color: C.text, fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
+        </div>
+        {/* Plan filter */}
+        <select onChange={e => setSearch(e.target.value === 'alle' ? '' : e.target.value)}
+          style={{ padding:'10px 14px', borderRadius:12, border:`1px solid ${C.border}`, background:C.input, color:C.text, fontSize:13, outline:'none', cursor:'pointer' }}>
+          <option value="alle">Alle plannen</option>
+          {PLANS.map(p => <option key={p} value={p}>{PLAN_LABELS[p]}</option>)}
+        </select>
+      </div>
+
+      {/* Bulk action bar — visible when rows are selected */}
+      {selected.size > 0 && (
+        <div style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 18px', borderRadius:14, background:isDark?'rgba(79,142,247,0.1)':'rgba(79,142,247,0.08)', border:`1px solid rgba(79,142,247,0.25)`, marginBottom:12 }}>
+          <div style={{ fontSize:13, fontWeight:700, color:'#4f8ef7' }}>
+            {selected.size} gebruiker{selected.size > 1 ? 's' : ''} geselecteerd
+          </div>
+          <div style={{ flex:1 }}/>
+          <div style={{ fontSize:13, color:C.muted, fontWeight:600 }}>Plan instellen op:</div>
+          <select value={bulkPlan} onChange={e => setBulkPlan(e.target.value)}
+            style={{ padding:'8px 12px', borderRadius:9, border:`1px solid ${C.border}`, background:isDark?'#0f1e36':'#fff', color:C.text, fontSize:13, outline:'none', cursor:'pointer', fontWeight:600 }}>
+            {PLANS.map(p => <option key={p} value={p}>{PLAN_ICONS[p]} {PLAN_LABELS[p]}</option>)}
+          </select>
+          <button onClick={applyBulkPlan} disabled={bulkApplying}
+            style={{ padding:'8px 18px', borderRadius:9, border:'none', background:'#4f8ef7', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', opacity: bulkApplying?0.6:1 }}>
+            {bulkApplying ? 'Bezig...' : 'Toepassen'}
+          </button>
+          <button onClick={() => setSelected(new Set())}
+            style={{ padding:'8px 12px', borderRadius:9, border:`1px solid ${C.border}`, background:'transparent', color:C.muted, fontSize:13, cursor:'pointer' }}>
+            Deselecteer
+          </button>
+        </div>
+      )}
+
+      {/* Users table */}
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 18, overflow: 'hidden' }}>
+        {/* Table header */}
+        <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr 160px 140px 100px 110px 110px 110px', padding: '12px 20px', borderBottom: `1px solid ${C.border}`, background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', alignItems:'center' }}>
+          {/* Select all checkbox */}
+          <div onClick={() => {
+            if (selected.size === filtered.length) setSelected(new Set());
+            else setSelected(new Set(filtered.map(p => p.id)));
+          }} style={{ width:18, height:18, borderRadius:5, border:`2px solid ${selected.size === filtered.length && filtered.length > 0 ? '#4f8ef7' : C.border}`, background: selected.size === filtered.length && filtered.length > 0 ? '#4f8ef7' : 'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            {selected.size === filtered.length && filtered.length > 0 && <Check size={11} color="#fff" strokeWidth={3}/>}
+            {selected.size > 0 && selected.size < filtered.length && <div style={{ width:8, height:2, background:'#4f8ef7', borderRadius:1 }}/>}
+          </div>
+          {['Gebruiker', 'Plan', 'Rol', 'Status', 'Aangemeld', 'Actief', 'Acties'].map(h => (
+            <div key={h} style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</div>
+          ))}
+        </div>
+
+        {loading ? (
+          <div style={{ padding: 40, textAlign: 'center', color: C.muted }}>Laden...</div>
+        ) : filtered.length === 0 ? (
+          <div style={{ padding: 40, textAlign: 'center', color: C.muted }}>Geen gebruikers gevonden</div>
+        ) : filtered.map((profile, i) => {
+          const isSel = selected.has(profile.id);
+          const plan = profile.plan || 'normal';
+          return (
+          <div key={profile.id} style={{
+            display: 'grid', gridTemplateColumns: '40px 1fr 160px 140px 100px 110px 110px 110px',
+            padding: '13px 20px', alignItems: 'center',
+            borderBottom: i < filtered.length - 1 ? `1px solid ${C.border}` : 'none',
+            opacity: profile.disabled ? 0.55 : 1,
+            background: isSel ? (isDark ? 'rgba(79,142,247,0.07)' : 'rgba(79,142,247,0.04)') : 'transparent',
+            transition: 'background 0.15s',
+          }}
+            onMouseEnter={e => { if (!isSel) e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.015)'; }}
+            onMouseLeave={e => { if (!isSel) e.currentTarget.style.background = 'transparent'; }}
+          >
+            {/* Checkbox */}
+            <div onClick={() => setSelected(prev => { const next = new Set(prev); isSel ? next.delete(profile.id) : next.add(profile.id); return next; })}
+              style={{ width:18, height:18, borderRadius:5, border:`2px solid ${isSel ? '#4f8ef7' : C.border}`, background: isSel ? '#4f8ef7' : 'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+              {isSel && <Check size={11} color="#fff" strokeWidth={3}/>}
+            </div>
+
+            {/* User info */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+              <div style={{ width: 34, height: 34, borderRadius: 10, flexShrink: 0, background: `hsl(${(profile.email?.charCodeAt(0) || 0) * 37 % 360},55%,${isDark ? '25%' : '88%'})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: `hsl(${(profile.email?.charCodeAt(0) || 0) * 37 % 360},55%,${isDark ? '70%' : '35%'})` }}>
+                {(profile.name || profile.email || '?')[0].toUpperCase()}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {profile.name || '—'}
+                  {profile.id === user?.id && <span style={{ marginLeft: 6, fontSize: 10, padding: '2px 6px', borderRadius: 4, background: 'rgba(99,102,241,0.15)', color: '#6366f1', fontWeight: 700 }}>JIJ</span>}
+                </div>
+                <div style={{ fontSize: 11, color: C.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{profile.email}</div>
+              </div>
+            </div>
+
+            {/* Plan — inline select */}
+            <div>
+              <select value={plan} onChange={e => setPlan(profile, e.target.value)}
+                style={{ padding:'4px 8px', borderRadius:8, border:`1.5px solid ${PLAN_COLORS[plan]}`, background: PLAN_BG[plan], color: PLAN_COLORS[plan], fontSize:11, fontWeight:700, outline:'none', cursor:'pointer', fontFamily:'inherit', maxWidth:150 }}>
+                {PLANS.map(p => <option key={p} value={p} style={{ color:C.text, background:isDark?'#0f1e36':'#fff', fontWeight:600 }}>{PLAN_LABELS[p]}</option>)}
+              </select>
+            </div>
+
+            {/* Rol — inline select */}
+            {(() => {
+              const override = roleOverrides[profile.id];
+              const effProfile = override ? { ...profile, ...override } : profile;
+              const currentRole = effProfile.is_admin ? 'admin' : (effProfile.role || '');
+              const rc = ROLE_COLORS[currentRole] || C.muted;
+              const rb = ROLE_BG[currentRole] || 'rgba(100,116,139,0.1)';
+              return (
+                <div>
+                  <select value={currentRole} onChange={e => setRole(profile, e.target.value)}
+                    style={{ padding:'4px 8px', borderRadius:8, border:`1.5px solid ${rc}`, background: rb, color: rc, fontSize:11, fontWeight:700, outline:'none', cursor:'pointer', fontFamily:'inherit', maxWidth:130 }}>
+                    {ROLES.map(r => <option key={r} value={r} style={{ color:C.text, background:isDark?'#0f1e36':'#fff', fontWeight:600 }}>{ROLE_LABELS[r]}</option>)}
+                  </select>
+                </div>
+              );
+            })()}
+
+            {/* Status */}
+            <div>
+              <span style={{ padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: profile.disabled ? 'rgba(244,63,94,0.12)' : 'rgba(34,197,94,0.12)', color: profile.disabled ? '#f43f5e' : '#22c55e' }}>
+                {profile.disabled ? 'Geblokkeerd' : 'Actief'}
+              </span>
+            </div>
+
+            {/* Joined */}
+            <div style={{ fontSize: 12, color: C.muted }}>{fmt_date(profile.created_at)}</div>
+
+            {/* Last seen */}
+            <div style={{ fontSize: 12, color: C.muted }}>{relativeTime(profile.last_seen)}</div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: 5 }}>
+              <button onClick={() => openUserData(profile)} title="Data bekijken"
+                style={{ width: 28, height: 28, borderRadius: 7, border: `1px solid ${C.border}`, background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#a855f7' }}>
+                <Eye size={13} />
+              </button>
+              <button onClick={() => sendPasswordReset(profile)} title="Wachtwoord reset sturen"
+                style={{ width: 28, height: 28, borderRadius: 7, border: `1px solid ${C.border}`, background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4f8ef7' }}>
+                <Mail size={13} />
+              </button>
+              {/* Disable/enable */}
+              {profile.id !== user?.id && (
+                <button onClick={() => setConfirm({ type: 'disable', profile })} title={profile.disabled ? 'Inschakelen' : 'Uitschakelen'}
+                  style={{ width: 28, height: 28, borderRadius: 7, border: `1px solid ${C.border}`, background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: profile.disabled ? '#22c55e' : '#f59e0b' }}>
+                  {profile.disabled ? <Check size={13} /> : <Ban size={13} />}
+                </button>
+              )}
+
+              {/* Delete data */}
+              {profile.id !== user?.id && (
+                <button onClick={() => setConfirm({ type: 'delete', profile })} title="Data verwijderen"
+                  style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid rgba(244,63,94,0.25)', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f43f5e' }}>
+                  <Trash2 size={13} />
+                </button>
+              )}
+            </div>
+          </div>
+          );
+        })}
+      </div>
+
+      {/* ── User data side panel ─────────────────────────── */}
+      {viewingUser && createPortal(
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.72)', display: 'flex', justifyContent: 'flex-end' }}
+          onClick={e => { if (e.target === e.currentTarget) setViewingUser(null); }}>
+          <div style={{ width: 'min(560px,100vw)', height: '100%', display: 'flex', flexDirection: 'column',
+            background: isDark ? '#0b1628' : '#ffffff', borderLeft: `1px solid ${C.border}`,
+            animation: 'slideIn 0.22s ease' }}>
+
+            {/* Header */}
+            <div style={{ padding: '22px 24px 18px', borderBottom: `1px solid ${C.border}`,
+              background: `linear-gradient(160deg,rgba(168,85,247,0.12) 0%,transparent 60%)`, position: 'relative' }}>
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+                background: 'linear-gradient(90deg,#a855f7,#a855f780,transparent)' }}/>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: C.text }}>{viewingUser.name || viewingUser.email}</div>
+                  <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{viewingUser.email}</div>
+                </div>
+                <button onClick={() => setViewingUser(null)}
+                  style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${C.border}`, background: 'transparent', color: C.muted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <X size={16}/>
+                </button>
+              </div>
+              {/* Tabs */}
+              <div style={{ display: 'flex', gap: 6, marginTop: 16 }}>
+                {[
+                  { id: 'transactions', label: `Transacties${userData ? ` (${userData.transactions.length})` : ''}` },
+                  { id: 'investments',  label: `Investeringen${userData ? ` (${userData.investments.length})` : ''}` },
+                  { id: 'goals',        label: `Doelen${userData ? ` (${userData.goals.length})` : ''}` },
+                ].map(tab => (
+                  <button key={tab.id} onClick={() => setUserDataTab(tab.id)}
+                    style={{ padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: 'none',
+                      background: userDataTab === tab.id ? '#a855f7' : (isDark ? 'rgba(255,255,255,0.06)' : '#f1f5f9'),
+                      color: userDataTab === tab.id ? '#fff' : C.muted }}>
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Content */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px 32px' }}>
+              {userDataLoading ? (
+                <div style={{ textAlign: 'center', padding: 40, color: C.muted }}>Laden...</div>
+              ) : !userData ? null : userDataTab === 'transactions' ? (
+                userData.transactions.length === 0
+                  ? <div style={{ textAlign: 'center', padding: 40, color: C.muted }}>Geen transacties</div>
+                  : userData.transactions.map((tx, i) => (
+                    <div key={tx.id || i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '11px 0', borderBottom: `1px solid ${C.border}` }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 280 }}>
+                          {tx.counterparty || tx.description}
+                        </div>
+                        <div style={{ fontSize: 11, color: C.muted }}>{tx.date} · {tx.category || 'other'}</div>
+                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: tx.amount < 0 ? '#f43f5e' : '#22c55e', flexShrink: 0, marginLeft: 12 }}>
+                        {tx.amount < 0 ? '−' : '+'}€{Math.abs(tx.amount).toFixed(2).replace('.',',')}
+                      </div>
+                    </div>
+                  ))
+              ) : userDataTab === 'investments' ? (
+                userData.investments.length === 0
+                  ? <div style={{ textAlign: 'center', padding: 40, color: C.muted }}>Geen investeringen</div>
+                  : userData.investments.map((inv, i) => (
+                    <div key={inv.id || i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '12px 0', borderBottom: `1px solid ${C.border}` }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{inv.name}</div>
+                        <div style={{ fontSize: 11, color: C.muted }}>{inv.type} · {inv.amount} eenheden</div>
+                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#a855f7' }}>
+                        €{((inv.currentPrice || inv.buyPrice || 0) * (inv.amount || 0)).toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                    </div>
+                  ))
+              ) : (
+                userData.goals.length === 0
+                  ? <div style={{ textAlign: 'center', padding: 40, color: C.muted }}>Geen doelen</div>
+                  : userData.goals.map((g, i) => {
+                    const pct = Math.min(100, Math.round((g.current / g.target) * 100));
+                    return (
+                      <div key={g.id || i} style={{ padding: '14px 0', borderBottom: `1px solid ${C.border}` }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{g.name}</div>
+                          <div style={{ fontSize: 12, color: C.muted }}>€{(g.current||0).toLocaleString('nl-NL')} / €{(g.target||0).toLocaleString('nl-NL')}</div>
+                        </div>
+                        <div style={{ height: 6, background: isDark ? 'rgba(255,255,255,0.08)' : '#f1f5f9', borderRadius: 3, overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${pct}%`, background: g.color || '#22c55e', borderRadius: 3 }}/>
+                        </div>
+                        <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>{pct}% bereikt</div>
+                      </div>
+                    );
+                  })
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Note over auth-verwijdering */}
+      <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 12, background: isDark ? 'rgba(99,102,241,0.08)' : '#eef2ff', border: `1px solid rgba(99,102,241,0.2)`, fontSize: 12, color: C.muted, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Shield size={13} color="#6366f1" />
+        Data verwijderen wist alle transacties, investeringen en doelen. Account verwijderen doe je via het Supabase dashboard → Authentication → Users.
+      </div>
+
+      {/* Confirm modal */}
+      {confirm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 20 }}>
+          <div style={{ background: isDark ? '#0f1e36' : '#fff', border: `1px solid ${C.border}`, borderRadius: 20, padding: '32px', maxWidth: 400, width: '100%' }}>
+            <div style={{ fontSize: 32, marginBottom: 12, textAlign: 'center' }}>
+              {confirm.type === 'delete' ? '🗑️' : confirm.profile.disabled ? '✅' : '🚫'}
+            </div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: C.text, textAlign: 'center', marginBottom: 8 }}>
+              {confirm.type === 'delete' ? 'Data verwijderen?' : confirm.profile.disabled ? 'Gebruiker inschakelen?' : 'Gebruiker uitschakelen?'}
+            </div>
+            <div style={{ fontSize: 13, color: C.muted, textAlign: 'center', marginBottom: 24, lineHeight: 1.6 }}>
+              {confirm.type === 'delete'
+                ? <>Alle data van <strong style={{color:C.text}}>{confirm.profile.email}</strong> wordt permanent verwijderd. Dit kan niet ongedaan worden.</>
+                : <>Account van <strong style={{color:C.text}}>{confirm.profile.email}</strong> wordt {confirm.profile.disabled ? 'ingeschakeld' : 'uitgeschakeld'}.</>
+              }
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setConfirm(null)} style={{ flex: 1, padding: '12px', borderRadius: 12, border: `1px solid ${C.border}`, background: 'transparent', color: C.muted, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+                Annuleren
+              </button>
+              <button
+                onClick={() => confirm.type === 'delete' ? deleteUserData(confirm.profile) : toggleDisable(confirm.profile)}
+                style={{ flex: 1, padding: '12px', borderRadius: 12, border: 'none', background: confirm.type === 'delete' ? '#f43f5e' : (confirm.profile.disabled ? '#22c55e' : '#f59e0b'), color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+              >
+                {confirm.type === 'delete' ? 'Verwijderen' : confirm.profile.disabled ? 'Inschakelen' : 'Uitschakelen'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── MAIN APP ──────────────────────────────────────────────────
 export default function App() {
   const [onboarded, setOnboarded] = useState(true); // TEMP: skip onboarding during testing
@@ -6237,28 +13686,372 @@ export default function App() {
   const [showGlobalUpload, setShowGlobalUpload] = useState(false);
   const [showAvatarMenu, setShowAvatarMenu] = useState(false);
 
+  // ── Plan hiërarchie ─────────────────────────────────────────
+  const PLAN_LEVELS = { normal: 0, premium: 1, zzp_premium: 2, zzp_diamond: 3 };
+  const hasAccess = (required) => (PLAN_LEVELS[userPlan] ?? 0) >= (PLAN_LEVELS[required] ?? 0);
+
   const runAiCategorization = (txs) => {
     const uncatCount = txs.filter(tx => !tx.category || tx.category === "other").length;
     if (uncatCount > 0) setUncatAlert(uncatCount);
   };
   const [view, setView] = useState("dashboard");
   const [lang, setLang] = useState("en");
+  const [currency, setCurrency] = useState(() => {
+    try { return localStorage.getItem('dynafy_currency') || 'EUR'; } catch { return 'EUR'; }
+  });
+
+  // ── localStorage helpers — user-specifiek met uid prefix ─────
+  const lsKey  = (uid, k)        => `dynafy_${uid}_${k}`;
+  const lsGet  = (uid, k, fb)    => { try { const v = localStorage.getItem(lsKey(uid,k)); return v ? JSON.parse(v) : fb; } catch { return fb; } };
+  const lsSet  = (uid, k, val)   => { try { localStorage.setItem(lsKey(uid,k), JSON.stringify(val)); } catch {} };
+  const lsClear = (uid) => {
+    // Wis alle keys van deze specifieke user
+    Object.keys(localStorage).filter(k => k.startsWith(`dynafy_${uid}_`)).forEach(k => localStorage.removeItem(k));
+    // Ook legacy (niet user-specifieke) keys
+    ['dynafy_tx','dynafy_inv','dynafy_goals','dynafy_rec','dynafy_accounts','dynafy_mock'].forEach(k => localStorage.removeItem(k));
+  };
+
+  // ── State — begint leeg/mock, Supabase vult aan na login ─────
   const [transactions, setTransactions] = useState(MOCK_TRANSACTIONS);
-  const [useMockData, setUseMockData] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [accounts, setAccounts] = useState([
+  const [useMockData, setUseMockData]   = useState(true);
+  const [sidebarOpen, setSidebarOpen]   = useState(true);
+  const [accounts, setAccounts]         = useState([
     { id: 1, name: "ING Betaalrekening", iban: "NL91 ABNA 0417 1643 00" },
     { id: 2, name: "ABN AMRO", iban: "NL91 ABNA 0417 1643 00" },
   ]);
   const [selectedAccount, setSelectedAccount] = useState(null);
-  const [theme, setTheme] = useState("dark");
+  const [theme, setTheme]               = useState(() => {
+    // Lees thema synchronisch uit localStorage vóór eerste render
+    try {
+      const sbKey = Object.keys(localStorage).find(k => k.includes('-auth-token') && k.startsWith('sb-'));
+      if (sbKey) {
+        const session = JSON.parse(localStorage.getItem(sbKey));
+        const uid = session?.user?.id;
+        if (uid) {
+          const saved = localStorage.getItem(`dynafy_${uid}_theme`);
+          if (saved) return JSON.parse(saved);
+        }
+      }
+    } catch {}
+    return 'dark';
+  });
   const [recurringItems, setRecurringItems] = useState([]);
   const [appInvestments, setAppInvestments] = useState(MOCK_INVESTMENTS);
-  const [appGoals, setAppGoals] = useState([
+  const [appGoals, setAppGoals]         = useState([
     { id: 1, name: "Noodfonds", target: 10000, current: 3500, deadline: "2026-12-31", color: "#22c55e" },
     { id: 2, name: "Vakantie",  target: 3000,  current: 1200, deadline: "2026-07-01", color: "#4f8ef7" },
   ]);
   const [resetKey, setResetKey] = useState(0);
+
+  // ── Plan / ZZP Modus ────────────────────────────────────────
+  // 'normal' | 'premium' | 'zzp_premium'  — loaded from profiles after login
+  const [userPlan, setUserPlan]         = useState('normal');
+  const [showZzpModal, setShowZzpModal] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(null); // null | 'premium' | 'zzp_premium' | 'zzp_diamond'
+  // ZZP bedrijfsprofiel
+  const [zzpProfile, setZzpProfile] = useState({ company_name:'', kvk:'', btw_number:'', iban:'', address:'', city:'', postal_code:'' });
+  // App-level multi-company state (lifted from MijnBedrijfView)
+  const [appCompanyProfiles, setAppCompanyProfiles] = useState([]);
+  const [activeCompanyId, setActiveCompanyId] = useState('main');
+  const [showCompanySwitcher, setShowCompanySwitcher] = useState(false);
+  // Moneybird shared state (lifted so Facturen, Kosten, BTW pages all share data)
+  const [mbConnected, setMbConnected] = useState(() => !!(localStorage.getItem("dynafy_mb_token") && localStorage.getItem("dynafy_mb_admin")));
+  const [mbFacturen, setMbFacturen]   = useState([]);
+  const [mbKosten, setMbKosten]       = useState([]);
+  const [mbLoading, setMbLoading]     = useState(false);
+  const [mbError, setMbError]         = useState("");
+
+  // ── Role-based accounts ─────────────────────────────────────
+  // 'user' | 'administrateur' | 'boekhouder'
+  const [userRole, setUserRole]       = useState('user');
+  const [roleLoaded, setRoleLoaded]   = useState(false);
+  const [clientLinks, setClientLinks] = useState([]);
+  // Register form: role selector
+  const [registerRole, setRegisterRole] = useState('user');
+
+  // ── Supabase Auth ───────────────────────────────────────────
+  const [user, setUser] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [showLoginPw, setShowLoginPw] = useState(false);
+  const [loginMode, setLoginMode] = useState('login'); // 'login' | 'register' | 'forgot'
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState('');
+  const [loginSuccess, setLoginSuccess] = useState('');
+  const dataReady = useRef(false);
+  const [dataLoaded, setDataLoaded] = useState(false); // true once first load completes
+  const loadedUserId = useRef(null); // prevents double-load from getSession + onAuthStateChange
+  const prevTxIds = useRef(new Set());
+  const prevInvIds = useRef(new Set());
+  const prevGoalIds = useRef(new Set());
+  const syncTimers = useRef({});
+
+  // Listen to auth state changes
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setAuthLoading(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Sla thema op per gebruiker — localStorage direct, Supabase voor cross-device
+  useEffect(() => {
+    if (!user?.id) return;
+    lsSet(user.id, 'theme', theme);
+    supabase.from('profiles').update({ theme }).eq('id', user.id).then(() => {});
+  }, [theme, user?.id]);
+
+  // Load user data from Supabase when logged in
+  useEffect(() => {
+    if (!user) {
+      // Reset everything to clean defaults when logged out
+      dataReady.current = false;
+      loadedUserId.current = null;
+      setIsAdmin(false);
+      setUserPlan('normal');
+      setUserRole('user');
+      setRoleLoaded(true);  // show login page immediately
+      setClientLinks([]);
+      setZzpProfile({ company_name:'', kvk:'', btw_number:'', iban:'', address:'', city:'', postal_code:'' });
+      setUseMockData(true);
+      setTransactions(MOCK_TRANSACTIONS);
+      setAppInvestments(MOCK_INVESTMENTS);
+      setAppGoals([
+        { id: 1, name: "Noodfonds", target: 10000, current: 3500, deadline: "2026-12-31", color: "#22c55e" },
+        { id: 2, name: "Vakantie",  target: 3000,  current: 1200, deadline: "2026-07-01", color: "#4f8ef7" },
+      ]);
+      setRecurringItems([]);
+      return;
+    }
+    // Supabase fires both getSession() AND onAuthStateChange on page load — both set `user`
+    // with different object references (same ID). Skip the second load to avoid resetting
+    // dataReady.current and losing the accounts persist window.
+    if (user.id === loadedUserId.current) return;
+    loadedUserId.current = user.id;
+    (async () => {
+      dataReady.current = false;
+      setDataLoaded(false);
+      // Reset to empty while loading so we don't show stale data
+      setTransactions([]);
+      setAppInvestments([]);
+      setAppGoals([]);
+      setRecurringItems([]);
+      setUseMockData(false);
+
+      try {
+        // Load profile + all data in parallel so data_cleared is available immediately
+        const [txRes, invRes, goalRes, recRes, profileRes] = await Promise.all([
+          supabase.from('transactions').select('*').eq('user_id', user.id).order('date', { ascending: false }),
+          supabase.from('investments').select('*').eq('user_id', user.id),
+          supabase.from('goals').select('*').eq('user_id', user.id),
+          supabase.from('recurring').select('*').eq('user_id', user.id),
+          supabase.from('profiles').select('is_admin, plan, company_name, kvk, btw_number, iban, address, city, postal_code, theme, currency, data_cleared').eq('id', user.id).single(),
+        ]);
+
+        // Check if user deliberately cleared their data — localStorage OR Supabase flag
+        const wasCleared = localStorage.getItem(`dynafy_${user.id}_cleared`) === 'true'
+          || profileRes.data?.data_cleared === true;
+
+        if (txRes.data?.length) {
+          setTransactions(txRes.data);
+          lsSet(user.id, 'tx', txRes.data);
+          prevTxIds.current = new Set(txRes.data.map(t => t.id));
+          // They have real data — clear both flags
+          localStorage.removeItem(`dynafy_${user.id}_cleared`);
+          if (profileRes.data?.data_cleared) {
+            supabase.from('profiles').update({ data_cleared: false }).eq('id', user.id).then(() => {});
+          }
+        } else if (!wasCleared) {
+          // Brand-new user with no data → show demo mock
+          setTransactions(MOCK_TRANSACTIONS);
+          setUseMockData(true);
+        }
+        // If wasCleared → stay at [] / useMockData=false (true empty state)
+
+        if (invRes.data?.length) {
+          setAppInvestments(invRes.data);
+          lsSet(user.id, 'inv', invRes.data);
+          prevInvIds.current = new Set(invRes.data.map(i => i.id));
+        } else if (!invRes.data?.length && !txRes.data?.length && !wasCleared) {
+          setAppInvestments(MOCK_INVESTMENTS);
+        }
+        if (goalRes.data?.length) {
+          setAppGoals(goalRes.data);
+          lsSet(user.id, 'goals', goalRes.data);
+          prevGoalIds.current = new Set(goalRes.data.map(g => g.id));
+        } else if (!goalRes.data?.length && !txRes.data?.length && !wasCleared) {
+          setAppGoals([
+            { id: 1, name: "Noodfonds", target: 10000, current: 3500, deadline: "2026-12-31", color: "#22c55e" },
+            { id: 2, name: "Vakantie",  target: 3000,  current: 1200, deadline: "2026-07-01", color: "#4f8ef7" },
+          ]);
+        }
+        if (recRes.data?.length) {
+          setRecurringItems(recRes.data);
+          lsSet(user.id, 'rec', recRes.data);
+        }
+
+        // Load accounts — localStorage ALWAYS wins if it was ever explicitly saved.
+        // wasCleared only applies when there is NO localStorage entry (null fallback),
+        // because the cleared flag is never unset for users without transactions,
+        // causing newly-added accounts to vanish on every refresh.
+        const savedAccts = lsGet(user.id, 'accounts', null);
+        if (savedAccts !== null) {
+          setAccounts(savedAccts);           // explicit localStorage entry → always use it
+        } else if (wasCleared) {
+          setAccounts([]);                   // cleared + never saved anything → empty
+        }
+        // else: brand-new user, keep initial mock accounts
+
+        // Update last_seen in profile (don't await — non-critical)
+        supabase.from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', user.id);
+
+        // Use already-loaded profile data (fetched in parallel above)
+        const profileCheck = profileRes.data;
+        if (profileCheck?.is_admin === true) setIsAdmin(true);
+        if (profileCheck?.plan) setUserPlan(profileCheck.plan);
+        if (profileCheck?.theme) setTheme(profileCheck.theme);
+        else { const saved = lsGet(user.id, 'theme', null); if (saved) setTheme(saved); }
+        if (profileCheck?.currency) { setCurrency(profileCheck.currency); try { localStorage.setItem('dynafy_currency', profileCheck.currency); } catch {} }
+
+        // Fetch role separately — safe to fail if column doesn't exist yet
+        const { data: roleRow } = await supabase
+          .from('profiles').select('role').eq('id', user.id).single();
+        if (roleRow?.role && roleRow.role !== 'user') setUserRole(roleRow.role);
+        if (profileCheck) setZzpProfile({
+          company_name: profileCheck.company_name || '',
+          kvk:          profileCheck.kvk          || '',
+          btw_number:   profileCheck.btw_number   || '',
+          iban:         profileCheck.iban          || '',
+          address:      profileCheck.address       || '',
+          city:         profileCheck.city          || '',
+          postal_code:  profileCheck.postal_code   || '',
+        });
+
+        // Load client links for service accounts (administrateur / boekhouder)
+        if (roleRow?.role === 'administrateur' || roleRow?.role === 'boekhouder') {
+          const { data: links } = await supabase
+            .from('client_links').select('*')
+            .eq('linked_user_id', user.id).eq('status', 'accepted');
+          if (links?.length) {
+            const ids = links.map(l => l.client_user_id).filter(Boolean);
+            const { data: profs } = await supabase.from('profiles').select('id, company_name, email, plan').in('id', ids);
+            const profMap = Object.fromEntries((profs || []).map(p => [p.id, p]));
+            setClientLinks(links.map(l => ({ ...l, client: profMap[l.client_user_id] || null })));
+          } else {
+            setClientLinks([]);
+          }
+        }
+      } catch (err) {
+        console.error('[Dynafy] Error loading user data:', err);
+      }
+
+      dataReady.current = true;
+      setDataLoaded(true);
+      setRoleLoaded(true);
+    })();
+  }, [user?.id]);
+
+  // Load company profiles from localStorage when user changes
+  useEffect(() => {
+    if (!user) { setAppCompanyProfiles([]); setActiveCompanyId('main'); return; }
+    const storageKey = `dynafy_company_profiles_${user.id}`;
+    const activeKey  = `dynafy_active_profile_${user.id}`;
+    try {
+      const saved = JSON.parse(localStorage.getItem(storageKey));
+      if (saved && saved.length > 0) {
+        setAppCompanyProfiles(saved);
+        const idx = parseInt(localStorage.getItem(activeKey) || '0');
+        const ai = isNaN(idx) ? 0 : Math.min(idx, saved.length - 1);
+        setActiveCompanyId(saved[ai]?._id || 'main');
+      }
+    } catch {}
+  }, [user?.id]);
+
+  // Sync transactions → Supabase (debounced 1.5s)
+  // NOTE: dataReady check is INSIDE the timeout so we don't bail out during the race
+  // condition where onboarding completes before the initial Supabase fetch finishes.
+  useEffect(() => {
+    if (!user) return;
+    clearTimeout(syncTimers.current.tx);
+    syncTimers.current.tx = setTimeout(async () => {
+      if (!dataReady.current || useMockData) return;
+      const currentIds = new Set(transactions.map(t => t.id));
+      const deletedIds = [...prevTxIds.current].filter(id => !currentIds.has(id));
+      prevTxIds.current = currentIds;
+      if (transactions.length) {
+        const { error } = await supabase.from('transactions').upsert(transactions.map(tx => ({ ...tx, user_id: user.id })), { onConflict: 'id' });
+        if (error) console.error('[Dynafy] tx sync error:', error);
+        else lsSet(user.id, 'tx', transactions);
+      }
+      if (deletedIds.length) await supabase.from('transactions').delete().in('id', deletedIds);
+    }, 1500);
+  }, [transactions, useMockData]);
+
+  // Sync investments → Supabase (debounced 1.5s)
+  useEffect(() => {
+    if (!user) return;
+    clearTimeout(syncTimers.current.inv);
+    syncTimers.current.inv = setTimeout(async () => {
+      if (!dataReady.current || useMockData) return;
+      const currentIds = new Set(appInvestments.map(i => i.id));
+      const deletedIds = [...prevInvIds.current].filter(id => !currentIds.has(id));
+      prevInvIds.current = currentIds;
+      if (appInvestments.length) {
+        const { error } = await supabase.from('investments').upsert(appInvestments.map(inv => ({ ...inv, user_id: user.id })), { onConflict: 'id' });
+        if (error) console.error('[Dynafy] inv sync error:', error);
+        else lsSet(user.id, 'inv', appInvestments);
+      }
+      if (deletedIds.length) await supabase.from('investments').delete().in('id', deletedIds);
+    }, 1500);
+  }, [appInvestments, useMockData]);
+
+  // Sync goals → Supabase (debounced 1.5s)
+  useEffect(() => {
+    if (!user) return;
+    clearTimeout(syncTimers.current.goals);
+    syncTimers.current.goals = setTimeout(async () => {
+      if (!dataReady.current || useMockData) return;
+      const currentIds = new Set(appGoals.map(g => g.id));
+      const deletedIds = [...prevGoalIds.current].filter(id => !currentIds.has(id));
+      prevGoalIds.current = currentIds;
+      if (appGoals.length) {
+        const { error } = await supabase.from('goals').upsert(appGoals.map(g => ({ ...g, user_id: user.id })), { onConflict: 'id' });
+        if (error) console.error('[Dynafy] goals sync error:', error);
+        else lsSet(user.id, 'goals', appGoals);
+      }
+      if (deletedIds.length) await supabase.from('goals').delete().in('id', deletedIds);
+    }, 1500);
+  }, [appGoals, useMockData]);
+
+  // Persist accounts to localStorage (user-specific)
+  // Persist accounts to localStorage — only after initial load to avoid overwriting with mock data
+  useEffect(() => {
+    if (user && dataLoaded) lsSet(user.id, 'accounts', accounts);
+  }, [accounts, dataLoaded, user?.id]);
+
+  // Sync recurringItems → Supabase (debounced 1.5s)
+  useEffect(() => {
+    if (!user) return;
+    clearTimeout(syncTimers.current.rec);
+    syncTimers.current.rec = setTimeout(async () => {
+      if (!dataReady.current || useMockData) return;
+      if (recurringItems.length) {
+        const { error } = await supabase.from('recurring').upsert(
+          recurringItems.map(r => ({ ...r, user_id: user.id })),
+          { onConflict: 'id' }
+        );
+        if (error) console.error('[Dynafy] rec sync error:', error);
+        else lsSet(user.id, 'rec', recurringItems);
+      }
+    }, 1500);
+  }, [recurringItems, useMockData]);
+
   const isDark = theme === "dark";
   const isCloud = theme === "cloud";
   // Per-theme accent + surface colors threaded to key components
@@ -6274,6 +14067,42 @@ export default function App() {
     if (acc) setTransactions(prev => prev.filter(tx => tx.account !== acc.name));
     setAccounts(prev => prev.filter(a => a.id !== id));
     if (selectedAccount === id) setSelectedAccount(null);
+  };
+
+  // ── Moneybird fetch (shared across ZZP views) ───────────────
+  const fetchMoneybirdData = useCallback(async () => {
+    const token = localStorage.getItem("dynafy_mb_token");
+    const aid   = localStorage.getItem("dynafy_mb_admin");
+    if (!token || !aid) return;
+    setMbLoading(true); setMbError("");
+    try {
+      const [facRes, kosRes] = await Promise.all([
+        supabase.functions.invoke("moneybird-proxy", { body: { endpoint: "sales_invoices", mb_token: token, administration_id: aid } }),
+        supabase.functions.invoke("moneybird-proxy", { body: { endpoint: "documents/purchase_invoices", mb_token: token, administration_id: aid } }),
+      ]);
+      const fErr = facRes.data?.error || facRes.error?.message;
+      const kErr = kosRes.data?.error || kosRes.error?.message;
+      if (fErr) throw new Error(fErr);
+      if (kErr) throw new Error(kErr);
+      setMbFacturen(Array.isArray(facRes.data) ? facRes.data : []);
+      setMbKosten(Array.isArray(kosRes.data) ? kosRes.data : []);
+    } catch(e) { setMbError(e.message || "Fout bij ophalen Moneybird data"); }
+    setMbLoading(false);
+  }, []);
+
+  useEffect(() => { if (mbConnected) fetchMoneybirdData(); }, [mbConnected]);
+
+  const handleMbConnect = async (token, aid) => {
+    localStorage.setItem("dynafy_mb_token", token);
+    localStorage.setItem("dynafy_mb_admin", aid);
+    setMbConnected(true);
+    await fetchMoneybirdData();
+  };
+
+  const handleMbDisconnect = () => {
+    localStorage.removeItem("dynafy_mb_token");
+    localStorage.removeItem("dynafy_mb_admin");
+    setMbConnected(false); setMbFacturen([]); setMbKosten([]); setMbError("");
   };
 
   // ── Hierarchical nav structure ──────────────────────────────
@@ -6301,11 +14130,27 @@ export default function App() {
       id: "insights", icon: Lightbulb, label: t.nav.insights, type: "item"
     },
     {
+      id: "zzp-group", icon: Zap, label: "ZZP Modus", type: "group",
+      children: [
+        { id: "zzp-dashboard", icon: BarChart2, label: "ZZP Dashboard" },
+        { id: "mijn-bedrijf",  icon: Building2,    label: "Mijn Bedrijf" },
+        { id: "facturen",      icon: FileText,     label: lang === "nl" ? "Facturen" : "Invoices" },
+        { id: "kosten",        icon: TrendingDown, label: lang === "nl" ? "Kosten" : "Expenses" },
+        { id: "btw-aangifte",  icon: Calendar,     label: lang === "nl" ? "BTW Aangifte" : "VAT Return" },
+        { id: "bonnen",        icon: Upload,        label: lang === "nl" ? "Bonnen" : "Receipts" },
+        { id: "berichten",     icon: Mail,          label: lang === "nl" ? "Berichten" : "Messages" },
+        ...(zzpProfile.moneybird_enabled ? [{ id: "moneybird", icon: RefreshCw, label: "Moneybird" }] : []),
+      ]
+    },
+    {
       id: "export", icon: Download, label: lang === "nl" ? "Exporteren" : "Export", type: "item"
     },
     {
       id: "settings", icon: Settings, label: t.nav.settings, type: "item"
     },
+    ...(isAdmin ? [{
+      id: "admin", icon: Shield, label: "Admin", type: "item"
+    }] : []),
   ];
 
   // All view ids for topbar label lookup
@@ -6323,6 +14168,201 @@ export default function App() {
     return next;
   });
 
+  const ZZP_VIEWS = ["zzp-dashboard", "mijn-bedrijf", "facturen", "kosten", "btw-aangifte", "bonnen", "berichten", "moneybird"];
+  const handleNavClick = (id) => {
+    setView(id);
+  };
+
+  // ── Auth: loading spinner ───────────────────────────────────
+  if (authLoading) return (
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#07111f', flexDirection:'column', gap:16 }}>
+      <div style={{ width:40, height:40, border:'3px solid rgba(79,142,247,0.2)', borderTopColor:'#4f8ef7', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+
+  // ── Auth: login screen ──────────────────────────────────────
+  if (!user) {
+    const inputStyle = { width:'100%', padding:'12px 14px', borderRadius:12, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.05)', color:'#f1f5f9', fontSize:14, boxSizing:'border-box', outline:'none', fontFamily:'inherit' };
+    const labelStyle = { fontSize:12, fontWeight:600, color:'#64748b', display:'block', marginBottom:6, letterSpacing:'0.05em' };
+
+    const handleAuth = async () => {
+      setLoginError(''); setLoginSuccess('');
+      if (!loginEmail.trim() || (loginMode !== 'forgot' && !loginPassword.trim())) return;
+      setLoginLoading(true);
+      try {
+        if (loginMode === 'login') {
+          const { error } = await supabase.auth.signInWithPassword({ email: loginEmail.trim(), password: loginPassword });
+          if (error) {
+            const msg = error.message;
+            if (msg === 'Invalid login credentials') setLoginError('Onjuist e-mailadres of wachtwoord.');
+            else if (msg.includes('rate limit')) setLoginError('Te veel pogingen. Probeer het over een uur opnieuw.');
+            else setLoginError(msg);
+          }
+        } else if (loginMode === 'register') {
+          const { data: signUpData, error } = await supabase.auth.signUp({ email: loginEmail.trim(), password: loginPassword });
+          if (error) {
+            if (error.message.includes('rate limit')) setLoginError('Te veel pogingen. Probeer het over een uur opnieuw.');
+            else if (error.message.includes('already registered') || error.message.includes('User already')) setLoginError('Dit e-mailadres is al in gebruik. Probeer in te loggen.');
+            else if (error.message.includes('password') && error.message.includes('6')) setLoginError('Wachtwoord moet minimaal 6 tekens bevatten.');
+            else setLoginError(error.message);
+          } else {
+            // Save role to profile immediately for service accounts
+            if (signUpData?.user && registerRole !== 'user') {
+              await supabase.from('profiles').upsert({
+                id: signUpData.user.id,
+                email: loginEmail.trim(),
+                role: registerRole,
+                last_seen: new Date().toISOString(),
+              }, { onConflict: 'id' });
+            }
+            setLoginSuccess('Account aangemaakt! Je wordt ingelogd...');
+          }
+        } else {
+          const { error } = await supabase.auth.resetPasswordForEmail(loginEmail.trim(), { redirectTo: window.location.origin });
+          if (error) {
+            if (error.message.includes('rate limit')) setLoginError('Te veel pogingen. Probeer het over een uur opnieuw.');
+            else setLoginError(error.message);
+          } else setLoginSuccess('Reset-link verstuurd! Check je e-mail.');
+        }
+      } catch { setLoginError('Er ging iets mis. Probeer opnieuw.'); }
+      setLoginLoading(false);
+    };
+
+    return (
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'linear-gradient(160deg,#07111f 0%,#060d1a 55%,#071120 100%)', fontFamily:"'Inter', sans-serif" }}>
+        <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap'); @keyframes popIn { from{opacity:0;transform:scale(0.95)} to{opacity:1;transform:scale(1)} } input:-webkit-autofill { -webkit-box-shadow:0 0 0 30px #0d1b2e inset !important; -webkit-text-fill-color:#f1f5f9 !important; }`}</style>
+        <div style={{ width:'min(420px,92vw)', animation:'popIn 0.3s ease both' }}>
+
+          {/* Logo */}
+          <div style={{ textAlign:'center', marginBottom:32 }}>
+            <div style={{ width:56, height:56, borderRadius:16, background:'linear-gradient(135deg,#4f8ef7,#6366f1)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 14px' }}>
+              <DynafyLogo size={36} />
+            </div>
+            <div style={{ fontSize:26, fontWeight:800, color:'#f1f5f9', letterSpacing:'-0.5px' }}>Dynafy</div>
+            <div style={{ fontSize:14, color:'#475569', marginTop:4 }}>Jouw persoonlijke financieel overzicht</div>
+          </div>
+
+          {/* Tab toggle: Inloggen / Registreren */}
+          <div style={{ display:'flex', background:'rgba(255,255,255,0.04)', borderRadius:14, padding:4, marginBottom:24, border:'1px solid rgba(255,255,255,0.06)' }}>
+            {[['login','Inloggen'],['register','Registreren']].map(([m, label]) => (
+              <button key={m} onClick={() => { setLoginMode(m); setLoginError(''); setLoginSuccess(''); }}
+                style={{ flex:1, padding:'9px', borderRadius:10, border:'none', background: loginMode === m ? 'rgba(79,142,247,0.2)' : 'transparent', color: loginMode === m ? '#4f8ef7' : '#475569', fontSize:13, fontWeight:700, cursor:'pointer', transition:'all 0.15s' }}>
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Card */}
+          <div style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:20, padding:28 }}>
+
+            {loginSuccess ? (
+              <div style={{ textAlign:'center', padding:'8px 0' }}>
+                <div style={{ fontSize:36, marginBottom:12 }}>{loginMode === 'forgot' ? '📬' : '✅'}</div>
+                <div style={{ fontSize:15, fontWeight:700, color:'#f1f5f9', marginBottom:8 }}>{loginSuccess}</div>
+                <button onClick={() => { setLoginSuccess(''); setLoginMode('login'); }} style={{ marginTop:12, padding:'9px 20px', borderRadius:10, border:'1px solid rgba(255,255,255,0.1)', background:'transparent', color:'#64748b', cursor:'pointer', fontSize:13 }}>
+                  Terug naar inloggen
+                </button>
+              </div>
+            ) : loginMode === 'forgot' ? (
+              <>
+                <div style={{ fontSize:14, fontWeight:600, color:'#94a3b8', marginBottom:20 }}>Vul je e-mailadres in — je ontvangt een reset-link.</div>
+                <div style={{ marginBottom:16 }}>
+                  <label style={labelStyle}>E-MAILADRES</label>
+                  <input type="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} onKeyDown={e => e.key==='Enter' && handleAuth()} placeholder="naam@email.com" style={inputStyle} autoFocus />
+                </div>
+                {loginError && <div style={{ fontSize:13, color:'#f43f5e', marginBottom:12, padding:'10px 12px', background:'rgba(244,63,94,0.08)', borderRadius:10 }}>⚠ {loginError}</div>}
+                <button onClick={handleAuth} disabled={loginLoading || !loginEmail.trim()}
+                  style={{ width:'100%', padding:'13px', borderRadius:12, border:'none', background: loginLoading || !loginEmail.trim() ? 'rgba(79,142,247,0.3)' : 'linear-gradient(135deg,#4f8ef7,#6366f1)', color:'#fff', fontSize:14, fontWeight:700, cursor: loginLoading || !loginEmail.trim() ? 'not-allowed' : 'pointer' }}>
+                  {loginLoading ? 'Versturen...' : 'Stuur reset-link →'}
+                </button>
+                <button onClick={() => { setLoginMode('login'); setLoginError(''); }} style={{ width:'100%', marginTop:10, padding:'10px', borderRadius:12, border:'none', background:'transparent', color:'#475569', fontSize:13, cursor:'pointer' }}>
+                  ← Terug
+                </button>
+              </>
+            ) : (
+              <>
+                {/* Email */}
+                <div style={{ marginBottom:14 }}>
+                  <label style={labelStyle}>E-MAILADRES</label>
+                  <input type="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} onKeyDown={e => e.key==='Enter' && handleAuth()} placeholder="naam@email.com" style={inputStyle} autoFocus />
+                </div>
+                {/* Wachtwoord */}
+                <div style={{ marginBottom: loginMode === 'login' ? 6 : 14 }}>
+                  <label style={labelStyle}>WACHTWOORD</label>
+                  <div style={{ position: 'relative' }}>
+                    <input type={showLoginPw ? 'text' : 'password'} value={loginPassword} onChange={e => setLoginPassword(e.target.value)} onKeyDown={e => e.key==='Enter' && handleAuth()} placeholder="••••••••" style={{ ...inputStyle, paddingRight: 44 }} />
+                    <button onClick={() => setShowLoginPw(s => !s)} type="button" style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:'#64748b', padding:4, display:'flex', alignItems:'center' }}>
+                      {showLoginPw ? <EyeOff size={16}/> : <Eye size={16}/>}
+                    </button>
+                  </div>
+                </div>
+                {/* Account type — alleen bij registreren */}
+                {loginMode === 'register' && (
+                  <div style={{ marginBottom:20 }}>
+                    <label style={labelStyle}>ACCOUNT TYPE</label>
+                    <select value={registerRole} onChange={e => setRegisterRole(e.target.value)}
+                      style={{ ...inputStyle, cursor:'pointer', appearance:'none', paddingRight:32, backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat:'no-repeat', backgroundPosition:'right 12px center' }}>
+                      <option value="user">ZZP-er / Particulier</option>
+                      <option value="administrateur">Administrateur</option>
+                      <option value="boekhouder">Boekhouder</option>
+                    </select>
+                    {registerRole === 'administrateur' && (
+                      <div style={{ fontSize:11, color:'#4f8ef7', marginTop:6, padding:'6px 10px', background:'rgba(79,142,247,0.08)', borderRadius:8 }}>
+                        Je krijgt toegang tot de administrateur portal. Klanten koppelen je via een uitnodigingscode.
+                      </div>
+                    )}
+                    {registerRole === 'boekhouder' && (
+                      <div style={{ fontSize:11, color:'#a855f7', marginTop:6, padding:'6px 10px', background:'rgba(168,85,247,0.08)', borderRadius:8 }}>
+                        Je krijgt toegang tot de boekhouder portal. Klanten koppelen je via een uitnodigingscode.
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Wachtwoord vergeten link */}
+                {loginMode === 'login' && (
+                  <div style={{ textAlign:'right', marginBottom:20 }}>
+                    <button onClick={() => { setLoginMode('forgot'); setLoginError(''); }} style={{ background:'none', border:'none', color:'#4f8ef7', fontSize:12, cursor:'pointer', padding:0, fontFamily:'inherit' }}>
+                      Wachtwoord vergeten?
+                    </button>
+                  </div>
+                )}
+                {/* Error */}
+                {loginError && <div style={{ fontSize:13, color:'#f43f5e', marginBottom:14, padding:'10px 12px', background:'rgba(244,63,94,0.08)', borderRadius:10 }}>⚠ {loginError}</div>}
+                {/* Submit */}
+                <button onClick={handleAuth} disabled={loginLoading || !loginEmail.trim() || !loginPassword.trim()}
+                  style={{ width:'100%', padding:'13px', borderRadius:12, border:'none', background: (loginLoading || !loginEmail.trim() || !loginPassword.trim()) ? 'rgba(79,142,247,0.3)' : 'linear-gradient(135deg,#4f8ef7,#6366f1)', color:'#fff', fontSize:14, fontWeight:700, cursor: (loginLoading || !loginEmail.trim() || !loginPassword.trim()) ? 'not-allowed' : 'pointer', transition:'all 0.15s' }}>
+                  {loginLoading ? 'Laden...' : loginMode === 'login' ? 'Inloggen →' : 'Account aanmaken →'}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Role routing: brief spinner until profile/role known ────
+  if (!roleLoaded) return (
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#07111f', flexDirection:'column', gap:16 }}>
+      <div style={{ width:40, height:40, border:'3px solid rgba(79,142,247,0.2)', borderTopColor:'#4f8ef7', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+
+  // Route service accounts to their dedicated portals (skip onboarding)
+  // isAdmin always takes priority — admins see the full app regardless of role field
+  if (!isAdmin && userRole === 'administrateur') return (
+    <AdministrateurPortal isDark={isDark} user={user} clientLinks={clientLinks}
+      onSignOut={() => supabase.auth.signOut()}
+      onLinksChange={setClientLinks} />
+  );
+  if (!isAdmin && userRole === 'boekhouder') return (
+    <BoekhouderPortal isDark={isDark} user={user} clientLinks={clientLinks}
+      onSignOut={() => supabase.auth.signOut()}
+      onLinksChange={setClientLinks} />
+  );
+
   // Show onboarding on first load
   if (!onboarded) {
     return (
@@ -6338,6 +14378,16 @@ export default function App() {
             setAppInvestments([]);
             setAppGoals([]);
             runAiCategorization(opts.transactions);
+          }
+          // Save name to profile
+          if (user) {
+            supabase.from('profiles').upsert({
+              id: user.id,
+              email: user.email,
+              name: opts.name,
+              subscription: 'free',
+              last_seen: new Date().toISOString(),
+            }, { onConflict: 'id' });
           }
           setOnboarded(true);
         }}
@@ -6452,6 +14502,82 @@ export default function App() {
         }
 
         .glass-modal { backdrop-filter: blur(16px) saturate(1.6); -webkit-backdrop-filter: blur(16px) saturate(1.6); }
+
+        /* ── Text selection ─────────────────────────── */
+        ::selection { background: rgba(79,142,247,0.25); color: inherit; }
+
+        /* ── Input focus rings ──────────────────────── */
+        input:focus, select:focus, textarea:focus {
+          outline: none !important;
+          border-color: rgba(79,142,247,0.55) !important;
+          box-shadow: 0 0 0 3px rgba(79,142,247,0.13) !important;
+          transition: border-color 0.15s, box-shadow 0.15s !important;
+        }
+        [data-theme="light"] input:focus, [data-theme="light"] select:focus, [data-theme="light"] textarea:focus {
+          border-color: rgba(99,102,241,0.5) !important;
+          box-shadow: 0 0 0 3px rgba(99,102,241,0.1) !important;
+        }
+
+        /* ── Row hover ──────────────────────────────── */
+        .tx-row { transition: background 0.13s ease, border-color 0.13s ease, transform 0.13s ease !important; }
+        [data-theme="dark"] .tx-row:hover {
+          background: rgba(79,142,247,0.06) !important;
+          border-color: rgba(79,142,247,0.16) !important;
+          transform: translateX(3px);
+        }
+        [data-theme="light"] .tx-row:hover, [data-theme="cloud"] .tx-row:hover {
+          background: rgba(99,102,241,0.04) !important;
+          transform: translateX(3px);
+        }
+
+        /* ── Button press ───────────────────────────── */
+        button:active:not([disabled]) {
+          transform: scale(0.95) !important;
+          transition: transform 0.07s !important;
+        }
+        /* Except nav & pill buttons which have their own */
+        .nav-btn:active { transform: none !important; }
+
+        /* ── Mobile: hamburger hidden on desktop ─────── */
+        .hamburger-btn { display: none !important; }
+
+        /* ── Mobile sidebar ─────────────────────────── */
+        @media (max-width: 768px) {
+          .sidebar-panel {
+            position: fixed !important;
+            top: 0; left: 0; bottom: 0;
+            z-index: 200 !important;
+            width: 240px !important;
+            transform: translateX(calc(-100% - 2px)) !important;
+            transition: transform 0.28s cubic-bezier(0.4,0,0.2,1) !important;
+            overflow: hidden !important;
+          }
+          .sidebar-panel.open {
+            transform: translateX(0) !important;
+            box-shadow: 12px 0 48px rgba(0,0,0,0.6) !important;
+          }
+          .sidebar-backdrop { display: none !important; }
+          .sidebar-backdrop.open {
+            display: block !important;
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.52);
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+            z-index: 199;
+            animation: fadeIn 0.22s ease both;
+          }
+          .main-panel { min-width: 0 !important; }
+          .hamburger-btn { display: flex !important; }
+        }
+
+        /* ── Responsive grids ────────────────────────── */
+        @media (max-width: 640px) {
+          .stats-flex { flex-direction: column !important; }
+          .grid-2col { grid-template-columns: 1fr !important; }
+          .ins-kpi-grid { grid-template-columns: 1fr 1fr !important; }
+          .ins-top-grid { grid-template-columns: 1fr !important; }
+          .page-view { padding: 0 !important; }
+        }
       `}</style>
 
       {/* Background glow */}
@@ -6460,8 +14586,11 @@ export default function App() {
         <div style={{ position: "absolute", bottom: -100, right: -100, width: 400, height: 400, borderRadius: "50%", background: isDark ? "radial-gradient(circle, rgba(99,102,241,0.06) 0%, transparent 70%)" : "radial-gradient(circle, rgba(99,102,241,0.04) 0%, transparent 60%)" }} />
       </div>
 
+      {/* SIDEBAR BACKDROP (mobile overlay) */}
+      <div className={`sidebar-backdrop${sidebarOpen ? " open" : ""}`} onClick={() => setSidebarOpen(false)} />
+
       {/* SIDEBAR */}
-      <div style={{ width: sidebarOpen ? 220 : 64, background: isDark ? DK.L0 : (theme === "light" ? "#111827" : "#ffffff"), borderRight: isDark ? `1px solid ${DK.b0}` : (theme === "light" ? "1px solid rgba(255,255,255,0.06)" : isCloud ? "1px solid #dde3f5" : "1px solid #e2e6ed"), display: "flex", flexDirection: "column", position: "relative", zIndex: 10, transition: "width 0.25s ease", flexShrink: 0, overflow: sidebarOpen ? "hidden" : "visible" }}>
+      <div className={`sidebar-panel${sidebarOpen ? " open" : ""}`} style={{ width: sidebarOpen ? 220 : 64, background: isDark ? DK.L0 : (theme === "light" ? "#111827" : "#ffffff"), borderRight: isDark ? `1px solid ${DK.b0}` : (theme === "light" ? "1px solid rgba(255,255,255,0.06)" : isCloud ? "1px solid #dde3f5" : "1px solid #e2e6ed"), display: "flex", flexDirection: "column", position: "relative", zIndex: 10, transition: "width 0.25s ease", flexShrink: 0, overflow: sidebarOpen ? "hidden" : "visible" }}>
 
         {/* ── Sidebar header with logo + toggle ── */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: sidebarOpen ? "space-between" : "center", padding: "16px 12px", borderBottom: isDark || theme === "light" ? "1px solid rgba(255,255,255,0.06)" : "1px solid #e2e6ed", flexShrink: 0, minHeight: 60 }}>
@@ -6588,7 +14717,7 @@ export default function App() {
               const active = view === item.id;
               return (
                 <div key={item.id} className="nav-item">
-                  <button onClick={() => setView(item.id)} className={`nav-btn${active ? " nav-btn-active" : ""}`} style={{
+                  <button onClick={() => handleNavClick(item.id)} className={`nav-btn${active ? " nav-btn-active" : ""}`} style={{
                     display: "flex", alignItems: "center", gap: 12,
                     padding: sidebarOpen ? "10px 14px" : "10px",
                     justifyContent: sidebarOpen ? "flex-start" : "center",
@@ -6615,7 +14744,7 @@ export default function App() {
               <div key={item.id}>
                 {/* Group header */}
                 <div className="nav-item">
-                  <button onClick={() => { if (sidebarOpen) { toggleGroup(item.id); setView("overzicht"); } else setView(item.children[0].id); }} className={`nav-btn${isGroupActive ? " nav-btn-active" : ""}`} style={{
+                  <button onClick={() => { if (item.id === 'zzp-group') { toggleGroup(item.id); setView('zzp-dashboard'); } else if (sidebarOpen) { toggleGroup(item.id); setView("overzicht"); } else setView(item.children[0].id); }} className={`nav-btn${isGroupActive ? " nav-btn-active" : ""}`} style={{
                     display: "flex", alignItems: "center", gap: 12,
                     padding: sidebarOpen ? "10px 14px" : "10px",
                     justifyContent: sidebarOpen ? "flex-start" : "center",
@@ -6629,8 +14758,15 @@ export default function App() {
                     <item.icon size={18} style={{ flexShrink: 0 }} />
                     {sidebarOpen && (
                       <>
-                        <span style={{ flex: 1 }}>{item.label}</span>
-                        <ChevronRight size={14} style={{ transform: isExpanded ? "rotate(90deg)" : "none", transition: "transform 0.2s", opacity: 0.5 }} />
+                        <span style={{ flex: 1, textAlign: 'left' }}>{item.label}</span>
+                        <span style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          width: 20, height: 20, borderRadius: 6, flexShrink: 0,
+                          background: isGroupActive ? 'rgba(79,142,247,0.18)' : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)'),
+                          transition: 'background 0.2s',
+                        }}>
+                          <ChevronRight size={13} style={{ transform: isExpanded ? "rotate(90deg)" : "none", transition: "transform 0.2s", color: isGroupActive ? accent : (isDark ? '#94a3b8' : '#64748b'), display: 'block' }} />
+                        </span>
                       </>
                     )}
                   </button>
@@ -6644,7 +14780,7 @@ export default function App() {
                       const childActive = view === child.id;
                       return (
                         <div key={child.id} className="nav-item">
-                          <button onClick={() => setView(child.id)} className={`submenu-btn${childActive ? " nav-btn-active" : ""}`} style={{
+                          <button onClick={() => handleNavClick(child.id)} className={`submenu-btn${childActive ? " nav-btn-active" : ""}`} style={{
                             display: "flex", alignItems: "center", gap: 10,
                             padding: "8px 12px", width: "100%", borderRadius: 9,
                             border: "none", cursor: "pointer", transition: "all 0.18s",
@@ -6684,16 +14820,25 @@ export default function App() {
       </div>{/* end SIDEBAR */}
 
       {/* MAIN */}
-      <div style={{ flex: 1, overflowY: "auto", position: "relative", zIndex: 1 }}>
+      <div className="main-panel" style={{ flex: 1, overflowY: "auto", position: "relative", zIndex: 1 }}>
         {/* Top bar */}
         <div style={{ padding: "20px 20px 0", display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, borderBottom: isDark || theme === "light" ? "1px solid rgba(255,255,255,0.06)" : "1px solid #e2e6ed", paddingBottom: 20 }}>
           <div>
             <div style={{ fontSize: 22, fontWeight: 800, color: isDark ? "#f1f5f9" : "#0f172a" }}>
               {allNavItems.find(n => n.id === view)?.label}
             </div>
-            <div style={{ fontSize: 12, color: isDark ? "#334155" : "#94a3b8", marginTop: 2 }}>{t.tagline}</div>
+            <div style={{ fontSize: 12, color: isDark ? "#334155" : "#94a3b8", marginTop: 2 }}>{
+              lang === 'nl'
+                ? ({ dashboard:'Jouw financieel overzicht', 'zzp-dashboard':'Bedrijfsoverzicht', facturen:'Maak en beheer facturen', kosten:'Beheer je zakelijke uitgaven', 'btw-aangifte':'Kwartaaloverzicht BTW', bonnen:'Upload en boek bonnen', berichten:'Communiceer met je boekhouder', 'mijn-bedrijf':'Jouw bedrijfsgegevens', export:'Exporteer jouw data', settings:'Jouw voorkeuren', admin:'Gebruikersbeheer' }[view] || t.tagline)
+                : ({ dashboard:'Your financial overview', 'zzp-dashboard':'Business overview', facturen:'Create and manage invoices', kosten:'Manage your business expenses', 'btw-aangifte':'Quarterly VAT overview', bonnen:'Upload and book receipts', berichten:'Communicate with your accountant', 'mijn-bedrijf':'Your company details', export:'Export your data', settings:'Your preferences', admin:'User management' }[view] || t.tagline)
+            }</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {/* Hamburger (mobile only) */}
+            <button className="hamburger-btn" onClick={() => setSidebarOpen(true)} style={{ width: 36, height: 36, borderRadius: 10, background: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)", border: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid #e2e6ed", cursor: "pointer", alignItems: "center", justifyContent: "center", color: isDark ? "#94a3b8" : "#475569" }}>
+              <ChevronRight size={18} />
+            </button>
+
             <div style={{ fontSize: 12, color: isDark ? "#334155" : "#94a3b8", fontVariantNumeric: "tabular-nums" }}>
               {(() => {
                 const latest = transactions.reduce((best, tx) => tx.date > best ? tx.date : best, "");
@@ -6703,6 +14848,52 @@ export default function App() {
                 return d.toLocaleDateString(locale, { month: "long", year: "numeric" });
               })()}
             </div>
+
+            {/* ── Company switcher (ZZP views only) ── */}
+            {ZZP_VIEWS.includes(view) && appCompanyProfiles.length > 0 && (
+              <div style={{ position: 'relative' }}>
+                <button
+                  onClick={() => setShowCompanySwitcher(p => !p)}
+                  style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 12px', borderRadius:10, border:`1px solid ${showCompanySwitcher ? 'rgba(79,142,247,0.5)' : (isDark ? 'rgba(255,255,255,0.1)' : '#e2e6ed')}`, background: showCompanySwitcher ? 'rgba(79,142,247,0.1)' : (isDark ? 'rgba(255,255,255,0.04)' : '#f8fafc'), color: isDark ? '#e2e8f0' : '#0f172a', fontSize:12, fontWeight:600, cursor:'pointer', transition:'all 0.15s', maxWidth:200 }}>
+                  <Building2 size={13} color={activeCompanyId ? '#4f8ef7' : '#64748b'} />
+                  <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                    {appCompanyProfiles.find(p => p._id === activeCompanyId)?.company_name || appCompanyProfiles[0]?.company_name || 'Mijn bedrijf'}
+                  </span>
+                  {appCompanyProfiles.length > 1 && <ChevronDown size={11} style={{ flexShrink:0, color:'#64748b' }} />}
+                </button>
+                {showCompanySwitcher && appCompanyProfiles.length > 1 && (
+                  <>
+                    <div onClick={() => setShowCompanySwitcher(false)} style={{ position:'fixed', inset:0, zIndex:998 }} />
+                    <div style={{ position:'absolute', right:0, top:'calc(100% + 8px)', minWidth:200, background: isDark ? '#0f1e36' : '#fff', border:`1px solid ${isDark ? 'rgba(255,255,255,0.1)' : '#e8ecf1'}`, borderRadius:14, overflow:'hidden', zIndex:999, boxShadow: isDark ? '0 16px 40px rgba(0,0,0,0.5)' : '0 8px 24px rgba(0,0,0,0.12)', animation:'cardEnter 0.18s cubic-bezier(0.34,1.2,0.64,1) both' }}>
+                      <div style={{ padding:'8px 12px 6px', fontSize:10, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.08em' }}>Bedrijfsprofiel</div>
+                      {appCompanyProfiles.map((p) => {
+                        const isActive = p._id === activeCompanyId;
+                        return (
+                          <button key={p._id} onClick={() => {
+                            setActiveCompanyId(p._id);
+                            // Also update the active index in localStorage so MijnBedrijfView stays in sync
+                            const idx = appCompanyProfiles.findIndex(x => x._id === p._id);
+                            if (user) localStorage.setItem(`dynafy_active_profile_${user.id}`, String(idx));
+                            setShowCompanySwitcher(false);
+                          }} style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'9px 14px', border:'none', background: isActive ? 'rgba(79,142,247,0.1)' : 'transparent', color: isActive ? '#4f8ef7' : (isDark ? '#e2e8f0' : '#0f172a'), fontSize:13, fontWeight: isActive ? 700 : 500, cursor:'pointer', textAlign:'left', transition:'background 0.12s' }}
+                            onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.04)' : '#f8fafc'; }}
+                            onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}>
+                            <div style={{ width:28, height:28, borderRadius:8, background: isActive ? 'rgba(79,142,247,0.18)' : (isDark ? 'rgba(255,255,255,0.07)' : '#f1f5f9'), display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:800, color: isActive ? '#4f8ef7' : '#64748b', flexShrink:0 }}>
+                              {(p.company_name || 'B').charAt(0).toUpperCase()}
+                            </div>
+                            <div style={{ flex:1, overflow:'hidden' }}>
+                              <div style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.company_name || 'Nieuw bedrijf'}</div>
+                              {p.kvk && <div style={{ fontSize:10, color:'#64748b', marginTop:1 }}>KvK {p.kvk}</div>}
+                            </div>
+                            {isActive && <Check size={13} color="#4f8ef7" style={{ flexShrink:0 }} />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
 
             {/* ── Avatar + dropdown ── */}
             <div style={{ position: "relative" }}>
@@ -6724,7 +14915,9 @@ export default function App() {
                       </div>
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 700, color: isDark ? "#e2e8f0" : "#0f172a" }}>{userName || "Dynafy User"}</div>
-                        <div style={{ fontSize: 11, color: isDark ? "#4f8ef7" : "#6366f1", fontWeight: 600 }}>✦ Premium</div>
+                        <div style={{ fontSize: 11, color: isDark ? "#4f8ef7" : "#6366f1", fontWeight: 600 }}>
+                          {userPlan === 'zzp_diamond' ? '♦ ZZP Diamond' : userPlan === 'zzp_premium' ? '✦ ZZP Premium' : userPlan === 'premium' ? '✦ Premium' : '○ Gratis'}
+                        </div>
                       </div>
                     </div>
 
@@ -6756,12 +14949,24 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* Settings */}
+                    {/* Settings + Logout */}
                     <div style={{ padding: "8px" }}>
                       <button onClick={() => { setView("settings"); setShowAvatarMenu(false); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "9px 10px", borderRadius: 10, border: "none", background: "transparent", color: isDark ? "#94a3b8" : "#64748b", cursor: "pointer", fontSize: 13, fontWeight: 500, transition: "all 0.15s" }}
                         onMouseEnter={e => { e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.05)" : "#f8fafc"; e.currentTarget.style.color = isDark ? "#e2e8f0" : "#0f172a"; }}
                         onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = isDark ? "#94a3b8" : "#64748b"; }}>
                         <Settings size={14}/> {lang === "nl" ? "Instellingen" : "Settings"}
+                      </button>
+                      {/* Email tonen */}
+                      {user?.email && (
+                        <div style={{ padding: "6px 10px", fontSize: 11, color: isDark ? "#334155" : "#94a3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {user.email}
+                        </div>
+                      )}
+                      {/* Uitloggen */}
+                      <button onClick={async () => { lsClear(user.id); await supabase.auth.signOut(); setShowAvatarMenu(false); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "9px 10px", borderRadius: 10, border: "none", background: "transparent", color: "#f43f5e", cursor: "pointer", fontSize: 13, fontWeight: 500, transition: "all 0.15s" }}
+                        onMouseEnter={e => { e.currentTarget.style.background = "rgba(244,63,94,0.08)"; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>
+                        <X size={14}/> {lang === "nl" ? "Uitloggen" : "Sign out"}
                       </button>
                     </div>
                   </div>
@@ -6816,8 +15021,8 @@ export default function App() {
           )}
           <div key={view} className="page-view">
           {view === "dashboard" && <WidgetDashboard transactions={transactions} t={t} isDark={isDark} accent={accent} accounts={accounts} investments={appInvestments} goals={appGoals} lang={lang} />}
-          {view === "overzicht" && <Overzicht transactions={transactions} t={t} accounts={accounts} selectedAccount={selectedAccount} setSelectedAccount={setSelectedAccount} isDark={isDark} accent={accent} accentBg={accentBg} setTransactions={setTransactions} onUploadClick={() => setShowGlobalUpload(true)} lang={lang} />}
-          {view === "transactions" && <Transactions transactions={transactions} setTransactions={setTransactions} t={t} accounts={accounts} setAccounts={setAccounts} isDark={isDark} lang={lang} onImportDone={(txs, importedAccounts) => {
+          {view === "overzicht" && <Overzicht transactions={!hasAccess('premium') ? transactions.filter(tx => tx.date >= new Date(new Date().setMonth(new Date().getMonth()-3)).toISOString().slice(0,10)) : transactions} t={t} accounts={accounts} selectedAccount={selectedAccount} setSelectedAccount={setSelectedAccount} isDark={isDark} accent={accent} accentBg={accentBg} setTransactions={setTransactions} onUploadClick={() => setShowGlobalUpload(true)} lang={lang} dataLoaded={dataLoaded} userPlan={userPlan} onUpgrade={() => setView('pricing')} />}
+          {view === "transactions" && <Transactions transactions={transactions} setTransactions={setTransactions} t={t} accounts={accounts} setAccounts={setAccounts} isDark={isDark} lang={lang} selectedAccount={selectedAccount} setSelectedAccount={setSelectedAccount} onImportDone={(txs, importedAccounts) => {
                 if (useMockData) {
                   setTransactions(txs);
                   setAccounts(importedAccounts || accounts.filter(a => !["ING Betaalrekening","ABN AMRO"].includes(a.name)));
@@ -6828,39 +15033,181 @@ export default function App() {
                 } else {
                   setTransactions(prev => [...txs, ...prev]);
                 }
+                // User uploaded real data — clear the "cleared" flags so mock never returns
+                if (user?.id) {
+                  localStorage.removeItem(`dynafy_${user.id}_cleared`);
+                  supabase.from('profiles').update({ data_cleared: false }).eq('id', user.id).then(() => {});
+                }
                 // Show popup with count, let user decide
                 const uncat = txs.filter(tx => !tx.category || tx.category === "other").length;
                 if (uncat > 0) setUncatAlert(uncat);
               }} />}
-          {view === "recurring" && <VasteLasten transactions={transactions} recurringItems={recurringItems} setRecurringItems={setRecurringItems} isDark={isDark} t={t} lang={lang} />}
-          {view === "investments" && <Investments key={resetKey} t={t} isDark={isDark} useMockData={useMockData} investments={appInvestments} setInvestments={setAppInvestments} lang={lang} allTransactions={transactions} goals={appGoals} setGoals={setAppGoals} />}
-          {view === "goals" && <GoalsView key={resetKey} transactions={transactions} isDark={isDark} useMockData={useMockData} goals={appGoals} setGoals={setAppGoals} t={t} lang={lang} />}
-          {view === "insights" && <Insights transactions={transactions} t={t} isDark={isDark} recurringItems={recurringItems} lang={lang} />}
-          {view === "calibrate" && <Calibrate transactions={transactions} setTransactions={setTransactions} t={t} isDark={isDark} lang={lang} />}
-          {view === "rekeningen" && <RekeningenView accounts={accounts} setAccounts={setAccounts} onDeleteAccount={handleDeleteAccount} isDark={isDark} t={t} onUploadClick={() => setShowGlobalUpload(true)} lang={lang} />}
+          {view === "recurring" && <VasteLasten transactions={transactions} recurringItems={recurringItems} setRecurringItems={setRecurringItems} isDark={isDark} t={t} lang={lang} accounts={accounts} selectedAccount={selectedAccount} setSelectedAccount={setSelectedAccount} />}
+          {view === "investments" && <Investments key={resetKey} t={t} isDark={isDark} useMockData={useMockData} investments={appInvestments} setInvestments={setAppInvestments} lang={lang} allTransactions={transactions} goals={appGoals} setGoals={setAppGoals} userPlan={userPlan} onUpgrade={() => setView('pricing')} />}
+          {view === "goals" && <GoalsView key={resetKey} transactions={transactions} isDark={isDark} useMockData={useMockData} goals={appGoals} setGoals={setAppGoals} t={t} lang={lang} investments={appInvestments} />}
+          {view === "insights" && <Insights transactions={transactions} t={t} isDark={isDark} recurringItems={recurringItems} lang={lang} accounts={accounts} selectedAccount={selectedAccount} setSelectedAccount={setSelectedAccount} />}
+          {view === "calibrate" && <Calibrate transactions={transactions} setTransactions={setTransactions} t={t} isDark={isDark} lang={lang} accounts={accounts} selectedAccount={selectedAccount} setSelectedAccount={setSelectedAccount} />}
+          {view === "rekeningen" && <RekeningenView accounts={accounts} setAccounts={setAccounts} onDeleteAccount={handleDeleteAccount} isDark={isDark} t={t} onUploadClick={() => setShowGlobalUpload(true)} lang={lang} userPlan={userPlan} onUpgrade={() => setView('pricing')} hasCompanyProfile={!!(appCompanyProfiles.some(p => p.company_name?.trim()) || zzpProfile.company_name?.trim())} transactions={transactions} setTransactions={setTransactions} />}
+          {view === "zzp-dashboard" && <ZZPDashboardView isDark={isDark} user={user} zzpProfile={appCompanyProfiles.find(p => p._id === activeCompanyId) || zzpProfile} onNavigate={setView} activeCompanyId={activeCompanyId} userPlan={userPlan} accounts={accounts} />}
+          {view === "mijn-bedrijf" && <MijnBedrijfView isDark={isDark} user={user} profile={zzpProfile} onSave={async (p) => { setZzpProfile(p); await supabase.from('profiles').update(p).eq('id', user.id); }} onNavigate={setView} userPlan={userPlan} accounts={accounts} onCompanyChange={(profiles, id) => { setAppCompanyProfiles(profiles); setActiveCompanyId(id); }} />}
+          {view === "facturen"     && <FacturenView isDark={isDark} user={user} zzpProfile={appCompanyProfiles.find(p => p._id === activeCompanyId) || zzpProfile} onNavigate={setView} activeCompanyId={activeCompanyId} userPlan={userPlan} onUpgrade={() => setView('pricing')} />}
+          {view === "kosten"       && <KostenView isDark={isDark} user={user} activeCompanyId={activeCompanyId} hasActiveCompany={!!(appCompanyProfiles.some(p => p.company_name?.trim()) || zzpProfile?.company_name?.trim())} onNavigate={setView} />}
+          {view === "bonnen"       && <BonnenView isDark={isDark} user={user} activeCompanyId={activeCompanyId} userPlan={userPlan} onUpgrade={() => setView('pricing')} />}
+          {view === "berichten"    && <BerichtenView isDark={isDark} user={user} />}
+          {view === "btw-aangifte" && <BTWAangifteView isDark={isDark} user={user} activeCompanyId={activeCompanyId} userPlan={userPlan} />}
+          {view === "moneybird"    && <MoneybirdView isDark={isDark} connected={mbConnected} onConnect={handleMbConnect} onDisconnect={handleMbDisconnect} facturen={mbFacturen} kosten={mbKosten} mbLoading={mbLoading} mbError={mbError} onRefresh={fetchMoneybirdData} />}
           {view === "export" && <ExportView transactions={transactions} isDark={isDark} />}
-          {view === "settings" && <SettingsView lang={lang} setLang={setLang} t={t} accounts={accounts} setAccounts={setAccounts} onDeleteAccount={handleDeleteAccount} theme={theme} setTheme={setTheme} isDark={isDark} onReset={(sel) => {
-            const all = sel.includes("all");
-            if (all || sel.includes("transactions")) {
+          {view === "pricing" && <PricingView isDark={isDark} userPlan={userPlan} lang={lang} onClose={() => setView("dashboard")} />}
+          {view === "admin" && isAdmin && <AdminView isDark={isDark} user={user} onOwnPlanChange={setUserPlan} onDataDeleted={(uid) => {
+            if (uid === user?.id) {
               setTransactions([]);
+              setAppInvestments([]);
+              setAppGoals([]);
+              setRecurringItems([]);
               setAccounts([]);
               setUseMockData(false);
             }
+          }} />}
+          {view === "settings" && <SettingsView lang={lang} setLang={setLang} t={t} accounts={accounts} setAccounts={setAccounts} onDeleteAccount={handleDeleteAccount} theme={theme} setTheme={setTheme} isDark={isDark} user={user} userPlan={userPlan} currency={currency} setCurrency={(c) => { setCurrency(c); try { localStorage.setItem('dynafy_currency', c); } catch {} if (user?.id) supabase.from('profiles').update({ currency: c }).eq('id', user.id).then(() => {}); }} onNavigate={setView} onReset={async (sel) => {
+            const all = sel.includes("all");
+            // Delete from Supabase IMMEDIATELY (no debounce) so refresh won't bring back old data
+            const deletes = [];
+            if (all || sel.includes("transactions")) {
+              deletes.push(supabase.from('transactions').delete().eq('user_id', user.id));
+            }
+            if (all || sel.includes("investments")) {
+              deletes.push(supabase.from('investments').delete().eq('user_id', user.id));
+            }
+            if (all || sel.includes("goals")) {
+              deletes.push(supabase.from('goals').delete().eq('user_id', user.id));
+            }
+            if (all) {
+              deletes.push(supabase.from('recurring').delete().eq('user_id', user.id));
+            }
+            if (all || sel.includes("zzp")) {
+              // Verwijder invoice_lines eerst (foreign key)
+              const { data: invRows } = await supabase.from('invoices').select('id').eq('user_id', user.id);
+              const invIds = (invRows || []).map(r => r.id);
+              if (invIds.length) {
+                deletes.push(supabase.from('invoice_lines').delete().in('invoice_id', invIds));
+              }
+              deletes.push(supabase.from('invoices').delete().eq('user_id', user.id));
+              deletes.push(supabase.from('costs').delete().eq('user_id', user.id));
+              deletes.push(supabase.from('bonnen').delete().eq('user_id', user.id));
+            }
+            await Promise.all(deletes);
+
+            // Clear local state
+            if (all || sel.includes("transactions")) {
+              setTransactions([]);
+              setAccounts([]);
+              prevTxIds.current = new Set();
+            }
             if (all || sel.includes("investments")) {
               setAppInvestments([]);
+              prevInvIds.current = new Set();
             }
             if (all || sel.includes("goals")) {
               setAppGoals([]);
+              prevGoalIds.current = new Set();
             }
             if (all) {
               setRecurringItems([]);
               setResetKey(k => k + 1);
               setView("dashboard");
             }
+            if (all || sel.includes("zzp")) {
+              // Reset bedrijfsprofiel in localStorage
+              if (user?.id) {
+                localStorage.removeItem(`dynafy_company_profiles_${user.id}`);
+                localStorage.removeItem(`dynafy_active_profile_${user.id}`);
+              }
+              setAppCompanyProfiles([]);
+              setActiveCompanyId('main');
+              setZzpProfile({ company_name:'', kvk:'', btw_number:'', iban:'', address:'', city:'', postal_code:'' });
+              // Reset in Supabase profile
+              supabase.from('profiles').update({ company_name:'', kvk:'', btw_number:'', iban:'', address:'', city:'', postal_code:'' }).eq('id', user.id).then(() => {});
+            }
+            // Clear localStorage and mark that this user cleared their data intentionally
+            lsClear(user.id);
+            localStorage.setItem(`dynafy_${user.id}_cleared`, 'true');
+            supabase.from('profiles').update({ data_cleared: true }).eq('id', user.id).then(() => {});
+            setUseMockData(false);
           }} />}
           </div>{/* /page-view */}
         </div>
       </div>
+
+      {/* ── Centrale upgrade modal ── */}
+      {showUpgradeModal && createPortal(
+        <div onClick={() => setShowUpgradeModal(null)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.65)', backdropFilter:'blur(6px)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: isDark ? '#0f1e30' : '#fff', borderRadius:24, padding:40, maxWidth:440, width:'90%', boxShadow:'0 24px 80px rgba(0,0,0,0.5)', border:`1px solid ${isDark?'rgba(255,255,255,0.08)':'#e8ecf1'}`, textAlign:'center' }}>
+            {showUpgradeModal === 'premium' && (<>
+              <div style={{ width:64, height:64, borderRadius:20, background:'linear-gradient(135deg,#f59e0b,#f97316)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 20px' }}>
+                <span style={{ fontSize:28 }}>★</span>
+              </div>
+              <div style={{ fontSize:22, fontWeight:800, color: isDark?'#f1f5f9':'#111827', marginBottom:8 }}>Premium</div>
+              <div style={{ fontSize:14, color:'#64748b', lineHeight:1.7, marginBottom:24 }}>
+                Upgrade naar <strong>Premium</strong> voor onbeperkte rekeningen, volledige transactiehistorie, AI categorisatie, investeringen en doelen.
+              </div>
+              <div style={{ fontSize:28, fontWeight:900, color: isDark?'#f1f5f9':'#111827', marginBottom:4 }}>
+                {'€'}5,99<span style={{ fontSize:15, fontWeight:500, color:'#64748b' }}>/maand</span>
+              </div>
+              <div style={{ fontSize:12, color:'#64748b', marginBottom:24 }}>of {'€'}49/jaar</div>
+            </>)}
+            {showUpgradeModal === 'zzp_premium' && (<>
+              <div style={{ width:64, height:64, borderRadius:20, background:'linear-gradient(135deg,#a855f7,#6366f1)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 20px' }}>
+                <Zap size={30} color="#fff" />
+              </div>
+              <div style={{ fontSize:22, fontWeight:800, color: isDark?'#f1f5f9':'#111827', marginBottom:8 }}>ZZP Premium</div>
+              <div style={{ fontSize:14, color:'#64748b', lineHeight:1.7, marginBottom:24 }}>
+                Upgrade naar <strong>ZZP Premium</strong> voor onbeperkt facturen, kosten, BTW aangifte, Moneybird koppeling en boekhouder toegang.
+              </div>
+              <div style={{ fontSize:28, fontWeight:900, color: isDark?'#f1f5f9':'#111827', marginBottom:4 }}>
+                {'€'}17,99<span style={{ fontSize:15, fontWeight:500, color:'#64748b' }}>/maand</span>
+              </div>
+              <div style={{ fontSize:12, color:'#64748b', marginBottom:24 }}>of {'€'}159/jaar</div>
+            </>)}
+            {showUpgradeModal === 'zzp_diamond' && (<>
+              <div style={{ width:64, height:64, borderRadius:20, background:'linear-gradient(135deg,#06b6d4,#8b5cf6)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 20px' }}>
+                <span style={{ fontSize:28 }}>{'♦'}</span>
+              </div>
+              <div style={{ fontSize:22, fontWeight:800, color: isDark?'#f1f5f9':'#111827', marginBottom:8 }}>ZZP Diamond</div>
+              <div style={{ fontSize:14, color:'#64748b', lineHeight:1.7, marginBottom:24 }}>
+                Upgrade naar <strong>ZZP Diamond</strong> voor AI bonnen scan, meerdere bedrijfsprofielen en volledige boekhouding door een echte boekhouder.
+              </div>
+              <div style={{ fontSize:28, fontWeight:900, color: isDark?'#f1f5f9':'#111827', marginBottom:4 }}>
+                {'€'}89<span style={{ fontSize:15, fontWeight:500, color:'#64748b' }}>/maand</span>
+              </div>
+              <div style={{ fontSize:12, color:'#64748b', marginBottom:24 }}>of {'€'}849/jaar</div>
+            </>)}
+            <div style={{ fontSize:13, color:'#64748b', marginBottom:20 }}>Neem contact op met de beheerder om je plan te upgraden.</div>
+            <button onClick={() => setShowUpgradeModal(null)} style={{ width:'100%', padding:'13px 0', borderRadius:14, border:'none', background:'linear-gradient(135deg,#4f8ef7,#6366f1)', color:'#fff', fontWeight:700, fontSize:15, cursor:'pointer' }}>
+              Begrepen
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ZZP Premium upgrade modal */}
+      {showZzpModal && createPortal(
+        <div onClick={() => setShowZzpModal(false)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", backdropFilter:"blur(4px)", zIndex:9999, display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: isDark ? "#0f1e30" : "#fff", borderRadius: 20, padding: 36, maxWidth: 420, width:"90%", boxShadow:"0 24px 80px rgba(0,0,0,0.5)", border:`1px solid ${isDark?"rgba(255,255,255,0.08)":"#e8ecf1"}`, textAlign:"center" }}>
+            <div style={{ width:60, height:60, borderRadius:18, background:"linear-gradient(135deg,#f59e0b,#f97316)", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 16px" }}>
+              <Zap size={28} color="#fff" />
+            </div>
+            <div style={{ fontSize:20, fontWeight:800, color: isDark?"#f1f5f9":"#111827", marginBottom:8 }}>ZZP Premium</div>
+            <div style={{ fontSize:14, color:"#64748b", lineHeight:1.6, marginBottom:24 }}>
+              Je hebt geen ZZP Premium Account. Neem contact op met de beheerder om ZZP Modus in te schakelen en toegang te krijgen tot facturen, kosten en BTW aangifte.
+            </div>
+            <button onClick={() => setShowZzpModal(false)} style={{ ...pillBtn("#f59e0b","#f97316"), width:"100%", padding:"12px 0" }}>
+              Begrepen
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
