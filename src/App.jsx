@@ -14975,9 +14975,9 @@ export default function App() {
         {/* ── Upgrade badge ── */}
         {sidebarOpen ? (
           <div style={{ margin: "8px 12px 16px", padding: "14px", borderRadius: 14, background: (isDark || theme === "light") ? "rgba(217,119,6,0.12)" : "linear-gradient(135deg, rgba(67,97,238,0.08), rgba(99,102,241,0.08))", border: isDark ? "1px solid rgba(79,142,247,0.2)" : "1px solid rgba(79,142,247,0.15)", flexShrink: 0 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#4f8ef7", marginBottom: 4 }}>⚡ Upgrade to Pro</div>
-            <div style={{ fontSize: 11, color: isDark ? "#64748b" : "#64748b", lineHeight: 1.5 }}>Unlimited accounts & AI insights</div>
-            <div style={{ marginTop: 8, padding: "6px 12px", background: "linear-gradient(135deg, #4f8ef7, #6366f1)", borderRadius: 8, textAlign: "center", fontSize: 12, fontWeight: 700, color: "#fff" }}>€10 / month</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#4f8ef7", marginBottom: 4 }}>⚡ {lang === "nl" ? "Upgrade naar Pro" : "Upgrade to Pro"}</div>
+            <div style={{ fontSize: 11, color: isDark ? "#64748b" : "#64748b", lineHeight: 1.5 }}>{lang === "nl" ? "Onbeperkte rekeningen & AI-inzichten" : "Unlimited accounts & AI insights"}</div>
+            <div style={{ marginTop: 8, padding: "6px 12px", background: "linear-gradient(135deg, #4f8ef7, #6366f1)", borderRadius: 8, textAlign: "center", fontSize: 12, fontWeight: 700, color: "#fff" }}>Upgrade</div>
           </div>
         ) : (
           <div style={{ padding: "8px", flexShrink: 0 }}>
