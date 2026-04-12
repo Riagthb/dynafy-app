@@ -13971,6 +13971,13 @@ export default function App() {
     supabase.from('profiles').update({ theme }).eq('id', user.id).then(() => {});
   }, [theme, user?.id]);
 
+  // Sla taal op per gebruiker — localStorage direct, Supabase voor cross-device
+  useEffect(() => {
+    if (!user?.id) return;
+    lsSet(user.id, 'lang', lang);
+    supabase.from('profiles').update({ lang }).eq('id', user.id).then(() => {});
+  }, [lang, user?.id]);
+
   // Load user data from Supabase when logged in
   useEffect(() => {
     if (!user) {
@@ -14015,7 +14022,7 @@ export default function App() {
           supabase.from('investments').select('*').eq('user_id', user.id),
           supabase.from('goals').select('*').eq('user_id', user.id),
           supabase.from('recurring').select('*').eq('user_id', user.id),
-          supabase.from('profiles').select('is_admin, plan, company_name, name, display_name, kvk, btw_number, iban, address, city, postal_code, theme, currency, data_cleared').eq('id', user.id).single(),
+          supabase.from('profiles').select('is_admin, plan, company_name, name, display_name, kvk, btw_number, iban, address, city, postal_code, theme, currency, lang, data_cleared').eq('id', user.id).single(),
         ]);
 
         // Check if user deliberately cleared their data — localStorage OR Supabase flag
@@ -14090,6 +14097,8 @@ export default function App() {
         if (profileCheck?.plan) setUserPlan(profileCheck.plan);
         if (profileCheck?.theme) setTheme(profileCheck.theme);
         else { const saved = lsGet(user.id, 'theme', null); if (saved) setTheme(saved); }
+        if (profileCheck?.lang) setLang(profileCheck.lang);
+        else { const saved = lsGet(user.id, 'lang', null); if (saved) setLang(saved); }
         if (profileCheck?.currency) { setCurrency(profileCheck.currency); try { localStorage.setItem('dynafy_currency', profileCheck.currency); } catch {} }
 
         // Fetch role separately — safe to fail if column doesn't exist yet
@@ -14544,6 +14553,7 @@ export default function App() {
               id: user.id,
               email: user.email,
               name: opts.name,
+              lang: opts.lang || 'nl',
               subscription: 'free',
               last_seen: new Date().toISOString(),
               onboarding_data: opts.onboardingData || null,
