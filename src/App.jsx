@@ -14356,7 +14356,7 @@ export default function App() {
                 last_seen: new Date().toISOString(),
               }, { onConflict: 'id' });
             }
-            setLoginSuccess('Account aangemaakt! Je wordt ingelogd...');
+            setLoginSuccess('Account aangemaakt!');
           }
         } else {
           const { error } = await supabase.auth.resetPasswordForEmail(loginEmail.trim(), { redirectTo: window.location.origin });
@@ -14398,8 +14398,15 @@ export default function App() {
 
             {loginSuccess ? (
               <div style={{ textAlign:'center', padding:'8px 0' }}>
-                <div style={{ fontSize:36, marginBottom:12 }}>{loginMode === 'forgot' ? '📬' : '✅'}</div>
-                <div style={{ fontSize:15, fontWeight:700, color:'#f1f5f9', marginBottom:8 }}>{loginSuccess}</div>
+                <div style={{ fontSize:36, marginBottom:12 }}>{loginMode === 'register' ? '✉️' : '📬'}</div>
+                <div style={{ fontSize:15, fontWeight:700, color:'#f1f5f9', marginBottom:8 }}>
+                  {loginMode === 'register' ? 'Bevestig je e-mailadres' : loginSuccess}
+                </div>
+                {loginMode === 'register' && (
+                  <div style={{ fontSize:13, color:'#64748b', lineHeight:1.6, marginBottom:4 }}>
+                    We hebben een bevestigingsmail gestuurd naar jouw e-mailadres. Klik op de link in de mail om je account te activeren.
+                  </div>
+                )}
                 <button onClick={() => { setLoginSuccess(''); setLoginMode('login'); }} style={{ marginTop:12, padding:'9px 20px', borderRadius:10, border:'1px solid rgba(255,255,255,0.1)', background:'transparent', color:'#64748b', cursor:'pointer', fontSize:13 }}>
                   Terug naar inloggen
                 </button>
