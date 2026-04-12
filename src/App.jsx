@@ -14092,15 +14092,21 @@ export default function App() {
 
         // Skip onboarding als:
         // 1. Profiel bestaat in DB (meest betrouwbaar)
-        // 2. localStorage-vlag is gezet (eerder ingelogd)
-        // 3. localStorage admin-vlag is gezet (admin omzeilt altijd onboarding)
+        // 2. user_metadata.onboarded = true (werkt cross-browser, zit in JWT)
+        // 3. localStorage-vlag is gezet (eerder ingelogd op dit apparaat)
+        // 4. localStorage admin-vlag is gezet (admin omzeilt altijd onboarding)
         const alreadyOnboarded =
           !!profileCheck ||
+          user?.user_metadata?.onboarded === true ||
           localStorage.getItem(`dynafy_${user.id}_onboarded`) === 'true' ||
           localStorage.getItem(`dynafy_${user.id}_is_admin`) === 'true';
         if (alreadyOnboarded) {
           setOnboarded(true);
           localStorage.setItem(`dynafy_${user.id}_onboarded`, 'true'); // zet altijd voor zekerheid
+          // Sla ook op in user_metadata zodat het cross-browser werkt
+          if (!user?.user_metadata?.onboarded) {
+            supabase.auth.updateUser({ data: { onboarded: true } }).catch(() => {});
+          }
           const resolvedName = profileCheck?.display_name || profileCheck?.name || user?.user_metadata?.full_name || user?.user_metadata?.display_name || "";
           // Niet het e-mailadres als naam tonen
           if (resolvedName && resolvedName !== user.email) setUserName(resolvedName);
@@ -14562,6 +14568,8 @@ export default function App() {
           // Save name + onboarding data to profile and mark onboarded
           if (user) {
             localStorage.setItem(`dynafy_${user.id}_onboarded`, 'true');
+            // Sla ook op in user_metadata (cross-browser, zit in JWT)
+            supabase.auth.updateUser({ data: { onboarded: true } }).catch(() => {});
 
             // Controleer of profiel al bestaat — gebruik dan UPDATE (nooit upsert/insert)
             // zodat is_admin en plan NOOIT worden overschreven
