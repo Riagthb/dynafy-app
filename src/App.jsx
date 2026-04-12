@@ -14022,7 +14022,7 @@ export default function App() {
           supabase.from('investments').select('*').eq('user_id', user.id),
           supabase.from('goals').select('*').eq('user_id', user.id),
           supabase.from('recurring').select('*').eq('user_id', user.id),
-          supabase.from('profiles').select('is_admin, plan, company_name, name, display_name, kvk, btw_number, iban, address, city, postal_code, theme, currency, lang, data_cleared').eq('id', user.id).single(),
+          supabase.from('profiles').select('*').eq('id', user.id).single(),
         ]);
 
         // Check if user deliberately cleared their data — localStorage OR Supabase flag
@@ -14112,8 +14112,11 @@ export default function App() {
           if (resolvedName && resolvedName !== user.email) setUserName(resolvedName);
         }
 
-        if (profileCheck?.is_admin === true) setIsAdmin(true);
-        if (profileCheck?.plan) setUserPlan(profileCheck.plan);
+        // Admin/plan uit DB profiel, MET fallback op user_metadata (werkt altijd, ook als profile read mislukt)
+        const isAdminValue = profileCheck?.is_admin === true || user?.user_metadata?.is_admin === true;
+        if (isAdminValue) setIsAdmin(true);
+        const planValue = profileCheck?.plan || user?.user_metadata?.plan;
+        if (planValue) setUserPlan(planValue);
         if (profileCheck?.theme) setTheme(profileCheck.theme);
         else { const saved = lsGet(user.id, 'theme', null); if (saved) setTheme(saved); }
         if (profileCheck?.lang) setLang(profileCheck.lang);
