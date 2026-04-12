@@ -5978,7 +5978,11 @@ function SettingsView({ lang, setLang, t, accounts, setAccounts, onDeleteAccount
   const C = { text: isDark ? "#f1f5f9" : "#0f172a", muted: isDark ? "#64748b" : "#64748b", border: isDark ? "rgba(255,255,255,0.08)" : "#e2e6ed" };
 
   // Naam wijzigen
-  const [displayName, setDisplayName] = useState(user?.user_metadata?.full_name || user?.user_metadata?.display_name || "");
+  const [displayName, setDisplayName] = useState(() => {
+    const n = user?.user_metadata?.full_name || user?.user_metadata?.display_name || "";
+    // Niet het e-mailadres als naam tonen
+    return n === user?.email ? "" : n;
+  });
   const [nameLoading, setNameLoading] = useState(false);
   const [nameMsg, setNameMsg] = useState(null);
 
@@ -6020,18 +6024,31 @@ function SettingsView({ lang, setLang, t, accounts, setAccounts, onDeleteAccount
   const handleDeleteAccount = async () => {
     setDeleteStep(2); setDeleteMsg(null);
     try {
-      // Delete all user data from Supabase tables
+      const uid = user.id;
+      // 1) Verwijder invoice_lines eerst (foreign key constraint)
+      const { data: invRows } = await supabase.from('invoices').select('id').eq('user_id', uid);
+      const invIds = (invRows || []).map(r => r.id);
+      // 2) Verwijder alle gebruikersdata
       await Promise.all([
-        supabase.from('transactions').delete().eq('user_id', user.id),
-        supabase.from('investments').delete().eq('user_id', user.id),
-        supabase.from('goals').delete().eq('user_id', user.id),
-        supabase.from('recurring').delete().eq('user_id', user.id),
-        supabase.from('invoices').delete().eq('user_id', user.id),
-        supabase.from('costs').delete().eq('user_id', user.id),
-        supabase.from('bonnen').delete().eq('user_id', user.id),
+        supabase.from('transactions').delete().eq('user_id', uid),
+        supabase.from('investments').delete().eq('user_id', uid),
+        supabase.from('goals').delete().eq('user_id', uid),
+        supabase.from('recurring').delete().eq('user_id', uid),
+        ...(invIds.length ? [supabase.from('invoice_lines').delete().in('invoice_id', invIds)] : []),
+        supabase.from('invoices').delete().eq('user_id', uid),
+        supabase.from('costs').delete().eq('user_id', uid),
+        supabase.from('bonnen').delete().eq('user_id', uid),
+        supabase.from('client_links').delete().eq('client_user_id', uid),
+        supabase.from('client_links').delete().eq('linked_user_id', uid),
       ]);
-      // Mark profile as deleted
-      await supabase.from('profiles').update({ deleted: true, deleted_at: new Date().toISOString() }).eq('id', user.id);
+      // 3) Verwijder profiel
+      await supabase.from('profiles').delete().eq('id', uid);
+      // 4) Verwijder auth-account via database RPC
+      const { error: fnError } = await supabase.rpc('delete_user_account', { target_user_id: uid });
+      if (fnError) {
+        // Auth-account kon niet worden verwijderd, maar data is weg — uitloggen
+        console.warn('Auth delete failed:', fnError.message);
+      }
       await supabase.auth.signOut();
     } catch (err) {
       setDeleteStep(1);
@@ -6056,7 +6073,6 @@ function SettingsView({ lang, setLang, t, accounts, setAccounts, onDeleteAccount
 
   return (
     <div>
-      <div style={{ fontSize: 20, fontWeight: 700, color: isDark ? "#f1f5f9" : "#0f172a", marginBottom: 20 }}>{t.settings.title}</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
         {/* Naam wijzigen */}
@@ -8825,16 +8841,16 @@ function Onboarding({ onComplete }) {
       <span style={{ fontSize: 13, color: textColor, lineHeight: 1.6 }} onClick={e => e.stopPropagation()}>
         {lang === "nl" ? (
           <>Ik ga akkoord met de{" "}
-            <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: accentColor, textDecoration: "underline" }} onClick={e => e.stopPropagation()}>gebruiksvoorwaarden</a>
+            <a href="/terms.html" target="_blank" rel="noopener noreferrer" style={{ color: textColor, textDecoration: "underline" }} onClick={e => e.stopPropagation()}>gebruiksvoorwaarden</a>
             {" "}en het{" "}
-            <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: accentColor, textDecoration: "underline" }} onClick={e => e.stopPropagation()}>privacybeleid</a>
+            <a href="/privacy.html" target="_blank" rel="noopener noreferrer" style={{ color: textColor, textDecoration: "underline" }} onClick={e => e.stopPropagation()}>privacybeleid</a>
             {" "}van Dynafy
           </>
         ) : (
           <>I agree to the Dynafy{" "}
-            <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: accentColor, textDecoration: "underline" }} onClick={e => e.stopPropagation()}>terms of service</a>
+            <a href="/terms.html" target="_blank" rel="noopener noreferrer" style={{ color: textColor, textDecoration: "underline" }} onClick={e => e.stopPropagation()}>terms of service</a>
             {" "}and{" "}
-            <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: accentColor, textDecoration: "underline" }} onClick={e => e.stopPropagation()}>privacy policy</a>
+            <a href="/privacy.html" target="_blank" rel="noopener noreferrer" style={{ color: textColor, textDecoration: "underline" }} onClick={e => e.stopPropagation()}>privacy policy</a>
           </>
         )}
       </span>
