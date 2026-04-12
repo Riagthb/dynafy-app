@@ -13252,6 +13252,9 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted }) {
       supabase.from('invoices').delete().eq('user_id', uid),
       supabase.from('costs').delete().eq('user_id', uid),
       supabase.from('bonnen').delete().eq('user_id', uid),
+      // Verwijder client_links koppelingen (zowel als klant als als boekhouder/admin)
+      supabase.from('client_links').delete().eq('client_user_id', uid),
+      supabase.from('client_links').delete().eq('linked_user_id', uid),
     ]);
     // 2) Verwijder het profiel uit de profiles tabel
     await supabase.from('profiles').delete().eq('id', uid);
