@@ -5989,7 +5989,7 @@ function RekeningenView({ accounts, setAccounts, onDeleteAccount, isDark, t, onU
   );
 }
 
-function SettingsView({ lang, setLang, t, accounts, setAccounts, onDeleteAccount, theme, setTheme, isDark, onReset, user, userPlan = 'normal', currency = 'EUR', setCurrency, onNavigate }) {
+function SettingsView({ lang, setLang, t, accounts, setAccounts, onDeleteAccount, theme, setTheme, isDark, onReset, user, userPlan = 'normal', currency = 'EUR', setCurrency, onNavigate, onNameChange }) {
   const [newCat, setNewCat] = useState("");
   const [confirmReset, setConfirmReset] = useState(false);
   const [resetSel, setResetSel] = useState([]);
@@ -6011,7 +6011,7 @@ function SettingsView({ lang, setLang, t, accounts, setAccounts, onDeleteAccount
     const { error: profileErr } = await supabase.from('profiles').update({ display_name: displayName.trim() }).eq('id', user.id);
     setNameLoading(false);
     if (authErr || profileErr) { setNameMsg({ text: "Fout bij opslaan. Probeer opnieuw.", ok: false }); }
-    else { setNameMsg({ text: "Naam succesvol bijgewerkt!", ok: true }); }
+    else { setNameMsg({ text: "Naam succesvol bijgewerkt!", ok: true }); if (onNameChange) onNameChange(displayName.trim()); }
   };
 
   // Wachtwoord wijzigen
@@ -14015,7 +14015,7 @@ export default function App() {
           supabase.from('investments').select('*').eq('user_id', user.id),
           supabase.from('goals').select('*').eq('user_id', user.id),
           supabase.from('recurring').select('*').eq('user_id', user.id),
-          supabase.from('profiles').select('is_admin, plan, company_name, name, kvk, btw_number, iban, address, city, postal_code, theme, currency, data_cleared').eq('id', user.id).single(),
+          supabase.from('profiles').select('is_admin, plan, company_name, name, display_name, kvk, btw_number, iban, address, city, postal_code, theme, currency, data_cleared').eq('id', user.id).single(),
         ]);
 
         // Check if user deliberately cleared their data — localStorage OR Supabase flag
@@ -14081,8 +14081,9 @@ export default function App() {
         // Skip onboarding for returning users (have a name), admins, or explicit localStorage flag
         if (profileCheck?.name || profileCheck?.is_admin || localStorage.getItem(`dynafy_${user.id}_onboarded`) === 'true') {
           setOnboarded(true);
-          const resolvedName = profileCheck?.name || profileCheck?.display_name || "";
-          if (resolvedName) setUserName(resolvedName);
+          const resolvedName = profileCheck?.display_name || profileCheck?.name || user?.user_metadata?.full_name || user?.user_metadata?.display_name || "";
+          // Niet het e-mailadres als naam tonen
+          if (resolvedName && resolvedName !== user.email) setUserName(resolvedName);
         }
 
         if (profileCheck?.is_admin === true) setIsAdmin(true);
@@ -15227,7 +15228,7 @@ export default function App() {
               setUseMockData(false);
             }
           }} />}
-          {view === "settings" && <SettingsView lang={lang} setLang={setLang} t={t} accounts={accounts} setAccounts={setAccounts} onDeleteAccount={handleDeleteAccount} theme={theme} setTheme={setTheme} isDark={isDark} user={user} userPlan={userPlan} currency={currency} setCurrency={(c) => { setCurrency(c); try { localStorage.setItem('dynafy_currency', c); } catch {} if (user?.id) supabase.from('profiles').update({ currency: c }).eq('id', user.id).then(() => {}); }} onNavigate={setView} onReset={async (sel) => {
+          {view === "settings" && <SettingsView lang={lang} setLang={setLang} t={t} accounts={accounts} setAccounts={setAccounts} onDeleteAccount={handleDeleteAccount} theme={theme} setTheme={setTheme} isDark={isDark} user={user} userPlan={userPlan} currency={currency} onNameChange={(name) => setUserName(name)} setCurrency={(c) => { setCurrency(c); try { localStorage.setItem('dynafy_currency', c); } catch {} if (user?.id) supabase.from('profiles').update({ currency: c }).eq('id', user.id).then(() => {}); }} onNavigate={setView} onReset={async (sel) => {
             const all = sel.includes("all");
             // Delete from Supabase IMMEDIATELY (no debounce) so refresh won't bring back old data
             const deletes = [];
