@@ -13776,7 +13776,11 @@ export default function App() {
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [showLoginPw, setShowLoginPw] = useState(false);
-  const [loginMode, setLoginMode] = useState('login'); // 'login' | 'register' | 'forgot'
+  const [loginMode, setLoginMode] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const mode = params.get('mode');
+    return mode === 'register' ? 'register' : 'login';
+  }); // 'login' | 'register' | 'forgot'
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [loginSuccess, setLoginSuccess] = useState('');
