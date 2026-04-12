@@ -14536,7 +14536,7 @@ export default function App() {
   if (!onboarded) {
     return (
       <Onboarding
-        onComplete={(opts) => {
+        onComplete={async (opts) => {
           setLang(opts.lang);
           setTheme(opts.theme);
           setUserName(opts.name);
