@@ -13894,8 +13894,6 @@ export default function App() {
   const [userRole, setUserRole]       = useState('user');
   const [roleLoaded, setRoleLoaded]   = useState(false);
   const [clientLinks, setClientLinks] = useState([]);
-  // Register form: role selector
-  const [registerRole, setRegisterRole] = useState('user');
 
   // ── Supabase Auth ───────────────────────────────────────────
   const [user, setUser] = useState(null);
@@ -14347,15 +14345,6 @@ export default function App() {
             else if (error.message.includes('password') && error.message.includes('6')) setLoginError('Wachtwoord moet minimaal 6 tekens bevatten.');
             else setLoginError(error.message);
           } else {
-            // Save role to profile immediately for service accounts
-            if (signUpData?.user && registerRole !== 'user') {
-              await supabase.from('profiles').upsert({
-                id: signUpData.user.id,
-                email: loginEmail.trim(),
-                role: registerRole,
-                last_seen: new Date().toISOString(),
-              }, { onConflict: 'id' });
-            }
             setLoginSuccess('Account aangemaakt!');
           }
         } else {
@@ -14445,27 +14434,6 @@ export default function App() {
                   </div>
                 </div>
                 {/* Account type — alleen bij registreren */}
-                {loginMode === 'register' && (
-                  <div style={{ marginBottom:20 }}>
-                    <label style={labelStyle}>ACCOUNT TYPE</label>
-                    <select value={registerRole} onChange={e => setRegisterRole(e.target.value)}
-                      style={{ ...inputStyle, cursor:'pointer', appearance:'none', paddingRight:32, backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat:'no-repeat', backgroundPosition:'right 12px center' }}>
-                      <option value="user">ZZP-er / Particulier</option>
-                      <option value="administrateur">Administrateur</option>
-                      <option value="boekhouder">Boekhouder</option>
-                    </select>
-                    {registerRole === 'administrateur' && (
-                      <div style={{ fontSize:11, color:'#4f8ef7', marginTop:6, padding:'6px 10px', background:'rgba(79,142,247,0.08)', borderRadius:8 }}>
-                        Je krijgt toegang tot de administrateur portal. Klanten koppelen je via een uitnodigingscode.
-                      </div>
-                    )}
-                    {registerRole === 'boekhouder' && (
-                      <div style={{ fontSize:11, color:'#a855f7', marginTop:6, padding:'6px 10px', background:'rgba(168,85,247,0.08)', borderRadius:8 }}>
-                        Je krijgt toegang tot de boekhouder portal. Klanten koppelen je via een uitnodigingscode.
-                      </div>
-                    )}
-                  </div>
-                )}
                 {/* Wachtwoord vergeten link */}
                 {loginMode === 'login' && (
                   <div style={{ textAlign:'right', marginBottom:20 }}>
