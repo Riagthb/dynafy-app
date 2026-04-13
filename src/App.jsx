@@ -12570,8 +12570,9 @@ function MijnBedrijfView({ isDark, user, profile, onSave, onNavigate, userPlan, 
       const saved = JSON.parse(localStorage.getItem(storageKey));
       if (saved && saved.length > 0) return saved;
     } catch {}
-    // Bootstrap from current profile
-    return [{ ...EMPTY_PROFILE, ...profile, _id: 'main' }];
+    // Bootstrap from the profile passed in (which comes from Supabase via zzpProfile)
+    if (profile?.company_name?.trim()) return [{ ...EMPTY_PROFILE, ...profile, _id: 'main' }];
+    return [{ ...EMPTY_PROFILE, _id: 'main' }];
   });
 
   const [activeIdx, setActiveIdx] = useState(() => {
@@ -12773,8 +12774,15 @@ function MijnBedrijfView({ isDark, user, profile, onSave, onNavigate, userPlan, 
     // Save into profiles array
     const updated = companyProfiles.map((p, i) => i === activeIdx ? { ...p, ...form } : p);
     setCompanyProfiles(updated);
-    // If it's the main/first profile, also save to Supabase
-    if (activeIdx === 0) await onSave(form);
+    // Always save main profile fields to Supabase profiles table
+    if (activeIdx === 0) {
+      await onSave(form);
+    } else {
+      // For extra profiles: store all profiles as JSON in the profiles table
+      await supabase.from('profiles')
+        .update({ extra_company_profiles: JSON.stringify(updated.slice(1)) })
+        .eq('id', user.id);
+    }
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
@@ -14395,20 +14403,55 @@ export default function App() {
     })();
   }, [user?.id]);
 
-  // Load company profiles from localStorage when user changes
+  // Load company profiles: localStorage first, fallback to Supabase profiles table
   useEffect(() => {
     if (!user) { setAppCompanyProfiles([]); setActiveCompanyId('main'); return; }
     const storageKey = `dynafy_company_profiles_${user.id}`;
     const activeKey  = `dynafy_active_profile_${user.id}`;
+
+    let loaded = false;
     try {
       const saved = JSON.parse(localStorage.getItem(storageKey));
-      if (saved && saved.length > 0) {
+      if (saved && saved.length > 0 && saved.some(p => p.company_name?.trim())) {
         setAppCompanyProfiles(saved);
         const idx = parseInt(localStorage.getItem(activeKey) || '0');
         const ai = isNaN(idx) ? 0 : Math.min(idx, saved.length - 1);
         setActiveCompanyId(saved[ai]?._id || 'main');
+        loaded = true;
       }
     } catch {}
+
+    // Always also fetch from Supabase so other browsers/devices stay in sync
+    supabase.from('profiles')
+      .select('company_name,kvk,btw_number,iban,address,city,postal_code,payment_term_days,moneybird_enabled,extra_company_profiles')
+      .eq('id', user.id).single()
+      .then(({ data }) => {
+        if (!data?.company_name?.trim()) return; // nothing stored in DB
+        const dbProfile = { ...data, _id: 'main', extra_company_profiles: undefined };
+        // Parse any extra profiles saved in DB
+        let extras = [];
+        try { extras = JSON.parse(data.extra_company_profiles || '[]') || []; } catch {}
+        const allProfiles = [dbProfile, ...extras];
+
+        if (!loaded) {
+          // localStorage was empty — restore from DB
+          setAppCompanyProfiles(allProfiles);
+          setActiveCompanyId('main');
+          try { localStorage.setItem(storageKey, JSON.stringify(allProfiles)); } catch {}
+        } else {
+          // localStorage had data — keep extras but sync main profile from DB
+          setAppCompanyProfiles(prev => {
+            const mainEntry = { ...dbProfile };
+            const otherEntries = prev.filter(p => p._id !== 'main');
+            // Merge DB extras with local extras (DB wins for existing IDs)
+            const extraMap = Object.fromEntries(extras.map(e => [e._id, e]));
+            const mergedExtras = otherEntries.map(p => extraMap[p._id] ? { ...p, ...extraMap[p._id] } : p);
+            const merged = [mainEntry, ...mergedExtras];
+            try { localStorage.setItem(storageKey, JSON.stringify(merged)); } catch {}
+            return merged;
+          });
+        }
+      });
   }, [user?.id]);
 
   // Sync transactions → Supabase (debounced 1.5s)
