@@ -2,6 +2,8 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from './supabase.js';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, LineChart, Line, CartesianGrid, Legend, AreaChart, Area
@@ -882,8 +884,8 @@ function useCountUp(target, duration = 900) {
 
 // ─── DYNAFY LOGO — Wave 4A ─────────────────────────────────────
 function DynafyLogo({ size = 32 }) {
-  // Unique ID per instance to avoid SVG gradient conflicts
-  const uid = Math.random().toString(36).slice(2, 7);
+  // Stable unique ID per instance to avoid SVG gradient conflicts
+  const uid = useRef(Math.random().toString(36).slice(2, 7)).current;
   return (
     <svg width={size} height={size} viewBox="0 0 44 44" fill="none" style={{ flexShrink: 0 }}>
       <rect width="44" height="44" rx={Math.round(size * 0.27)} fill="#070c1a"/>
@@ -1684,7 +1686,7 @@ function WidgetDashboard({ transactions, t, isDark, accent = "#4f8ef7", accounts
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {goals.slice(0, 3).map(goal => {
-                const pct = Math.min(100, Math.round((goal.current / goal.target) * 100));
+                const pct = goal.target ? Math.min(100, Math.round((goal.current / goal.target) * 100)) : 0;
                 return (
                   <div key={goal.id}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
@@ -2220,7 +2222,7 @@ function WidgetDashboard({ transactions, t, isDark, accent = "#4f8ef7", accounts
               ]}/>
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 {goals.map(goal => {
-                  const pct = Math.min(100, Math.round((goal.current/goal.target)*100));
+                  const pct = goal.target ? Math.min(100, Math.round((goal.current/goal.target)*100)) : 0;
                   const remaining = Math.max(0, goal.target - goal.current);
                   const daysLeft = goal.deadline ? Math.ceil((new Date(goal.deadline) - new Date()) / 86400000) : null;
                   return (
@@ -7650,6 +7652,7 @@ function ExportView({ transactions, isDark }) {
 
   const exportPDF = () => {
     setExporting("pdf");
+    const escHtml = (s) => String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
     const dateRange = dateFrom || dateTo ? `${dateFrom || "begin"} t/m ${dateTo || "nu"}` : "Alle transacties";
 
     // Build HTML for PDF print
@@ -7683,10 +7686,10 @@ function ExportView({ transactions, isDark }) {
       <thead><tr><th>Datum</th><th>Omschrijving</th><th>Categorie</th><th>Rekening</th><th style="text-align:right">Bedrag</th></tr></thead>
       <tbody>
         ${filtered.map(tx => `<tr>
-          <td>${tx.date}</td>
-          <td>${tx.description}</td>
-          <td>${tx.category}</td>
-          <td>${tx.account}</td>
+          <td>${escHtml(tx.date)}</td>
+          <td>${escHtml(tx.description)}</td>
+          <td>${escHtml(tx.category)}</td>
+          <td>${escHtml(tx.account)}</td>
           <td class="${tx.amount >= 0 ? "amount-pos" : "amount-neg"}">${tx.amount >= 0 ? "+" : "−"}${fmt(Math.abs(tx.amount))}</td>
         </tr>`).join("")}
       </tbody>
@@ -7910,7 +7913,7 @@ function GoalsView({ transactions, isDark, useMockData = true, goals: appGoals, 
         )}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
           {goals.map(goal => {
-            const pct = Math.min(100, Math.round((goal.current / goal.target) * 100));
+            const pct = goal.target ? Math.min(100, Math.round((goal.current / goal.target) * 100)) : 0;
             const remaining = goal.target - goal.current;
             const today = new Date();
             const deadline = goal.deadline ? new Date(goal.deadline) : null;
@@ -9186,17 +9189,18 @@ function invoiceTotals(invoice) {
 }
 
 function printInvoicePDF(invoice, zzpProfile) {
+  const escHtml = (s) => String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
   const p = zzpProfile || {};
   const totals = invoiceTotals(invoice);
   const client = invoice.client || {};
-  const clientName = client.company_name || [client.first_name, client.last_name].filter(Boolean).join(' ') || '—';
-  const clientAddr = [client.address, [client.postal_code, client.city].filter(Boolean).join(' ')].filter(Boolean).join('<br>');
+  const clientName = escHtml(client.company_name || [client.first_name, client.last_name].filter(Boolean).join(' ') || '—');
+  const clientAddr = [client.address, [client.postal_code, client.city].filter(Boolean).join(' ')].filter(Boolean).map(escHtml).join('<br>');
   const fmtN = (n) => Number(n || 0).toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const linesHtml = (invoice.lines || []).sort((a,b) => a.sort_order - b.sort_order).map(l => {
     const excl = parseFloat(l.quantity||0) * parseFloat(l.unit_price||0);
     return `<tr>
-      <td>${l.description}</td>
+      <td>${escHtml(l.description)}</td>
       <td style="text-align:right">${parseFloat(l.quantity||0).toLocaleString('nl-NL')}</td>
       <td style="text-align:right">€ ${fmtN(l.unit_price)}</td>
       <td style="text-align:right">${l.btw_percentage}%</td>
@@ -9272,6 +9276,90 @@ function printInvoicePDF(invoice, zzpProfile) {
   if (w) { w.document.write(html); w.document.close(); }
 }
 
+// ─── GENERATE INVOICE PDF BASE64 ───────────────────────────────
+async function generateInvoicePDFBase64(invoice, zzpProfile) {
+  // Render the invoice HTML off-screen, capture with html2canvas, convert to PDF
+  const escHtml = (s) => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const p = zzpProfile || {};
+  const totals = invoiceTotals(invoice);
+  const client = invoice.client || {};
+  const clientName = escHtml(client.company_name || [client.first_name, client.last_name].filter(Boolean).join(' ') || '—');
+  const clientAddr = [client.address, [client.postal_code, client.city].filter(Boolean).join(' ')].filter(Boolean).map(escHtml).join('<br>');
+  const fmtN = (n) => Number(n || 0).toLocaleString('nl-NL', { minimumFractionDigits:2, maximumFractionDigits:2 });
+  const linesHtml = (invoice.lines || []).sort((a,b) => a.sort_order - b.sort_order).map(l => {
+    const excl = parseFloat(l.quantity||0) * parseFloat(l.unit_price||0);
+    return `<tr><td>${escHtml(l.description)}</td><td style="text-align:right">${parseFloat(l.quantity||0).toLocaleString('nl-NL')}</td><td style="text-align:right">€ ${fmtN(l.unit_price)}</td><td style="text-align:right">${l.btw_percentage}%</td><td style="text-align:right">€ ${fmtN(excl)}</td></tr>`;
+  }).join('');
+  const btwRows = Object.entries(totals.btwGroups).map(([pct, amt]) =>
+    `<tr><td colspan="4" style="text-align:right;color:#64748b">BTW ${pct}%</td><td style="text-align:right;color:#64748b">€ ${fmtN(amt)}</td></tr>`
+  ).join('');
+
+  const htmlContent = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;padding:48px;width:794px}
+    .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:48px}
+    .company-name{font-size:22px;font-weight:800;margin-bottom:8px}
+    .meta{color:#64748b;line-height:1.7;font-size:12px}
+    .invoice-title{font-size:36px;font-weight:800;color:#1a1a1a;text-align:right;margin-bottom:12px}
+    .bill-to{margin-bottom:36px}
+    .label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin-bottom:4px}
+    table{width:100%;border-collapse:collapse;margin-top:24px}
+    th{text-align:left;font-size:10px;text-transform:uppercase;color:#64748b;padding:8px 6px;border-bottom:2px solid #e2e8f0}
+    td{padding:10px 6px;border-bottom:1px solid #f1f5f9;vertical-align:top}
+    .totals-table{margin-left:auto;width:280px;margin-top:8px}
+    .totals-table td{border:none;padding:3px 6px}
+    .grand-total td{font-size:16px;font-weight:800;border-top:2px solid #1a1a1a;padding-top:10px!important}
+    .footer{margin-top:48px;padding-top:20px;border-top:1px solid #e2e8f0;color:#64748b;font-size:11px;line-height:1.6}
+  </style></head><body>
+  <div class="header">
+    <div>
+      <div class="company-name">${p.company_name || 'Bedrijfsnaam'}</div>
+      <div class="meta">${p.address || ''}${p.address ? '<br>' : ''}${[p.postal_code, p.city].filter(Boolean).join(' ')}${p.city ? '<br>' : ''}${p.kvk ? 'KvK: ' + p.kvk + '<br>' : ''}${p.btw_number ? 'BTW: ' + p.btw_number + '<br>' : ''}${p.iban ? 'IBAN: ' + p.iban : ''}</div>
+    </div>
+    <div>
+      <div class="invoice-title">FACTUUR</div>
+      <div class="meta" style="text-align:right;line-height:1.9"><b>Nummer:</b> ${invoice.invoice_number}<br><b>Datum:</b> ${new Date(invoice.invoice_date).toLocaleDateString('nl-NL')}<br>${invoice.due_date ? '<b>Vervaldatum:</b> ' + new Date(invoice.due_date).toLocaleDateString('nl-NL') : ''}</div>
+    </div>
+  </div>
+  <div class="bill-to">
+    <div class="label">Factuur aan</div>
+    <div style="font-weight:700;font-size:14px">${clientName}</div>
+    <div class="meta">${clientAddr}${client.email ? '<br>' + client.email : ''}${client.kvk ? '<br>KvK: ' + client.kvk : ''}${client.btw_number ? '<br>BTW: ' + client.btw_number : ''}</div>
+  </div>
+  <table><thead><tr><th>Omschrijving</th><th style="text-align:right">Aantal</th><th style="text-align:right">Prijs</th><th style="text-align:right">BTW</th><th style="text-align:right">Bedrag</th></tr></thead><tbody>${linesHtml}</tbody></table>
+  <table class="totals-table">
+    <tr><td colspan="4" style="text-align:right;color:#64748b">Subtotaal excl. BTW</td><td style="text-align:right;color:#64748b">€ ${fmtN(totals.exclBtw)}</td></tr>
+    ${btwRows}
+    <tr class="grand-total"><td colspan="4" style="text-align:right">Totaal incl. BTW</td><td style="text-align:right">€ ${fmtN(totals.inclBtw)}</td></tr>
+  </table>
+  ${invoice.notes ? `<div style="margin-top:32px;padding:16px;background:#f8fafc;border-radius:8px"><div class="label">Opmerkingen</div><div style="margin-top:4px">${invoice.notes}</div></div>` : ''}
+  <div class="footer">Gelieve € ${fmtN(totals.inclBtw)} over te maken op <b>${p.iban || '—'}</b> o.v.v. factuurnummer <b>${invoice.invoice_number}</b>.</div>
+  </body></html>`;
+
+  // Render off-screen
+  const container = document.createElement('div');
+  container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:#fff';
+  container.innerHTML = htmlContent;
+  document.body.appendChild(container);
+  try {
+    const canvas = await html2canvas(container, { scale:2, useCORS:true, logging:false, backgroundColor:'#fff' });
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    const pdf = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const imgH = (canvas.height * pageW) / canvas.width;
+    let posY = 0;
+    while (posY < imgH) {
+      if (posY > 0) pdf.addPage();
+      pdf.addImage(imgData, 'JPEG', 0, -posY, pageW, imgH);
+      posY += pageH;
+    }
+    return pdf.output('datauristring').split(',')[1]; // base64 only
+  } finally {
+    document.body.removeChild(container);
+  }
+}
+
 // ─── MAIL POPUP ────────────────────────────────────────────────
 function MailPopup({ isDark, invoice, zzpProfile, onClose }) {
   const client = invoice.client || {};
@@ -9280,13 +9368,60 @@ function MailPopup({ isDark, invoice, zzpProfile, onClose }) {
   const [to, setTo]       = useState(client.email || '');
   const [subject, setSubject] = useState(`Factuur ${invoice.invoice_number}${invoiceTitle ? ': ' + invoiceTitle : ''}`);
   const [body, setBody]   = useState(`Beste ${clientName || 'heer/mevrouw'},\n\nHierbij ontvangt u factuur ${invoice.invoice_number}${invoiceTitle ? ' voor ' + invoiceTitle : ''}.\n\nMet vriendelijke groet,\n${zzpProfile?.company_name || ''}`);
+  const [sending, setSending] = useState(false);
+  const [sendStatus, setSendStatus] = useState(null); // null | 'ok' | 'error'
+  const [sendMsg, setSendMsg] = useState('');
   const C = { card:isDark?'#0f1e36':'#fff', border:isDark?'rgba(255,255,255,0.08)':'#e2e8f0', text:isDark?'#f1f5f9':'#0f172a', muted:isDark?'#64748b':'#94a3b8', input:isDark?'rgba(255,255,255,0.06)':'#f8fafc' };
   const inp = { width:'100%', padding:'10px 12px', borderRadius:8, border:`1px solid ${C.border}`, background:C.input, color:C.text, fontSize:14, outline:'none', boxSizing:'border-box', fontFamily:'inherit' };
   const lbl = { fontSize:11, fontWeight:700, color:C.muted, display:'block', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' };
-  const handleSend = () => {
-    window.location.href = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    onClose();
+
+  const handleSend = async () => {
+    if (!to) return;
+    setSending(true);
+    setSendStatus(null);
+    setSendMsg('');
+    try {
+      // 1. Generate PDF as base64
+      const pdfBase64 = await generateInvoicePDFBase64(invoice, zzpProfile);
+      // 2. Get the totals for display in the email
+      const totals = invoiceTotals(invoice);
+      const fmtEur = (n) => '€\u00a0' + Number(n || 0).toLocaleString('nl-NL', { minimumFractionDigits:2, maximumFractionDigits:2 });
+      // 3. Call the Supabase Edge Function
+      const { data: { session } } = await supabase.auth.getSession();
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-invoice-email`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({
+            to,
+            subject,
+            invoiceNumber: invoice.invoice_number,
+            clientName,
+            totalAmount: fmtEur(totals.inclBtw),
+            pdfBase64,
+          }),
+        }
+      );
+      const result = await resp.json();
+      if (result.success) {
+        setSendStatus('ok');
+        setSendMsg('Factuur succesvol verstuurd!');
+        setTimeout(onClose, 2000);
+      } else {
+        throw new Error(result.error || 'Onbekende fout');
+      }
+    } catch (err) {
+      setSendStatus('error');
+      setSendMsg(`Fout: ${err.message}`);
+    } finally {
+      setSending(false);
+    }
   };
+
   return createPortal(
     <div onClick={e => { if (e.target===e.currentTarget) onClose(); }} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', backdropFilter:'blur(4px)', zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
       <div style={{ background:C.card, borderRadius:20, width:'100%', maxWidth:520, border:`1px solid ${C.border}` }}>
@@ -9295,16 +9430,28 @@ function MailPopup({ isDark, invoice, zzpProfile, onClose }) {
           <button onClick={onClose} style={{ width:30, height:30, borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:C.muted }}><X size={14}/></button>
         </div>
         <div style={{ padding:22, display:'flex', flexDirection:'column', gap:14 }}>
-          <div><label style={lbl}>Aan (e-mailadres) *</label><input style={inp} value={to} onChange={e => setTo(e.target.value)} placeholder="naam@bedrijf.nl" /></div>
-          <div><label style={lbl}>Onderwerp</label><input style={inp} value={subject} onChange={e => setSubject(e.target.value)} /></div>
-          <div><label style={lbl}>Tekst</label><textarea style={{ ...inp, minHeight:130, resize:'vertical' }} value={body} onChange={e => setBody(e.target.value)} /></div>
-          <div style={{ padding:'10px 14px', borderRadius:10, background:isDark?'rgba(79,142,247,0.08)':'rgba(79,142,247,0.06)', border:`1px solid ${isDark?'rgba(79,142,247,0.2)':'rgba(79,142,247,0.15)'}`, fontSize:12, color:'#4f8ef7' }}>
-            Klik op Verstuur om je e-mailprogramma te openen met deze gegevens ingevuld. De PDF kun je bijvoegen vanuit het factuuroverzicht.
-          </div>
+          <div><label style={lbl}>Aan (e-mailadres) *</label><input style={inp} value={to} onChange={e => setTo(e.target.value)} placeholder="naam@bedrijf.nl" disabled={sending} /></div>
+          <div><label style={lbl}>Onderwerp</label><input style={inp} value={subject} onChange={e => setSubject(e.target.value)} disabled={sending} /></div>
+          <div><label style={lbl}>Bericht</label><textarea style={{ ...inp, minHeight:130, resize:'vertical' }} value={body} onChange={e => setBody(e.target.value)} disabled={sending} /></div>
+          {sendStatus === 'ok' && (
+            <div style={{ padding:'10px 14px', borderRadius:10, background:'rgba(34,197,94,0.1)', border:'1px solid rgba(34,197,94,0.3)', fontSize:13, color:'#22c55e', fontWeight:600 }}>
+              ✓ {sendMsg}
+            </div>
+          )}
+          {sendStatus === 'error' && (
+            <div style={{ padding:'10px 14px', borderRadius:10, background:'rgba(244,63,94,0.1)', border:'1px solid rgba(244,63,94,0.3)', fontSize:13, color:'#f43f5e' }}>
+              ✗ {sendMsg}
+            </div>
+          )}
+          {!sendStatus && (
+            <div style={{ padding:'10px 14px', borderRadius:10, background:isDark?'rgba(79,142,247,0.08)':'rgba(79,142,247,0.06)', border:`1px solid ${isDark?'rgba(79,142,247,0.2)':'rgba(79,142,247,0.15)'}`, fontSize:12, color:'#4f8ef7' }}>
+              De factuur wordt als PDF bijgevoegd en direct verstuurd via e-mail.
+            </div>
+          )}
           <div style={{ display:'flex', gap:10 }}>
-            <button onClick={onClose} style={{ flex:1, padding:12, borderRadius:12, border:`1px solid ${C.border}`, background:'transparent', color:C.muted, fontSize:14, fontWeight:600, cursor:'pointer' }}>Annuleren</button>
-            <button onClick={handleSend} disabled={!to} style={{ flex:2, padding:12, borderRadius:12, border:'none', background:'linear-gradient(135deg,#22c55e,#16a34a)', color:'#fff', fontSize:14, fontWeight:700, cursor:to?'pointer':'not-allowed', opacity:to?1:0.5 }}>
-              Verstuur →
+            <button onClick={onClose} disabled={sending} style={{ flex:1, padding:12, borderRadius:12, border:`1px solid ${C.border}`, background:'transparent', color:C.muted, fontSize:14, fontWeight:600, cursor:'pointer' }}>Annuleren</button>
+            <button onClick={handleSend} disabled={!to || sending} style={{ flex:2, padding:12, borderRadius:12, border:'none', background:'linear-gradient(135deg,#22c55e,#16a34a)', color:'#fff', fontSize:14, fontWeight:700, cursor:(to&&!sending)?'pointer':'not-allowed', opacity:(to&&!sending)?1:0.6 }}>
+              {sending ? 'Versturen...' : 'Verstuur →'}
             </button>
           </div>
         </div>
@@ -14084,6 +14231,13 @@ export default function App() {
 
         // Use already-loaded profile data (fetched in parallel above)
         const profileCheck = profileRes.data;
+
+        // Geblokkeerde gebruikers uitloggen — check DIRECT na profiel ophalen
+        if (profileCheck?.disabled === true) {
+          await supabase.auth.signOut();
+          setLoginError('Je account is geblokkeerd. Neem contact op met ondersteuning.');
+          return;
+        }
 
         // Sla admin-status op in localStorage als extra veiligheidsnet
         if (profileCheck?.is_admin === true) {
