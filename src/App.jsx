@@ -14280,12 +14280,20 @@ export default function App() {
         }
         // If wasCleared → stay at [] / useMockData=false (true empty state)
 
+        if (invRes.error) console.error('[Dynafy] investments load error:', invRes.error);
         if (invRes.data?.length) {
           setAppInvestments(invRes.data);
           lsSet(user.id, 'inv', invRes.data);
           prevInvIds.current = new Set(invRes.data.map(i => i.id));
-        } else if (!invRes.data?.length && !txRes.data?.length && !wasCleared) {
-          setAppInvestments(MOCK_INVESTMENTS);
+        } else if (!wasCleared) {
+          // Supabase returned empty/error — try localStorage fallback
+          const lsInv = lsGet(user.id, 'inv', null);
+          if (lsInv?.length) {
+            setAppInvestments(lsInv);
+            prevInvIds.current = new Set(lsInv.map(i => i.id));
+          } else if (!txRes.data?.length) {
+            setAppInvestments(MOCK_INVESTMENTS);
+          }
         }
         if (goalRes.data?.length) {
           setAppGoals(goalRes.data);
@@ -14484,9 +14492,9 @@ export default function App() {
       const deletedIds = [...prevInvIds.current].filter(id => !currentIds.has(id));
       prevInvIds.current = currentIds;
       if (appInvestments.length) {
+        lsSet(user.id, 'inv', appInvestments); // always cache locally first
         const { error } = await supabase.from('investments').upsert(appInvestments.map(inv => ({ ...inv, user_id: user.id })), { onConflict: 'id' });
         if (error) console.error('[Dynafy] inv sync error:', error);
-        else lsSet(user.id, 'inv', appInvestments);
       }
       if (deletedIds.length) await supabase.from('investments').delete().in('id', deletedIds);
     }, 1500);
