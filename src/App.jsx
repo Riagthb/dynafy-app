@@ -9365,44 +9365,67 @@ function MailPopup({ isDark, invoice, zzpProfile, onClose }) {
   const client = invoice.client || {};
   const clientName = client.company_name || [client.first_name, client.last_name].filter(Boolean).join(' ') || '';
   const invoiceTitle = invoice.title || invoice.lines?.[0]?.description || '';
-  const [to, setTo]       = useState(client.email || '');
+  const totals = invoiceTotals(invoice);
+  const fmtEur = (n) => '€\u00a0' + Number(n || 0).toLocaleString('nl-NL', { minimumFractionDigits:2, maximumFractionDigits:2 });
+
+  const [to, setTo]         = useState(client.email || '');
+  const [cc, setCc]         = useState('');
+  const [replyTo, setReplyTo] = useState(zzpProfile?.email || '');
   const [subject, setSubject] = useState(`Factuur ${invoice.invoice_number}${invoiceTitle ? ': ' + invoiceTitle : ''}`);
-  const [body, setBody]   = useState(`Beste ${clientName || 'heer/mevrouw'},\n\nHierbij ontvangt u factuur ${invoice.invoice_number}${invoiceTitle ? ' voor ' + invoiceTitle : ''}.\n\nMet vriendelijke groet,\n${zzpProfile?.company_name || ''}`);
-  const [sending, setSending] = useState(false);
-  const [sendStatus, setSendStatus] = useState(null); // null | 'ok' | 'error'
-  const [sendMsg, setSendMsg] = useState('');
-  const C = { card:isDark?'#0f1e36':'#fff', border:isDark?'rgba(255,255,255,0.08)':'#e2e8f0', text:isDark?'#f1f5f9':'#0f172a', muted:isDark?'#64748b':'#94a3b8', input:isDark?'rgba(255,255,255,0.06)':'#f8fafc' };
-  const inp = { width:'100%', padding:'10px 12px', borderRadius:8, border:`1px solid ${C.border}`, background:C.input, color:C.text, fontSize:14, outline:'none', boxSizing:'border-box', fontFamily:'inherit' };
-  const lbl = { fontSize:11, fontWeight:700, color:C.muted, display:'block', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' };
+  const [body, setBody]     = useState(
+    `Beste ${clientName || 'heer/mevrouw'},\n\nHierbij de factuur met factuurnummer ${invoice.invoice_number}${invoiceTitle ? ': ' + invoiceTitle : ''}.\n\nMet vriendelijke groet,\n${zzpProfile?.name || zzpProfile?.company_name || ''}`
+  );
+  const [sending, setSending]   = useState(false);
+  const [sendStatus, setSendStatus] = useState(null);
+  const [sendMsg, setSendMsg]   = useState('');
+  const [pdfInfo, setPdfInfo]   = useState(null); // { base64, sizeKB }
+  const [pdfLoading, setPdfLoading] = useState(true);
+
+  // Pre-generate PDF on mount so user can see attachment size
+  useEffect(() => {
+    let cancelled = false;
+    generateInvoicePDFBase64(invoice, zzpProfile).then(base64 => {
+      if (cancelled) return;
+      const bytes = Math.round((base64.length * 3) / 4 / 1024);
+      setPdfInfo({ base64, sizeKB: bytes });
+      setPdfLoading(false);
+    }).catch(() => { if (!cancelled) setPdfLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const C = {
+    card:   isDark ? '#0f1e36' : '#fff',
+    border: isDark ? 'rgba(255,255,255,0.09)' : '#e2e8f0',
+    text:   isDark ? '#f1f5f9' : '#0f172a',
+    muted:  isDark ? '#64748b' : '#94a3b8',
+    input:  isDark ? 'rgba(255,255,255,0.06)' : '#f8fafc',
+    label:  isDark ? '#94a3b8' : '#374151',
+    row:    isDark ? 'rgba(255,255,255,0.04)' : '#f8fafc',
+  };
+  const fieldRow = { display:'grid', gridTemplateColumns:'90px 1fr', alignItems:'center', borderBottom:`1px solid ${C.border}` };
+  const labelSt  = { fontSize:13, fontWeight:600, color:C.label, padding:'11px 14px' };
+  const inputSt  = { width:'100%', padding:'11px 12px', border:'none', background:'transparent', color:C.text, fontSize:13, outline:'none', fontFamily:'inherit' };
 
   const handleSend = async () => {
-    if (!to) return;
+    if (!to || sending) return;
     setSending(true);
     setSendStatus(null);
     setSendMsg('');
     try {
-      // 1. Generate PDF as base64
-      const pdfBase64 = await generateInvoicePDFBase64(invoice, zzpProfile);
-      // 2. Get the totals for display in the email
-      const totals = invoiceTotals(invoice);
-      const fmtEur = (n) => '€\u00a0' + Number(n || 0).toLocaleString('nl-NL', { minimumFractionDigits:2, maximumFractionDigits:2 });
-      // 3. Call the Supabase Edge Function
+      const base64 = pdfInfo?.base64 || (await generateInvoicePDFBase64(invoice, zzpProfile));
       const { data: { session } } = await supabase.auth.getSession();
       const resp = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-invoice-email`,
         {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.access_token}`,
-          },
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
           body: JSON.stringify({
-            to,
-            subject,
+            to, cc: cc || undefined, replyTo: replyTo || undefined,
+            subject, body,
             invoiceNumber: invoice.invoice_number,
             clientName,
             totalAmount: fmtEur(totals.inclBtw),
-            pdfBase64,
+            pdfBase64: base64,
           }),
         }
       );
@@ -9423,38 +9446,95 @@ function MailPopup({ isDark, invoice, zzpProfile, onClose }) {
   };
 
   return createPortal(
-    <div onClick={e => { if (e.target===e.currentTarget) onClose(); }} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', backdropFilter:'blur(4px)', zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
-      <div style={{ background:C.card, borderRadius:20, width:'100%', maxWidth:520, border:`1px solid ${C.border}` }}>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'18px 22px', borderBottom:`1px solid ${C.border}` }}>
-          <div style={{ fontSize:16, fontWeight:800, color:C.text }}>Factuur verzenden</div>
-          <button onClick={onClose} style={{ width:30, height:30, borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:C.muted }}><X size={14}/></button>
+    <div onClick={e => { if (e.target===e.currentTarget) onClose(); }}
+      style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.65)', backdropFilter:'blur(6px)', zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+      <div style={{ background:C.card, borderRadius:16, width:'100%', maxWidth:580, border:`1px solid ${C.border}`, boxShadow:'0 24px 64px rgba(0,0,0,0.3)', maxHeight:'90vh', display:'flex', flexDirection:'column' }}>
+
+        {/* Header */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 20px', borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
+          <div style={{ fontSize:15, fontWeight:800, color:C.text }}>Factuur verzenden</div>
+          <button onClick={onClose} style={{ width:28, height:28, borderRadius:7, border:`1px solid ${C.border}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:C.muted }}>
+            <X size={13}/>
+          </button>
         </div>
-        <div style={{ padding:22, display:'flex', flexDirection:'column', gap:14 }}>
-          <div><label style={lbl}>Aan (e-mailadres) *</label><input style={inp} value={to} onChange={e => setTo(e.target.value)} placeholder="naam@bedrijf.nl" disabled={sending} /></div>
-          <div><label style={lbl}>Onderwerp</label><input style={inp} value={subject} onChange={e => setSubject(e.target.value)} disabled={sending} /></div>
-          <div><label style={lbl}>Bericht</label><textarea style={{ ...inp, minHeight:130, resize:'vertical' }} value={body} onChange={e => setBody(e.target.value)} disabled={sending} /></div>
+
+        {/* Email fields */}
+        <div style={{ overflowY:'auto', flexGrow:1 }}>
+          <div style={{ border:`1px solid ${C.border}`, borderRadius:10, margin:'16px 20px 0', overflow:'hidden' }}>
+            {/* Aan */}
+            <div style={fieldRow}>
+              <span style={labelSt}>Aan:</span>
+              <input style={inputSt} value={to} onChange={e=>setTo(e.target.value)} placeholder="naam@bedrijf.nl" disabled={sending}/>
+            </div>
+            {/* CC */}
+            <div style={fieldRow}>
+              <span style={labelSt}>CC:</span>
+              <input style={inputSt} value={cc} onChange={e=>setCc(e.target.value)} placeholder="optioneel" disabled={sending}/>
+            </div>
+            {/* Reply-to */}
+            <div style={fieldRow}>
+              <span style={labelSt}>Reply-to:</span>
+              <input style={inputSt} value={replyTo} onChange={e=>setReplyTo(e.target.value)} placeholder="jouw@email.nl" disabled={sending}/>
+            </div>
+            {/* Onderwerp */}
+            <div style={{ ...fieldRow, borderBottom:'none' }}>
+              <span style={labelSt}>Onderwerp:</span>
+              <input style={inputSt} value={subject} onChange={e=>setSubject(e.target.value)} disabled={sending}/>
+            </div>
+          </div>
+
+          {/* Body */}
+          <div style={{ margin:'12px 20px 0' }}>
+            <div style={{ fontSize:12, fontWeight:600, color:C.muted, marginBottom:6 }}>Tekst:</div>
+            <textarea
+              style={{ width:'100%', minHeight:160, padding:'12px', border:`1px solid ${C.border}`, borderRadius:10, background:C.input, color:C.text, fontSize:13, outline:'none', fontFamily:'inherit', resize:'vertical', boxSizing:'border-box', lineHeight:1.6 }}
+              value={body}
+              onChange={e=>setBody(e.target.value)}
+              disabled={sending}
+            />
+          </div>
+
+          {/* PDF attachment preview */}
+          <div style={{ margin:'12px 20px 16px' }}>
+            <div style={{ fontSize:12, fontWeight:600, color:C.muted, marginBottom:6 }}>Bijlage:</div>
+            <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px', borderRadius:10, border:`1px solid ${C.border}`, background:C.row }}>
+              <div style={{ width:34, height:40, background:'#ef4444', borderRadius:5, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                <span style={{ fontSize:8, fontWeight:800, color:'#fff', letterSpacing:'0.05em' }}>PDF</span>
+              </div>
+              <div>
+                <div style={{ fontSize:13, fontWeight:600, color:C.text }}>{invoice.invoice_number}.pdf</div>
+                <div style={{ fontSize:11, color:C.muted }}>
+                  {pdfLoading ? 'Genereren...' : pdfInfo ? `${pdfInfo.sizeKB} KB` : 'PDF bijlage'}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Status messages */}
           {sendStatus === 'ok' && (
-            <div style={{ padding:'10px 14px', borderRadius:10, background:'rgba(34,197,94,0.1)', border:'1px solid rgba(34,197,94,0.3)', fontSize:13, color:'#22c55e', fontWeight:600 }}>
+            <div style={{ margin:'0 20px 12px', padding:'10px 14px', borderRadius:10, background:'rgba(34,197,94,0.1)', border:'1px solid rgba(34,197,94,0.3)', fontSize:13, color:'#22c55e', fontWeight:600 }}>
               ✓ {sendMsg}
             </div>
           )}
           {sendStatus === 'error' && (
-            <div style={{ padding:'10px 14px', borderRadius:10, background:'rgba(244,63,94,0.1)', border:'1px solid rgba(244,63,94,0.3)', fontSize:13, color:'#f43f5e' }}>
+            <div style={{ margin:'0 20px 12px', padding:'10px 14px', borderRadius:10, background:'rgba(244,63,94,0.1)', border:'1px solid rgba(244,63,94,0.3)', fontSize:13, color:'#f43f5e' }}>
               ✗ {sendMsg}
             </div>
           )}
-          {!sendStatus && (
-            <div style={{ padding:'10px 14px', borderRadius:10, background:isDark?'rgba(79,142,247,0.08)':'rgba(79,142,247,0.06)', border:`1px solid ${isDark?'rgba(79,142,247,0.2)':'rgba(79,142,247,0.15)'}`, fontSize:12, color:'#4f8ef7' }}>
-              De factuur wordt als PDF bijgevoegd en direct verstuurd via e-mail.
-            </div>
-          )}
-          <div style={{ display:'flex', gap:10 }}>
-            <button onClick={onClose} disabled={sending} style={{ flex:1, padding:12, borderRadius:12, border:`1px solid ${C.border}`, background:'transparent', color:C.muted, fontSize:14, fontWeight:600, cursor:'pointer' }}>Annuleren</button>
-            <button onClick={handleSend} disabled={!to || sending} style={{ flex:2, padding:12, borderRadius:12, border:'none', background:'linear-gradient(135deg,#22c55e,#16a34a)', color:'#fff', fontSize:14, fontWeight:700, cursor:(to&&!sending)?'pointer':'not-allowed', opacity:(to&&!sending)?1:0.6 }}>
-              {sending ? 'Versturen...' : 'Verstuur →'}
-            </button>
-          </div>
         </div>
+
+        {/* Footer */}
+        <div style={{ padding:'14px 20px', borderTop:`1px solid ${C.border}`, display:'flex', gap:10, flexShrink:0 }}>
+          <button onClick={onClose} disabled={sending}
+            style={{ flex:1, padding:'11px', borderRadius:10, border:`1px solid ${C.border}`, background:'transparent', color:C.muted, fontSize:14, fontWeight:600, cursor:'pointer' }}>
+            Annuleren
+          </button>
+          <button onClick={handleSend} disabled={!to || sending || pdfLoading}
+            style={{ flex:2, padding:'11px', borderRadius:10, border:'none', background:'linear-gradient(135deg,#22c55e,#16a34a)', color:'#fff', fontSize:14, fontWeight:700, cursor:(to&&!sending&&!pdfLoading)?'pointer':'not-allowed', opacity:(to&&!sending&&!pdfLoading)?1:0.6 }}>
+            {sending ? 'Versturen...' : pdfLoading ? 'PDF laden...' : 'Verstuur e-mail'}
+          </button>
+        </div>
+
       </div>
     </div>,
     document.body

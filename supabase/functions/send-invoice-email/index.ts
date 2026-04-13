@@ -1,11 +1,9 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -20,7 +18,6 @@ serve(async (req) => {
       throw new Error("RESEND_API_KEY is not set");
     }
 
-    // Build the email payload
     const emailPayload: Record<string, unknown> = {
       from: "Dynafy <noreply@dynafy.nl>",
       to: [to],
@@ -40,7 +37,6 @@ serve(async (req) => {
       `,
     };
 
-    // Attach PDF if provided
     if (pdfBase64) {
       emailPayload.attachments = [
         {
@@ -71,7 +67,7 @@ serve(async (req) => {
     });
   } catch (error) {
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ success: false, error: (error as Error).message }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500,
