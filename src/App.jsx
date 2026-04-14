@@ -9014,8 +9014,11 @@ function Onboarding({ onComplete }) {
             ))}
           </div>
 
-          <div style={{ fontSize: 11, fontWeight: 700, color: mutedColor, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>
-            {lang === "nl" ? "Wat wil je bijhouden?" : "What do you want to track?"}
+          <div style={{ fontSize: 11, fontWeight: 700, color: mutedColor, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>
+            {lang === "nl" ? "Waar ga je Dynafy voor gebruiken?" : "What will you use Dynafy for?"}
+          </div>
+          <div style={{ fontSize: 12, color: mutedColor, marginBottom: 12 }}>
+            {lang === "nl" ? "Meerdere keuzes mogelijk" : "Multiple choices allowed"}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             {GOALS_LIST.map(g => {
@@ -9036,8 +9039,24 @@ function Onboarding({ onComplete }) {
       // ── Step 4: Upload ───────────────────────────────────────
       case 4: return (
         <div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: textColor, marginBottom: 6 }}>
-            {lang === "nl" ? "Upload je transacties" : "Upload your transactions"}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+            <div style={{ fontSize: 24, fontWeight: 800, color: textColor }}>
+              {lang === "nl" ? "Upload je transacties" : "Upload your transactions"}
+            </div>
+            <div style={{ position: "relative", display: "inline-flex" }} className="csv-info-wrap">
+              <button
+                onMouseEnter={e => e.currentTarget.nextSibling.style.display = "block"}
+                onMouseLeave={e => e.currentTarget.nextSibling.style.display = "none"}
+                onClick={e => { const t = e.currentTarget.nextSibling; t.style.display = t.style.display === "block" ? "none" : "block"; }}
+                style={{ width: 22, height: 22, borderRadius: "50%", border: `1.5px solid ${mutedColor}`, background: "transparent", color: mutedColor, fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 4 }}>
+                i
+              </button>
+              <div style={{ display: "none", position: "absolute", top: 28, left: "50%", transform: "translateX(-50%)", background: isDarkTheme ? "#1e293b" : "#fff", border: `1px solid ${borderColor}`, borderRadius: 12, padding: "12px 16px", width: 240, fontSize: 13, color: textColor, lineHeight: 1.6, zIndex: 100, boxShadow: "0 8px 24px rgba(0,0,0,0.15)" }}>
+                {lang === "nl"
+                  ? "Download via jouw bankportaal jouw transacties in een CSV-bestand en upload dit hier."
+                  : "Download your transactions as a CSV file from your bank portal and upload it here."}
+              </div>
+            </div>
           </div>
           <div style={{ fontSize: 14, color: mutedColor, marginBottom: 24, lineHeight: 1.6 }}>
             {lang === "nl" ? "Kies je bank en upload een CSV-export." : "Choose your bank and upload a CSV export."}
