@@ -3219,7 +3219,34 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
   const [formMode, setFormMode] = useState("choose"); // "choose" | "transaction" | "manual"
   const [txSearch, setTxSearch] = useState("");
   const [selectedTx, setSelectedTx] = useState(null);
-  const [form, setForm] = useState({ name: "", type: "crypto", invested: "", currentValue: "", ticker: "", units: "", savingsCurrency: "EUR", linkedGoalId: "", address: "", wozValue: "", mortgage: "" });
+  const [form, setForm] = useState({ name: "", type: "crypto", invested: "", currentValue: "", ticker: "", units: "", savingsCurrency: "EUR", linkedGoalId: "", address: "", wozValue: "", mortgage: "", metalSymbol: "GC=F" });
+  const [metalLivePrice, setMetalLivePrice] = useState(null); // { pricePerGram, loading, error }
+  const METAL_OPTIONS = [
+    { id: "goud",      label: "Goud",      symbol: "GC=F",  emoji: "🥇" },
+    { id: "zilver",    label: "Zilver",    symbol: "SI=F",  emoji: "🥈" },
+    { id: "platina",   label: "Platina",   symbol: "PL=F",  emoji: "⬜" },
+    { id: "palladium", label: "Palladium", symbol: "PA=F",  emoji: "🔘" },
+  ];
+
+  const fetchMetalLivePrice = async (yahooSymbol) => {
+    setMetalLivePrice({ loading: true, pricePerGram: null, error: null });
+    try {
+      const [metalRes, fxRes] = await Promise.all([
+        fetchYahoo(yahooSymbol),
+        fetchYahoo("EURUSD=X"),
+      ]);
+      const pricePerGram = Math.round(metalRes.price / 31.1035 / fxRes.price * 100) / 100;
+      setMetalLivePrice({ loading: false, pricePerGram, error: null });
+    } catch (e) {
+      setMetalLivePrice({ loading: false, pricePerGram: null, error: "Prijs niet beschikbaar" });
+    }
+  };
+
+  const selectMetal = (metal) => {
+    setForm(p => ({ ...p, name: metal.label, ticker: metal.symbol, metalSymbol: metal.symbol }));
+    fetchMetalLivePrice(metal.symbol);
+  };
+
   const [prices, setPrices] = useState({});
   const [globalLoading, setGlobalLoading] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(null);
@@ -3242,10 +3269,16 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
           setTickerSuggestions((d.coins || []).slice(0, 8).map(c => ({ id: c.id, label: c.name, symbol: c.symbol?.toUpperCase(), cgId: c.id, rank: c.market_cap_rank })));
         }
       } else {
-        const res = await fetch(`${PROXY}https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=8&newsCount=0`, { signal: AbortSignal.timeout(8000) });
+        // Gebruik eigen edge function — geen CORS proxy meer
+        const res = await fetch(YAHOO_PROXY_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "apikey": import.meta.env.VITE_SUPABASE_ANON_KEY },
+          body: JSON.stringify({ mode: "search", query: q }),
+          signal: AbortSignal.timeout(10000),
+        });
         if (res.ok) {
           const d = await res.json();
-          setTickerSuggestions((d.quotes || []).filter(q => ["EQUITY","ETF","INDEX"].includes(q.quoteType)).slice(0, 8).map(q => ({ id: q.symbol, label: q.shortname || q.longname || q.symbol, symbol: q.symbol, exchange: q.exchange })));
+          setTickerSuggestions((d.quotes || []).map(q => ({ id: q.symbol, label: q.label, symbol: q.symbol, exchange: q.exchange })));
         }
       }
     } catch {} finally { setTickerSugLoading(false); }
@@ -3274,7 +3307,8 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
     setTickerQuery("");
     setTickerSuggestions([]);
     setShowTickerDrop(false);
-    setForm({ name: "", type: "crypto", invested: "", currentValue: "", ticker: "", units: "", savingsCurrency: "EUR", linkedGoalId: "", address: "", wozValue: "", mortgage: "" });
+    setForm({ name: "", type: "crypto", invested: "", currentValue: "", ticker: "", units: "", savingsCurrency: "EUR", linkedGoalId: "", address: "", wozValue: "", mortgage: "", metalSymbol: "GC=F" });
+    setMetalLivePrice(null);
   };
 
   // Transactions with category "investments" for the fetch-from-tx flow
@@ -3729,12 +3763,18 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
           const d = await res.json();
           if (d[cgId]?.eur) result = { price: d[cgId].eur, change24h: d[cgId].eur_24h_change, source: "CoinGecko" };
         }
-      } else if (key === "gold" || key === "goud" || key === "xau") {
+      } else if (key === "gc=f" || key === "gold" || key === "goud" || key === "xau") {
         const [g, fx] = await Promise.all([fetchYahoo("GC=F"), fetchYahoo("EURUSD=X")]);
         result = { price: Math.round(g.price / 31.1035 / fx.price * 100) / 100, change24h: g.change24h, unit: "/gram", source: "Yahoo Finance" };
-      } else if (key === "silver" || key === "zilver" || key === "xag") {
+      } else if (key === "si=f" || key === "silver" || key === "zilver" || key === "xag") {
         const [s, fx] = await Promise.all([fetchYahoo("SI=F"), fetchYahoo("EURUSD=X")]);
         result = { price: Math.round(s.price / 31.1035 / fx.price * 100) / 100, change24h: s.change24h, unit: "/gram", source: "Yahoo Finance" };
+      } else if (key === "pl=f" || key === "platinum" || key === "platina") {
+        const [p, fx] = await Promise.all([fetchYahoo("PL=F"), fetchYahoo("EURUSD=X")]);
+        result = { price: Math.round(p.price / 31.1035 / fx.price * 100) / 100, change24h: p.change24h, unit: "/gram", source: "Yahoo Finance" };
+      } else if (key === "pa=f" || key === "palladium") {
+        const [p, fx] = await Promise.all([fetchYahoo("PA=F"), fetchYahoo("EURUSD=X")]);
+        result = { price: Math.round(p.price / 31.1035 / fx.price * 100) / 100, change24h: p.change24h, unit: "/gram", source: "Yahoo Finance" };
       } else {
         // ETF / aandeel / index
         const sym = YAHOO_SYMBOLS[key] || inv.ticker?.toUpperCase();
@@ -3978,19 +4018,22 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
     if (!form.name || !form.invested) return;
     const savingsAmount = parseFloat(form.invested);
     const isSavings = form.type === "savings";
+    const isMetals = form.type === "metals";
     const cur = isSavings ? (form.savingsCurrency || "EUR") : "EUR";
     const rate = fxRates[cur] || 1;
-    // invested = original amount in original currency (for savings); in EUR for others
     const invested = isSavings ? parseFloat((savingsAmount * rate).toFixed(2)) : savingsAmount;
     const currentValue = form.currentValue ? parseFloat(form.currentValue) : invested;
     const units = form.units ? parseFloat(form.units) : null;
     const isRealEstate = form.type === "real_estate";
-    // Real estate: currentValue = WOZ - mortgage
     let finalCurrentValue = currentValue;
     if (isRealEstate && form.wozValue) {
       const woz = parseFloat(form.wozValue) || 0;
       const mort = parseFloat(form.mortgage) || 0;
       finalCurrentValue = parseFloat((woz - mort).toFixed(2));
+    }
+    // Metals: current value = live price per gram × grams (if available)
+    if (isMetals && metalLivePrice?.pricePerGram && units) {
+      finalCurrentValue = parseFloat((metalLivePrice.pricePerGram * units).toFixed(2));
     }
     const invId = Date.now();
     setInvs(prev => [...prev, {
@@ -4160,13 +4203,51 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
                 ))}
               </div>
 
+              {/* Metals: dropdown selector */}
+              {form.type === "metals" && (
+                <div>
+                  <label style={labelStyle}>{lang === "nl" ? "Edelmetaal" : "Precious Metal"}</label>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    {METAL_OPTIONS.map(m => {
+                      const active = form.metalSymbol === m.symbol;
+                      return (
+                        <button key={m.id} type="button" onClick={() => selectMetal(m)}
+                          style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: 12,
+                            border: active ? `2px solid ${INVESTMENT_COLORS.metals}` : `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "#e2e6ed"}`,
+                            background: active ? `${INVESTMENT_COLORS.metals}15` : isDark ? "rgba(255,255,255,0.02)" : "#f8fafc",
+                            cursor: "pointer", transition: "all 0.15s" }}>
+                          <span style={{ fontSize: 18 }}>{m.emoji}</span>
+                          <div style={{ textAlign: "left" }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: active ? INVESTMENT_COLORS.metals : (isDark ? "#f1f5f9" : "#0f172a") }}>{m.label}</div>
+                            {active && metalLivePrice?.pricePerGram && (
+                              <div style={{ fontSize: 11, color: "#22c55e", marginTop: 1 }}>
+                                {fmt(metalLivePrice.pricePerGram)}/gram
+                              </div>
+                            )}
+                            {active && metalLivePrice?.loading && (
+                              <div style={{ fontSize: 11, color: isDark ? "#475569" : "#94a3b8", marginTop: 1 }}>Laden...</div>
+                            )}
+                          </div>
+                          {active && <Check size={13} color={INVESTMENT_COLORS.metals} style={{ marginLeft: "auto" }}/>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {metalLivePrice?.error && (
+                    <div style={{ fontSize: 11, color: "#f43f5e", marginTop: 6 }}>⚠ {metalLivePrice.error}</div>
+                  )}
+                </div>
+              )}
+
               {/* Name + Ticker/Address row */}
-              <div style={{ display: "grid", gridTemplateColumns: (form.type === "savings" || form.type === "real_estate") ? "1fr" : "1fr 1fr", gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: (form.type === "savings" || form.type === "real_estate" || form.type === "metals") ? "1fr" : "1fr 1fr", gap: 12 }}>
+                {form.type !== "metals" && (
                 <div>
                   <label style={labelStyle}>{lang === "nl" ? "Naam" : "Name"}</label>
                   <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
-                    placeholder={form.type === "crypto" ? "Bitcoin" : form.type === "stocks" ? "Apple" : form.type === "metals" ? "Goud" : form.type === "savings" ? "ING Spaarrekening" : form.type === "real_estate" ? "Woning Amsterdam" : "Naam"} style={inputStyle} />
+                    placeholder={form.type === "crypto" ? "Bitcoin" : form.type === "stocks" ? "Apple" : form.type === "savings" ? "ING Spaarrekening" : form.type === "real_estate" ? "Woning Amsterdam" : "Naam"} style={inputStyle} />
                 </div>
+                )}
                 {form.type !== "savings" && form.type !== "real_estate" && form.type !== "metals" && (
                   <div style={{ position: "relative" }}>
                     <label style={labelStyle}>
@@ -4347,7 +4428,11 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
                         {lang === "nl" ? "Waarde automatisch berekend" : "Value calculated automatically"}
                       </div>
                       <div style={{ fontSize: 11, color: isDark ? "#475569" : "#94a3b8", marginTop: 1 }}>
-                        {lang === "nl" ? `Gebaseerd op ticker "${form.ticker}" × aantal eenheden` : `Based on ticker "${form.ticker}" × number of units`}
+                        {form.type === "metals"
+                          ? (metalLivePrice?.pricePerGram
+                              ? `${lang === "nl" ? "Live prijs" : "Live price"}: ${fmt(metalLivePrice.pricePerGram)}/gram × ${form.units || "?"} gram`
+                              : (lang === "nl" ? "Live prijs wordt opgehaald..." : "Fetching live price..."))
+                          : (lang === "nl" ? `Gebaseerd op ticker "${form.ticker}" × aantal eenheden` : `Based on ticker "${form.ticker}" × number of units`)}
                       </div>
                     </div>
                   </div>
