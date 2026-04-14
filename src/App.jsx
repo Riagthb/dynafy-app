@@ -3219,7 +3219,7 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
   const [formMode, setFormMode] = useState("choose"); // "choose" | "transaction" | "manual"
   const [txSearch, setTxSearch] = useState("");
   const [selectedTx, setSelectedTx] = useState(null);
-  const [form, setForm] = useState({ name: "", type: "crypto", invested: "", currentValue: "", ticker: "", units: "", savingsCurrency: "EUR", linkedGoalId: "", address: "", wozValue: "", mortgage: "", metalSymbol: "GC=F" });
+  const [form, setForm] = useState({ name: "", type: "crypto", invested: "", currentValue: "", ticker: "", units: "", savingsCurrency: "EUR", linkedGoalId: "", address: "", wozValue: "", mortgage: "", metalSymbol: "" });
   const [metalLivePrice, setMetalLivePrice] = useState(null); // { pricePerGram, loading, error }
   const METAL_OPTIONS = [
     { id: "goud",      label: "Goud",      symbol: "GC=F",  emoji: "🥇" },
@@ -3307,7 +3307,7 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
     setTickerQuery("");
     setTickerSuggestions([]);
     setShowTickerDrop(false);
-    setForm({ name: "", type: "crypto", invested: "", currentValue: "", ticker: "", units: "", savingsCurrency: "EUR", linkedGoalId: "", address: "", wozValue: "", mortgage: "", metalSymbol: "GC=F" });
+    setForm({ name: "", type: "crypto", invested: "", currentValue: "", ticker: "", units: "", savingsCurrency: "EUR", linkedGoalId: "", address: "", wozValue: "", mortgage: "", metalSymbol: "" });
     setMetalLivePrice(null);
   };
 
@@ -4196,7 +4196,7 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
               {/* Type selector */}
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {Object.entries(t.investments.types).map(([k, v]) => (
-                  <button key={k} onClick={() => setForm(p => ({ ...p, type: k }))}
+                  <button key={k} onClick={() => { setForm(p => ({ ...p, type: k, ticker: "", name: "", metalSymbol: "" })); setMetalLivePrice(null); }}
                     style={{ padding: "7px 13px", borderRadius: 50, border: form.type === k ? `1.5px solid ${INVESTMENT_COLORS[k]}` : isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid #e2e6ed", background: form.type === k ? `${INVESTMENT_COLORS[k]}18` : isDark ? "rgba(255,255,255,0.03)" : "#f8fafc", color: form.type === k ? INVESTMENT_COLORS[k] : isDark ? "#475569" : "#64748b", cursor: "pointer", fontSize: 12, fontWeight: form.type === k ? 700 : 500, transition: "all 0.15s" }}>
                     {v}
                   </button>
