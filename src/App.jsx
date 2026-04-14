@@ -3454,24 +3454,19 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
     };
   };
 
-  // Haal Yahoo Finance prijs op (via CORS proxy — probeert meerdere proxies)
-  const fetchYahoo = async (symbol) => {
-    const baseUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=2d`;
-    let lastErr;
-    for (const proxyFn of PROXIES) {
-      try {
-        const res = await fetch(proxyFn(baseUrl), { signal: AbortSignal.timeout(8000) });
-        if (!res.ok) throw new Error("yahoo " + res.status);
-        const data = await res.json();
-        const meta = data.chart?.result?.[0]?.meta;
-        if (!meta?.regularMarketPrice) throw new Error("no price");
-        const current = meta.regularMarketPrice;
-        const prev = meta.previousClose || meta.chartPreviousClose;
-        const change24h = prev ? ((current - prev) / prev) * 100 : null;
-        return { price: Math.round(current * 100) / 100, change24h, source: "Yahoo Finance" };
-      } catch (e) { lastErr = e; }
-    }
-    throw lastErr;
+  // Haal Yahoo Finance prijs op via eigen Supabase Edge Function (geen CORS issues)
+  const YAHOO_PROXY_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/yahoo-proxy`;
+  const fetchYahoo = async (symbol, interval = "1d", range = "2d") => {
+    const res = await fetch(YAHOO_PROXY_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "apikey": import.meta.env.VITE_SUPABASE_ANON_KEY },
+      body: JSON.stringify({ symbol, interval, range }),
+      signal: AbortSignal.timeout(12000),
+    });
+    if (!res.ok) throw new Error("yahoo-proxy " + res.status);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return { price: data.price, change24h: data.change24h, source: "Yahoo Finance" };
   };
 
   // ── Chart data fetcher ────────────────────────────────────────
