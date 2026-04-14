@@ -14344,15 +14344,16 @@ export default function App() {
         }
 
         // Skip onboarding als:
-        // 1. Profiel bestaat in DB (meest betrouwbaar)
-        // 2. user_metadata.onboarded = true (werkt cross-browser, zit in JWT)
-        // 3. localStorage-vlag is gezet (eerder ingelogd op dit apparaat)
-        // 4. localStorage admin-vlag is gezet (admin omzeilt altijd onboarding)
+        // 1. user_metadata.onboarded = true (werkt cross-browser, zit in JWT — meest betrouwbaar)
+        // 2. localStorage-vlag is gezet (eerder ingelogd op dit apparaat)
+        // 3. localStorage admin-vlag is gezet (admin omzeilt altijd onboarding)
+        // LET OP: !!profileCheck gebruiken is NIET betrouwbaar — Supabase maakt automatisch
+        // een profiel aan bij signup (via trigger), dus een nieuw profiel ≠ al onboarded.
         const alreadyOnboarded =
-          !!profileCheck ||
           user?.user_metadata?.onboarded === true ||
           localStorage.getItem(`dynafy_${user.id}_onboarded`) === 'true' ||
-          localStorage.getItem(`dynafy_${user.id}_is_admin`) === 'true';
+          localStorage.getItem(`dynafy_${user.id}_is_admin`) === 'true' ||
+          profileCheck?.onboarded === true;
         if (alreadyOnboarded) {
           setOnboarded(true);
           localStorage.setItem(`dynafy_${user.id}_onboarded`, 'true'); // zet altijd voor zekerheid
