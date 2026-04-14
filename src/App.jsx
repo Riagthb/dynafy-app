@@ -6009,10 +6009,13 @@ function SettingsView({ lang, setLang, t, accounts, setAccounts, onDeleteAccount
   const handleChangeName = async () => {
     if (!displayName.trim()) { setNameMsg({ text: "Naam mag niet leeg zijn.", ok: false }); return; }
     setNameLoading(true); setNameMsg(null);
-    const { error: authErr } = await supabase.auth.updateUser({ data: { full_name: displayName.trim() } });
-    const { error: profileErr } = await supabase.from('profiles').update({ display_name: displayName.trim() }).eq('id', user.id);
+    const { error: authErr } = await supabase.auth.updateUser({ data: { full_name: displayName.trim(), display_name: displayName.trim() } });
+    // Profile update is best-effort; ignore column-missing errors
+    supabase.from('profiles').update({ display_name: displayName.trim() }).eq('id', user.id).then(({ error }) => {
+      if (error) console.warn('[Dynafy] display_name profile update:', error.message);
+    });
     setNameLoading(false);
-    if (authErr || profileErr) { setNameMsg({ text: "Fout bij opslaan. Probeer opnieuw.", ok: false }); }
+    if (authErr) { setNameMsg({ text: "Fout bij opslaan. Probeer opnieuw.", ok: false }); }
     else { setNameMsg({ text: "Naam succesvol bijgewerkt!", ok: true }); if (onNameChange) onNameChange(displayName.trim()); }
   };
 
