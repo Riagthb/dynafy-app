@@ -3219,7 +3219,7 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
   const [formMode, setFormMode] = useState("choose"); // "choose" | "transaction" | "manual"
   const [txSearch, setTxSearch] = useState("");
   const [selectedTx, setSelectedTx] = useState(null);
-  const [form, setForm] = useState({ name: "", type: "crypto", invested: "", currentValue: "", ticker: "", units: "", savingsCurrency: "EUR", linkedGoalId: "", address: "", wozValue: "", mortgage: "", metalSymbol: "" });
+  const [form, setForm] = useState({ name: "", type: "crypto", invested: "", currentValue: "", ticker: "", units: "", savingsCurrency: "EUR", linkedGoalId: "", address: "", wozValue: "", mortgage: "", metalSymbol: "", metalUnit: "gram" });
   const [metalLivePrice, setMetalLivePrice] = useState(null); // { pricePerGram, loading, error }
   const METAL_OPTIONS = [
     { id: "goud",      label: "Goud",      symbol: "GC=F",  emoji: "🥇" },
@@ -3307,7 +3307,7 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
     setTickerQuery("");
     setTickerSuggestions([]);
     setShowTickerDrop(false);
-    setForm({ name: "", type: "crypto", invested: "", currentValue: "", ticker: "", units: "", savingsCurrency: "EUR", linkedGoalId: "", address: "", wozValue: "", mortgage: "", metalSymbol: "" });
+    setForm({ name: "", type: "crypto", invested: "", currentValue: "", ticker: "", units: "", savingsCurrency: "EUR", linkedGoalId: "", address: "", wozValue: "", mortgage: "", metalSymbol: "", metalUnit: "gram" });
     setMetalLivePrice(null);
   };
 
@@ -4033,7 +4033,9 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
     }
     // Metals: current value = live price per gram × grams (if available)
     if (isMetals && metalLivePrice?.pricePerGram && units) {
-      finalCurrentValue = parseFloat((metalLivePrice.pricePerGram * units).toFixed(2));
+      const unitFactor = form.metalUnit === "kg" ? 1000 : form.metalUnit === "troy" ? 31.1035 : 1;
+      const grams = units * unitFactor;
+      finalCurrentValue = parseFloat((metalLivePrice.pricePerGram * grams).toFixed(2));
     }
     const invId = Date.now();
     setInvs(prev => [...prev, {
@@ -4196,7 +4198,7 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
               {/* Type selector */}
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {Object.entries(t.investments.types).map(([k, v]) => (
-                  <button key={k} onClick={() => { setForm(p => ({ ...p, type: k, ticker: "", name: "", metalSymbol: "" })); setMetalLivePrice(null); }}
+                  <button key={k} onClick={() => { setForm(p => ({ ...p, type: k, ticker: "", name: "", metalSymbol: "", metalUnit: "gram" })); setMetalLivePrice(null); }}
                     style={{ padding: "7px 13px", borderRadius: 50, border: form.type === k ? `1.5px solid ${INVESTMENT_COLORS[k]}` : isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid #e2e6ed", background: form.type === k ? `${INVESTMENT_COLORS[k]}18` : isDark ? "rgba(255,255,255,0.03)" : "#f8fafc", color: form.type === k ? INVESTMENT_COLORS[k] : isDark ? "#475569" : "#64748b", cursor: "pointer", fontSize: 12, fontWeight: form.type === k ? 700 : 500, transition: "all 0.15s" }}>
                     {v}
                   </button>
@@ -4236,6 +4238,26 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
                   {metalLivePrice?.error && (
                     <div style={{ fontSize: 11, color: "#f43f5e", marginTop: 6 }}>⚠ {metalLivePrice.error}</div>
                   )}
+                  {/* Unit selector */}
+                  <div style={{ marginTop: 10 }}>
+                    <label style={{ ...labelStyle, marginBottom: 6 }}>{lang === "nl" ? "Eenheid" : "Unit"}</label>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      {[
+                        { id: "gram", label: "Gram" },
+                        { id: "kg", label: "Kilogram" },
+                        { id: "troy", label: "Troy Ounce" },
+                      ].map(u => {
+                        const active = form.metalUnit === u.id;
+                        return (
+                          <button key={u.id} type="button"
+                            onClick={() => setForm(p => ({ ...p, metalUnit: u.id }))}
+                            style={{ padding: "6px 14px", borderRadius: 50, border: active ? `1.5px solid ${INVESTMENT_COLORS.metals}` : isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid #e2e6ed", background: active ? `${INVESTMENT_COLORS.metals}18` : isDark ? "rgba(255,255,255,0.03)" : "#f8fafc", color: active ? INVESTMENT_COLORS.metals : isDark ? "#475569" : "#64748b", cursor: "pointer", fontSize: 12, fontWeight: active ? 700 : 500, transition: "all 0.15s" }}>
+                            {u.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -4360,13 +4382,13 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
                 ) : form.type !== "savings" && (
                   <div>
                     <label style={labelStyle}>
-                      {lang === "nl" ? "Aantal" : "Amount"} {form.type === "metals" ? "gram" : form.type === "crypto" ? "coins" : "aandelen"}
+                      {lang === "nl" ? "Aantal" : "Amount"} {form.type === "metals" ? (form.metalUnit === "kg" ? "kilogram" : form.metalUnit === "troy" ? "troy ounce" : "gram") : form.type === "crypto" ? "coins" : "aandelen"}
                     </label>
                     <input type="number" value={form.units} onChange={e => setForm(p => ({ ...p, units: e.target.value }))}
-                      placeholder={form.type === "crypto" ? "bijv. 0.05" : form.type === "metals" ? "bijv. 10" : "bijv. 10"} style={inputStyle} />
+                      placeholder={form.type === "crypto" ? "bijv. 0.05" : form.type === "metals" ? (form.metalUnit === "kg" ? "bijv. 0.5" : form.metalUnit === "troy" ? "bijv. 1" : "bijv. 10") : "bijv. 10"} style={inputStyle} />
                     {form.units && form.invested && parseFloat(form.units) > 0 && (
                       <div style={{ fontSize: 11, color: "#f59e0b", marginTop: 4 }}>
-                        Aankoopprijs: {fmt(parseFloat(form.invested) / parseFloat(form.units))} per {form.type === "metals" ? "gram" : form.type === "crypto" ? "coin" : "aandeel"}
+                        Aankoopprijs: {fmt(parseFloat(form.invested) / parseFloat(form.units))} per {form.type === "metals" ? (form.metalUnit === "kg" ? "kilogram" : form.metalUnit === "troy" ? "troy oz" : "gram") : form.type === "crypto" ? "coin" : "aandeel"}
                       </div>
                     )}
                   </div>
@@ -4430,7 +4452,12 @@ function Investments({ t, isDark, useMockData = true, investments, setInvestment
                       <div style={{ fontSize: 11, color: isDark ? "#475569" : "#94a3b8", marginTop: 1 }}>
                         {form.type === "metals"
                           ? (metalLivePrice?.pricePerGram
-                              ? `${lang === "nl" ? "Live prijs" : "Live price"}: ${fmt(metalLivePrice.pricePerGram)}/gram × ${form.units || "?"} gram`
+                              ? (() => {
+                                  const unitFactor = form.metalUnit === "kg" ? 1000 : form.metalUnit === "troy" ? 31.1035 : 1;
+                                  const unitLabel = form.metalUnit === "kg" ? "kg" : form.metalUnit === "troy" ? "troy oz" : "gram";
+                                  const pricePerUnit = metalLivePrice.pricePerGram * unitFactor;
+                                  return `${lang === "nl" ? "Live prijs" : "Live price"}: ${fmt(pricePerUnit)}/${unitLabel} × ${form.units || "?"} ${unitLabel}`;
+                                })()
                               : (lang === "nl" ? "Live prijs wordt opgehaald..." : "Fetching live price..."))
                           : (lang === "nl" ? `Gebaseerd op ticker "${form.ticker}" × aantal eenheden` : `Based on ticker "${form.ticker}" × number of units`)}
                       </div>
