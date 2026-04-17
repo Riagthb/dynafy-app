@@ -2,6 +2,7 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from './supabase.js';
+import { startUpgradeCheckout, readBillingStatusFromUrl, clearBillingStatusFromUrl } from './billing.js';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import {
@@ -7474,6 +7475,20 @@ function VasteLasten({ transactions, recurringItems, setRecurringItems, isDark, 
 
 // ─── PRICING VIEW ──────────────────────────────────────────────
 function PricingView({ isDark, userPlan = 'normal', onClose, lang = 'nl' }) {
+  // Mollie checkout state (v1: alleen voor zzp_diamond, maand-only)
+  const [upgradingKey, setUpgradingKey] = useState(null);
+  const [upgradeError, setUpgradeError] = useState('');
+  const handleMollieUpgrade = async (planKey) => {
+    setUpgradeError('');
+    setUpgradingKey(planKey);
+    try {
+      await startUpgradeCheckout();
+      // startUpgradeCheckout redirects via window.location; niet verder komen
+    } catch (err) {
+      setUpgradeError(err?.message || 'Onbekende fout');
+      setUpgradingKey(null);
+    }
+  };
   const [yearly, setYearly] = useState(false);
   const C = {
     bg:     isDark ? '#07111f' : '#f8fafc',
@@ -7687,10 +7702,19 @@ function PricingView({ isDark, userPlan = 'normal', onClose, lang = 'nl' }) {
                     Huidig plan ✓
                   </div>
                 ) : upgrade ? (
-                  <a href={`mailto:info@dynafy.nl?subject=Upgrade naar ${plan.name}&body=Ik wil graag upgraden naar het ${plan.name} plan.`}
-                    style={{ display: 'block', padding: '12px 0', borderRadius: 12, border: 'none', background: plan.grad, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', textAlign: 'center', textDecoration: 'none' }}>
-                    Upgrade naar {plan.name} →
-                  </a>
+                  plan.key === 'zzp_diamond' ? (
+                    <button
+                      disabled={upgradingKey === plan.key}
+                      onClick={() => handleMollieUpgrade(plan.key)}
+                      style={{ display: 'block', width: '100%', padding: '12px 0', borderRadius: 12, border: 'none', background: plan.grad, color: '#fff', fontSize: 14, fontWeight: 700, cursor: upgradingKey === plan.key ? 'wait' : 'pointer', textAlign: 'center', opacity: upgradingKey === plan.key ? 0.7 : 1 }}>
+                      {upgradingKey === plan.key ? 'Bezig…' : `Upgrade naar ${plan.name} →`}
+                    </button>
+                  ) : (
+                    <a href={`mailto:info@dynafy.nl?subject=Upgrade naar ${plan.name}&body=Ik wil graag upgraden naar het ${plan.name} plan.`}
+                      style={{ display: 'block', padding: '12px 0', borderRadius: 12, border: 'none', background: plan.grad, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', textAlign: 'center', textDecoration: 'none' }}>
+                      Upgrade naar {plan.name} →
+                    </a>
+                  )
                 ) : (
                   <div style={{ padding: '11px 0', borderRadius: 12, border: `1px solid ${C.border}`, textAlign: 'center', fontSize: 13, fontWeight: 500, color: C.muted }}>
                     Downgrade
@@ -7704,8 +7728,13 @@ function PricingView({ isDark, userPlan = 'normal', onClose, lang = 'nl' }) {
 
       {/* Footer note */}
       <div style={{ marginTop: 40, textAlign: 'center' }}>
+        {upgradeError && (
+          <div style={{ fontSize: 13, color: '#ef4444', marginBottom: 10, padding: '10px 16px', borderRadius: 10, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', display: 'inline-block' }}>
+            {upgradeError}
+          </div>
+        )}
         <div style={{ fontSize: 13, color: C.muted, marginBottom: 6 }}>
-          Upgrade gaat via de beheerder. Klik op "Upgrade" om een e-mail te sturen.
+          ZZP Diamond gaat direct via Mollie betaling (iDEAL/kaart). Andere plannen: upgrade via e-mail.
         </div>
         <div style={{ fontSize: 12, color: isDark ? '#334155' : '#cbd5e1' }}>
           Alle prijzen zijn excl. BTW · Maandelijks opzegbaar · Geen verborgen kosten
@@ -14274,6 +14303,28 @@ export default function App() {
   const [userPlan, setUserPlan]         = useState('normal');
   const [showZzpModal, setShowZzpModal] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(null); // null | 'premium' | 'zzp_premium' | 'zzp_diamond'
+  // Billing: detecteer terugkomst van Mollie checkout (?billing=success|cancelled)
+  const [billingStatus, setBillingStatus] = useState(() => readBillingStatusFromUrl());
+  useEffect(() => {
+    if (!billingStatus) return;
+    // URL opschonen zodat banner niet opnieuw verschijnt op refresh
+    clearBillingStatusFromUrl();
+    // Bij success: refetch profile om nieuwe plan direct te laten zien
+    // (webhook heeft profiles.plan al gezet; dit pakt 'm op).
+    if (billingStatus === 'success') {
+      (async () => {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) return;
+          const { data } = await supabase.from('profiles').select('plan').eq('id', user.id).single();
+          if (data?.plan) setUserPlan(data.plan);
+        } catch { /* ignore */ }
+      })();
+    }
+    // Banner na 8s automatisch weg
+    const t = setTimeout(() => setBillingStatus(null), 8000);
+    return () => clearTimeout(t);
+  }, [billingStatus]);
   // ZZP bedrijfsprofiel
   const [zzpProfile, setZzpProfile] = useState({ company_name:'', kvk:'', btw_number:'', iban:'', address:'', city:'', postal_code:'' });
   // App-level multi-company state (lifted from MijnBedrijfView)
@@ -15774,6 +15825,27 @@ export default function App() {
       </div>
 
       {/* ── Centrale upgrade modal ── */}
+      {/* Billing return banner (na Mollie checkout redirect) */}
+      {billingStatus && createPortal(
+        <div style={{ position:'fixed', top:20, left:'50%', transform:'translateX(-50%)', zIndex:10000, padding:'14px 22px', borderRadius:14, background: billingStatus === 'success' ? 'linear-gradient(135deg,#10b981,#059669)' : 'linear-gradient(135deg,#f59e0b,#f97316)', color:'#fff', fontWeight:700, fontSize:14, boxShadow:'0 8px 32px rgba(0,0,0,0.3)', display:'flex', alignItems:'center', gap:10, maxWidth:'92vw' }}>
+          {billingStatus === 'success' ? (
+            <>
+              <Check size={18} strokeWidth={3} />
+              <span>Betaling gelukt! Je plan wordt binnen een minuut geactiveerd.</span>
+            </>
+          ) : (
+            <>
+              <AlertCircle size={18} />
+              <span>Betaling geannuleerd. Je plan is niet gewijzigd.</span>
+            </>
+          )}
+          <button onClick={() => setBillingStatus(null)} style={{ marginLeft:8, background:'transparent', border:'none', color:'#fff', cursor:'pointer', padding:4, display:'flex' }}>
+            <X size={16} />
+          </button>
+        </div>,
+        document.body
+      )}
+
       {showUpgradeModal && createPortal(
         <div onClick={() => setShowUpgradeModal(null)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.65)', backdropFilter:'blur(6px)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center' }}>
           <div onClick={e => e.stopPropagation()} style={{ background: isDark ? '#0f1e30' : '#fff', borderRadius:24, padding:40, maxWidth:440, width:'90%', boxShadow:'0 24px 80px rgba(0,0,0,0.5)', border:`1px solid ${isDark?'rgba(255,255,255,0.08)':'#e8ecf1'}`, textAlign:'center' }}>
