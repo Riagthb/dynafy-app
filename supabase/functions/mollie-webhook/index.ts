@@ -30,7 +30,9 @@ const WEBHOOK_URL =
   "https://gcsvxintwotkezxigpdg.supabase.co/functions/v1/mollie-webhook";
 
 // v1 scope
-const AMOUNT_CENTS = 8900; // €89.00
+// Pricing excl BTW: €89 + 21% = €107.69 incl BTW. Mollie incasseert incl-bedrag,
+// invoice math reverses 21/121 zodat subtotal/vat/total correct worden.
+const AMOUNT_CENTS = 10769; // €107.69 incl BTW (= €89 excl + 21%)
 const VAT_RATE = 21.0;
 
 // ----------------------------------------------------------------------------

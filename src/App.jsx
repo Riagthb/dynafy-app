@@ -7687,6 +7687,10 @@ function PricingView({ isDark, userPlan = 'normal', onClose, lang = 'nl' }) {
                         <span style={{ fontSize: 32, fontWeight: 900, color: C.text }}>{fmtPrice(price)}</span>
                         <span style={{ fontSize: 13, color: C.muted, fontWeight: 500 }}>/{yearly ? 'jaar' : 'maand'}</span>
                       </div>
+                      {/* BTW label: B2B tiers (zzp_*) excl BTW, consumer tier (premium) incl BTW */}
+                      <div style={{ fontSize: 10.5, color: C.muted, fontWeight: 500, marginTop: 1, textTransform: 'uppercase', letterSpacing: 0.3 }}>
+                        {(plan.key === 'zzp_premium' || plan.key === 'zzp_diamond') ? 'excl. BTW' : 'incl. BTW'}
+                      </div>
                       {yearly && plan.monthly > 0 && (
                         <div style={{ fontSize: 11, color: '#22c55e', fontWeight: 600, marginTop: 2 }}>
                           Bespaar {'\u20AC'}{((plan.monthly * 12) - plan.yearly).toFixed(0)} per jaar

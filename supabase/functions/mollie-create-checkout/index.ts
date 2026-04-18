@@ -26,11 +26,13 @@ const CORS_HEADERS = {
 };
 
 // v1 scope constants (see dec-billing-v1-scope in brain)
+// Pricing: €89 excl BTW = €89 + 21% = €107.69 incl BTW (wat Mollie incasseert).
+// Invoice generatie reverse-calculated in webhook: subtotal 8900, vat 1869, total 10769.
 const TIER = "zzp_diamond";
 const INTERVAL = "month";
-const AMOUNT_CENTS = 8900; // €89.00
+const AMOUNT_CENTS = 10769; // €107.69 incl BTW (€89 excl + 21% BTW)
 const CURRENCY = "EUR";
-const DESCRIPTION = "Dynafy ZZP Diamond — maand";
+const DESCRIPTION = "Dynafy ZZP Diamond — maand (€89 excl. BTW)";
 
 // URLs
 const APP_URL = "https://app.dynafy.nl";
