@@ -8899,6 +8899,7 @@ function Onboarding({ onComplete }) {
   const [dragging, setDragging] = useState(false);
   const [parsed, setParsed] = useState(null);
   const [fileName, setFileName] = useState("");
+  const [showMockConfirm, setShowMockConfirm] = useState(false);
   const inputRef = useRef();
 
   const T_OB = {
@@ -9260,7 +9261,7 @@ function Onboarding({ onComplete }) {
                 {lang === "nl" ? `Start met ${parsed.length} transacties` : `Start with ${parsed.length} transactions`}
               </button>
             )}
-            <button onClick={() => completeOnboarding(false)}
+            <button onClick={() => setShowMockConfirm(true)}
               style={{ width: "100%", padding: "13px", borderRadius: 50, background: "transparent", border: `1px solid ${borderColor}`, color: mutedColor, fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
               {lang === "nl" ? "Sla over — gebruik voorbeelddata" : "Skip — use sample data"}
             </button>
@@ -9327,6 +9328,16 @@ function Onboarding({ onComplete }) {
           </button>
         )}
       </div>
+
+      {/* ── Mock-data confirmation (before skipping to sample data) ── */}
+      {showMockConfirm && (
+        <MockDataConfirmModal
+          lang={lang}
+          isDark={isDarkTheme}
+          onConfirm={() => { setShowMockConfirm(false); completeOnboarding(false); }}
+          onCancel={() => setShowMockConfirm(false)}
+        />
+      )}
     </div>
   );
 }
@@ -14233,6 +14244,190 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted }) {
   );
 }
 
+// ─── MOCK DATA BANNER ─────────────────────────────────────────
+// Shown globally when useMockData === true so users always know
+// they're looking at demo figures. Two CTAs: upload own data, or wipe.
+function MockDataBanner({ lang = 'nl', onUpload, onWipe, isDark = true }) {
+  const text = lang === 'nl'
+    ? {
+        title: 'Je bekijkt testdata',
+        body: 'Deze cijfers zijn niet echt — ze zijn er alleen om de app te verkennen. Zodra je je eigen transacties uploadt, verdwijnen ze automatisch.',
+        upload: 'Upload eigen data',
+        wipe: 'Wis testdata',
+      }
+    : {
+        title: 'You are viewing sample data',
+        body: 'These numbers are not real — they are only here to help you explore the app. Upload your own transactions to replace them automatically.',
+        upload: 'Upload your data',
+        wipe: 'Clear sample data',
+      };
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 14,
+        flexWrap: 'wrap',
+        background: isDark
+          ? 'linear-gradient(135deg, rgba(245,158,11,0.18), rgba(249,115,22,0.12))'
+          : 'linear-gradient(135deg, rgba(245,158,11,0.12), rgba(249,115,22,0.08))',
+        border: '1px solid rgba(245,158,11,0.45)',
+        borderRadius: 14,
+        padding: '12px 18px',
+        margin: '0 0 16px',
+        fontSize: 13.5,
+        color: isDark ? '#fef3c7' : '#78350f',
+      }}
+    >
+      <span style={{ fontSize: 20, lineHeight: 1 }}>⚠️</span>
+      <div style={{ flex: '1 1 240px', lineHeight: 1.45 }}>
+        <strong style={{ fontWeight: 700, marginRight: 6 }}>{text.title}.</strong>
+        <span style={{ opacity: 0.9 }}>{text.body}</span>
+      </div>
+      <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+        <button
+          onClick={onUpload}
+          style={{
+            padding: '8px 14px',
+            borderRadius: 10,
+            border: 'none',
+            background: 'linear-gradient(135deg, #f59e0b, #f97316)',
+            color: '#fff',
+            fontSize: 12.5,
+            fontWeight: 700,
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {text.upload}
+        </button>
+        <button
+          onClick={onWipe}
+          style={{
+            padding: '8px 14px',
+            borderRadius: 10,
+            border: '1px solid rgba(245,158,11,0.5)',
+            background: 'transparent',
+            color: isDark ? '#fef3c7' : '#78350f',
+            fontSize: 12.5,
+            fontWeight: 600,
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {text.wipe}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── MOCK DATA CONFIRM MODAL ──────────────────────────────────
+// Blocks the onboarding "skip / use sample data" button so users
+// consciously acknowledge they're entering demo mode.
+function MockDataConfirmModal({ lang = 'nl', isDark = true, onConfirm, onCancel }) {
+  const text = lang === 'nl'
+    ? {
+        title: 'Je krijgt testdata te zien',
+        body: 'Dit zijn voorbeeldtransacties zodat je de app kunt verkennen zonder eerst iets te uploaden.',
+        points: [
+          'Verdwijnt zodra je je eigen transacties uploadt',
+          'Is handmatig te verwijderen via Instellingen → Testdata',
+          'Is alleen voor jou zichtbaar — niet voor andere gebruikers',
+        ],
+        confirm: 'Begrepen, ga door →',
+        cancel: 'Terug, ik upload zelf',
+      }
+    : {
+        title: 'You will see sample data',
+        body: 'These are example transactions so you can explore the app without uploading anything yet.',
+        points: [
+          'Disappears as soon as you upload your own transactions',
+          'Manually removable via Settings → Sample data',
+          'Only visible to you — not to other users',
+        ],
+        confirm: 'Got it, continue →',
+        cancel: 'Back, I\u2019ll upload my own',
+      };
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(3,7,18,0.72)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 10000,
+        padding: 20,
+        fontFamily: "'Outfit', system-ui, sans-serif",
+      }}
+    >
+      <div
+        style={{
+          background: isDark ? '#0b1220' : '#ffffff',
+          border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e2e6ed',
+          borderRadius: 24,
+          padding: '36px 34px',
+          maxWidth: 460,
+          width: '100%',
+          color: isDark ? '#e2e8f0' : '#0f172a',
+        }}
+      >
+        <div style={{ fontSize: 38, textAlign: 'center', marginBottom: 12 }}>📊</div>
+        <h2 style={{ fontSize: 20, fontWeight: 800, textAlign: 'center', margin: '0 0 10px' }}>{text.title}</h2>
+        <p style={{ fontSize: 14, textAlign: 'center', lineHeight: 1.55, color: isDark ? '#94a3b8' : '#475569', margin: '0 0 22px' }}>{text.body}</p>
+        <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 28px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {text.points.map((p, i) => (
+            <li key={i} style={{ display: 'flex', gap: 10, fontSize: 13.5, lineHeight: 1.5 }}>
+              <span style={{ color: '#22c55e', fontWeight: 700, flexShrink: 0 }}>✓</span>
+              <span style={{ color: isDark ? '#cbd5e1' : '#334155' }}>{p}</span>
+            </li>
+          ))}
+        </ul>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <button
+            onClick={onConfirm}
+            style={{
+              padding: '14px',
+              borderRadius: 50,
+              border: 'none',
+              background: 'linear-gradient(135deg, #f59e0b, #f97316)',
+              color: '#fff',
+              fontSize: 14,
+              fontWeight: 800,
+              cursor: 'pointer',
+            }}
+          >
+            {text.confirm}
+          </button>
+          <button
+            onClick={onCancel}
+            style={{
+              padding: '12px',
+              borderRadius: 50,
+              border: isDark ? '1px solid rgba(255,255,255,0.15)' : '1px solid #e2e6ed',
+              background: 'transparent',
+              color: isDark ? '#94a3b8' : '#475569',
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            {text.cancel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── MAIN APP ──────────────────────────────────────────────────
 export default function App() {
   const [onboarded, setOnboarded] = useState(false);
@@ -14240,6 +14435,7 @@ export default function App() {
   const [uncatAlert, setUncatAlert] = useState(null);
   const [showGlobalUpload, setShowGlobalUpload] = useState(false);
   const [showAvatarMenu, setShowAvatarMenu] = useState(false);
+  const [confirmWipeMock, setConfirmWipeMock] = useState(false);
 
   // ── Plan hiërarchie ─────────────────────────────────────────
   const PLAN_LEVELS = { normal: 0, premium: 1, zzp_premium: 2, zzp_diamond: 3 };
@@ -15664,6 +15860,15 @@ export default function App() {
 
         {/* Content */}
         <div style={{ padding: "0 20px 32px", position: "relative" }}>
+          {/* ── Mock data banner (shown while using demo data) ── */}
+          {useMockData && (
+            <MockDataBanner
+              lang={lang}
+              isDark={isDark}
+              onUpload={() => setShowGlobalUpload(true)}
+              onWipe={() => setConfirmWipeMock(true)}
+            />
+          )}
           {/* ── Global CSV Upload Modal ── */}
           {showGlobalUpload && <CSVModal onClose={() => setShowGlobalUpload(false)} onImport={(txs, importedAccounts) => {
             if (useMockData) {
@@ -15705,6 +15910,48 @@ export default function App() {
               </div>
             </div>
           )}
+
+          {/* ── Wipe Testdata confirmation ── */}
+          {confirmWipeMock && (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 20 }}>
+              <div style={{ background: isDark ? "#111827" : "#ffffff", border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #e2e6ed", borderRadius: 24, padding: "36px 40px", maxWidth: 440, width: "100%", textAlign: "center" }}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>🧹</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: isDark ? "#f1f5f9" : "#0f172a", marginBottom: 10 }}>
+                  {lang === "nl" ? "Testdata wissen?" : "Clear sample data?"}
+                </div>
+                <div style={{ fontSize: 14, color: isDark ? "#94a3b8" : "#475569", lineHeight: 1.6, marginBottom: 28 }}>
+                  {lang === "nl"
+                    ? "Je gaat naar een lege staat. Je kunt daarna je eigen transacties uploaden. Dit kan niet ongedaan worden gemaakt."
+                    : "You'll land in an empty state. You can then upload your own transactions. This cannot be undone."}
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <button
+                    onClick={() => {
+                      setTransactions([]);
+                      setAccounts([]);
+                      setAppInvestments([]);
+                      setAppGoals([]);
+                      setRecurringItems([]);
+                      setUseMockData(false);
+                      if (user?.id) {
+                        try { localStorage.setItem(`dynafy_${user.id}_cleared`, 'true'); } catch {}
+                        supabase.from('profiles').update({ data_cleared: true }).eq('id', user.id).then(() => {});
+                      }
+                      setConfirmWipeMock(false);
+                    }}
+                    style={{ width: "100%", padding: "14px 0", borderRadius: 50, border: "none", background: "linear-gradient(135deg, #f59e0b, #f97316)", color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer" }}
+                  >
+                    {lang === "nl" ? "Ja, wis testdata" : "Yes, clear sample data"}
+                  </button>
+                  <button onClick={() => setConfirmWipeMock(false)}
+                    style={{ ...pillBtnGhost(isDark), width: "100%", padding: "12px 0", fontSize: 13 }}>
+                    {lang === "nl" ? "Annuleren" : "Cancel"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div key={view} className="page-view">
           {view === "dashboard" && <WidgetDashboard transactions={transactions} t={t} isDark={isDark} accent={accent} accounts={accounts} investments={appInvestments} goals={appGoals} lang={lang} />}
           {view === "overzicht" && <Overzicht transactions={!hasAccess('premium') ? transactions.filter(tx => tx.date >= new Date(new Date().setMonth(new Date().getMonth()-3)).toISOString().slice(0,10)) : transactions} t={t} accounts={accounts} selectedAccount={selectedAccount} setSelectedAccount={setSelectedAccount} isDark={isDark} accent={accent} accentBg={accentBg} setTransactions={setTransactions} onUploadClick={() => setShowGlobalUpload(true)} lang={lang} dataLoaded={dataLoaded} userPlan={userPlan} onUpgrade={() => setView('pricing')} />}
