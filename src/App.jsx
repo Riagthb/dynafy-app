@@ -6099,7 +6099,7 @@ function RekeningenView({ accounts, setAccounts, onDeleteAccount, isDark, t, onU
   );
 }
 
-function SettingsView({ lang, setLang, t, accounts, setAccounts, onDeleteAccount, theme, setTheme, isDark, onReset, user, userPlan = 'normal', currency = 'EUR', setCurrency, onNavigate, onNameChange }) {
+function SettingsView({ lang, setLang, t, accounts, setAccounts, onDeleteAccount, theme, setTheme, isDark, onReset, user, userPlan = 'normal', currency = 'EUR', setCurrency, onNavigate, onNameChange, useMockData = false, onWipeMock }) {
   const [newCat, setNewCat] = useState("");
   const [confirmReset, setConfirmReset] = useState(false);
   const [resetSel, setResetSel] = useState([]);
@@ -6356,6 +6356,26 @@ function SettingsView({ lang, setLang, t, accounts, setAccounts, onDeleteAccount
             ))}
           </div>
         </div>
+
+        {/* ── Testdata actief (alleen zichtbaar als useMockData) ── */}
+        {useMockData && (
+          <div style={{ ...card(isDark), border: "1px solid rgba(245,158,11,0.35)", background: isDark ? "linear-gradient(135deg, rgba(245,158,11,0.08), rgba(249,115,22,0.05))" : "linear-gradient(135deg, rgba(245,158,11,0.06), rgba(249,115,22,0.04))" }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#f59e0b", marginBottom: 6 }}>
+              ⚠️ {lang === "nl" ? "Testdata actief" : "Sample data active"}
+            </div>
+            <div style={{ fontSize: 12, color: C.muted, marginBottom: 16, lineHeight: 1.55 }}>
+              {lang === "nl"
+                ? "Je bekijkt nog steeds voorbeelddata. Upload je eigen transacties om ze te vervangen, of wis ze handmatig om naar een lege staat te gaan."
+                : "You're still viewing sample data. Upload your own transactions to replace them, or clear them manually to land in an empty state."}
+            </div>
+            <button
+              onClick={() => onWipeMock?.()}
+              style={{ padding: "10px 20px", borderRadius: 50, border: "1px solid rgba(245,158,11,0.5)", background: "rgba(245,158,11,0.12)", color: "#f59e0b", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+            >
+              {lang === "nl" ? "Wis alle testdata" : "Clear all sample data"}
+            </button>
+          </div>
+        )}
 
         {/* ── Verwijder data ── */}
         <div style={{ ...card(isDark), border: "1px solid rgba(244,63,94,0.2)" }}>
