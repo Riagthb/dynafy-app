@@ -16021,7 +16021,7 @@ export default function App() {
               setUseMockData(false);
             }
           }} />}
-          {view === "settings" && <SettingsView lang={lang} setLang={setLang} t={t} accounts={accounts} setAccounts={setAccounts} onDeleteAccount={handleDeleteAccount} theme={theme} setTheme={setTheme} isDark={isDark} user={user} userPlan={userPlan} currency={currency} onNameChange={(name) => setUserName(name)} setCurrency={(c) => { setCurrency(c); try { localStorage.setItem('dynafy_currency', c); } catch {} if (user?.id) supabase.from('profiles').update({ currency: c }).eq('id', user.id).then(() => {}); }} onNavigate={setView} onReset={async (sel) => {
+          {view === "settings" && <SettingsView lang={lang} setLang={setLang} t={t} accounts={accounts} setAccounts={setAccounts} onDeleteAccount={handleDeleteAccount} theme={theme} setTheme={setTheme} isDark={isDark} user={user} userPlan={userPlan} currency={currency} onNameChange={(name) => setUserName(name)} setCurrency={(c) => { setCurrency(c); try { localStorage.setItem('dynafy_currency', c); } catch {} if (user?.id) supabase.from('profiles').update({ currency: c }).eq('id', user.id).then(() => {}); }} onNavigate={setView} useMockData={useMockData} onWipeMock={() => setConfirmWipeMock(true)} onReset={async (sel) => {
             const all = sel.includes("all");
             // Delete from Supabase IMMEDIATELY (no debounce) so refresh won't bring back old data
             const deletes = [];
