@@ -357,15 +357,17 @@ async function generateAndSendInvoice(args: {
     currency, periodStart, periodEnd, paymentId, paidAt } = args;
 
   // Fetch customer details (for PDF header + email recipient)
-  const { data: profile } = await admin
+  // Note: profiles schema has 'name' but no 'display_name'.
+  const { data: profile, error: profileErr } = await admin
     .from("profiles")
-    .select("email, display_name, name, company_name, address, postal_code, city, btw_number, kvk")
+    .select("email, name, company_name, address, postal_code, city, btw_number, kvk")
     .eq("id", userId)
     .maybeSingle();
+  if (profileErr) console.warn("profile fetch failed:", profileErr.message);
 
   const customerEmail = profile?.email;
   const customerName =
-    profile?.display_name ?? profile?.name ?? (customerEmail ?? "").split("@")[0] ?? "Dynafy klant";
+    profile?.name ?? (customerEmail ?? "").split("@")[0] ?? "Dynafy klant";
   if (!customerEmail) {
     console.warn("no email on profile; skip email, still generate PDF");
   }
@@ -586,13 +588,13 @@ async function renderInvoicePdf(d: {
   line(W - M - 250, y + 10, W - M, y + 10);
   drawTotalRow("Totaal (incl. BTW)", eur(d.totalCents, d.currency), { emphasize: true });
 
-  // Paid stamp
+  // Paid stamp (use ASCII only — Helvetica WinAnsi encoding can't render ✓)
   y -= 20;
   page.drawRectangle({
     x: W - M - 110, y: y - 4, width: 110, height: 22,
     borderColor: rgb(0.13, 0.77, 0.37), borderWidth: 1.5, color: rgb(0.13, 0.77, 0.37), opacity: 0.08,
   });
-  text("BETAALD ✓", W - M - 95, y + 4, { size: 11, f: bold, color: rgb(0.09, 0.54, 0.25) });
+  text("BETAALD", W - M - 85, y + 4, { size: 11, f: bold, color: rgb(0.09, 0.54, 0.25) });
 
   // Footer
   y = 80;
