@@ -98,14 +98,22 @@ async function handlePayment(
     return;
   }
 
-  // --- Idempotency: if we already recorded this payment, stop --------------
+  // --- Idempotency: skip only if row exists AND PDF already generated ------
+  // If PDF is missing (earlier webhook crashed or v2-era invoice), fall
+  // through so createInvoice → generateAndSendInvoice runs and fills the gap.
   const { data: existingInvoice } = await admin
     .from("billing_invoices")
-    .select("id, status")
+    .select("id, status, pdf_storage_path")
     .eq("mollie_payment_id", p.id)
     .maybeSingle();
 
-  if (existingInvoice && existingInvoice.status === "paid") return;
+  if (
+    existingInvoice &&
+    existingInvoice.status === "paid" &&
+    existingInvoice.pdf_storage_path
+  ) {
+    return;
+  }
 
   // --- FIRST payment (captured mandate) ------------------------------------
   if (sequenceType === "first") {
