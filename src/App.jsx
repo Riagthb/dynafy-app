@@ -6103,6 +6103,9 @@ function SettingsView({ lang, setLang, t, accounts, setAccounts, onDeleteAccount
   const [newCat, setNewCat] = useState("");
   const [confirmReset, setConfirmReset] = useState(false);
   const [resetSel, setResetSel] = useState([]);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [cancelResult, setCancelResult] = useState(null);
   const C = { text: isDark ? "#f1f5f9" : "#0f172a", muted: isDark ? "#64748b" : "#64748b", border: isDark ? "rgba(255,255,255,0.08)" : "#e2e6ed" };
 
   // Naam wijzigen
@@ -6564,12 +6567,91 @@ function SettingsView({ lang, setLang, t, accounts, setAccounts, onDeleteAccount
               )}
               {planLevel === 3 && (
                 <div style={{ textAlign: "center", fontSize: 12, color: meta.color, fontWeight: 700 }}>
-                  💎 Je zit op het hoogste plan!
+                  💎 {lang === 'nl' ? 'Je zit op het hoogste plan!' : 'You are on the highest plan!'}
                 </div>
+              )}
+              {/* Abonnement opzeggen (alleen voor betalende plannen) */}
+              {planLevel > 0 && (
+                <button
+                  onClick={() => setShowCancelConfirm(true)}
+                  disabled={cancelBusy || cancelResult}
+                  style={{
+                    width: "100%",
+                    marginTop: 10,
+                    padding: "10px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(244,63,94,0.35)",
+                    background: "transparent",
+                    color: cancelResult ? C.muted : "#f43f5e",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: (cancelBusy || cancelResult) ? "default" : "pointer",
+                    opacity: (cancelBusy || cancelResult) ? 0.5 : 1,
+                  }}
+                >
+                  {cancelBusy
+                    ? (lang === 'nl' ? 'Bezig met opzeggen…' : 'Cancelling…')
+                    : cancelResult
+                      ? (lang === 'nl' ? `✓ Opgezegd — toegang tot ${cancelResult}` : `✓ Cancelled — access until ${cancelResult}`)
+                      : (lang === 'nl' ? 'Abonnement opzeggen' : 'Cancel subscription')}
+                </button>
               )}
             </div>
           );
         })()}
+
+        {/* ── Cancel confirmation modal ── */}
+        {showCancelConfirm && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 20 }}>
+            <div style={{ background: isDark ? "#111827" : "#ffffff", border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #e2e6ed", borderRadius: 24, padding: "36px 40px", maxWidth: 440, width: "100%", textAlign: "center" }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>🛑</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: isDark ? "#f1f5f9" : "#0f172a", marginBottom: 10 }}>
+                {lang === 'nl' ? 'Weet je het zeker?' : 'Are you sure?'}
+              </div>
+              <div style={{ fontSize: 14, color: isDark ? "#94a3b8" : "#475569", lineHeight: 1.6, marginBottom: 28 }}>
+                {lang === 'nl'
+                  ? 'Je behoudt volledige toegang tot het einde van de huidige betaalperiode. Er wordt niets teruggestort — het abonnement wordt niet opnieuw verlengd.'
+                  : 'You keep full access until the end of the current billing period. No refund will be issued — your subscription simply will not renew.'}
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <button
+                  onClick={async () => {
+                    setShowCancelConfirm(false);
+                    setCancelBusy(true);
+                    try {
+                      const { data: { session } } = await supabase.auth.getSession();
+                      const token = session?.access_token;
+                      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mollie-cancel-subscription`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${token}`,
+                          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+                        },
+                        body: '{}',
+                      });
+                      const body = await res.json();
+                      if (!res.ok) throw new Error(body?.error || 'cancel_failed');
+                      const until = body.access_until ? new Date(body.access_until).toLocaleDateString(lang === 'nl' ? 'nl-NL' : 'en-GB') : '—';
+                      setCancelResult(until);
+                    } catch (err) {
+                      alert((lang === 'nl' ? 'Opzeggen mislukt: ' : 'Cancel failed: ') + (err?.message || err));
+                    } finally {
+                      setCancelBusy(false);
+                    }
+                  }}
+                  style={{ width: "100%", padding: "14px 0", borderRadius: 50, border: "none", background: "linear-gradient(135deg, #f43f5e, #e11d48)", color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer" }}
+                >
+                  {lang === 'nl' ? 'Ja, zeg op' : 'Yes, cancel'}
+                </button>
+                <button onClick={() => setShowCancelConfirm(false)}
+                  style={{ ...pillBtnGhost(isDark), width: "100%", padding: "12px 0", fontSize: 13 }}>
+                  {lang === 'nl' ? 'Nee, behouden' : 'No, keep it'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── Account verwijderen ── */}
         <div style={{ ...card(isDark), border: "1px solid rgba(244,63,94,0.15)" }}>

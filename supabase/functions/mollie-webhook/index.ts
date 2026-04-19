@@ -280,7 +280,7 @@ async function createInvoice(args: {
   const vatCents = totalCents - subtotalCents;
 
   // Idempotent via mollie_payment_id UNIQUE
-  await admin
+  const { data: upserted } = await admin
     .from("billing_invoices")
     .upsert(
       {
@@ -298,7 +298,329 @@ async function createInvoice(args: {
         paid_at: payment.paidAt ?? new Date().toISOString(),
       },
       { onConflict: "mollie_payment_id" },
-    );
+    )
+    .select("id, invoice_number, pdf_storage_path")
+    .single();
+
+  // --- PDF + email (best-effort; don't fail webhook on PDF errors) ---------
+  if (upserted && !upserted.pdf_storage_path) {
+    try {
+      await generateAndSendInvoice({
+        admin,
+        userId,
+        invoiceId: upserted.id,
+        invoiceNumber: upserted.invoice_number,
+        subtotalCents,
+        vatCents,
+        totalCents,
+        currency: payment.amount.currency,
+        periodStart,
+        periodEnd,
+        paymentId: payment.id,
+        paidAt: payment.paidAt ?? new Date().toISOString(),
+      });
+    } catch (err) {
+      console.error("invoice pdf/email failed (non-fatal):", err);
+    }
+  }
+}
+
+// ----------------------------------------------------------------------------
+// PDF + email: generates NL-compliant invoice PDF via pdf-lib, uploads to
+// private 'invoices' bucket at path {user_id}/{invoice_number}.pdf, updates
+// billing_invoices.pdf_storage_path, and emails customer via Resend with PDF
+// as attachment.
+// ----------------------------------------------------------------------------
+async function generateAndSendInvoice(args: {
+  admin: ReturnType<typeof createClient>;
+  userId: string;
+  invoiceId: string;
+  invoiceNumber: string;
+  subtotalCents: number;
+  vatCents: number;
+  totalCents: number;
+  currency: string;
+  periodStart: Date;
+  periodEnd: Date;
+  paymentId: string;
+  paidAt: string;
+}) {
+  const { admin, userId, invoiceNumber, subtotalCents, vatCents, totalCents,
+    currency, periodStart, periodEnd, paymentId, paidAt } = args;
+
+  // Fetch customer details (for PDF header + email recipient)
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("email, display_name, name, company_name, address, postal_code, city, btw_number, kvk")
+    .eq("id", userId)
+    .maybeSingle();
+
+  const customerEmail = profile?.email;
+  const customerName =
+    profile?.display_name ?? profile?.name ?? (customerEmail ?? "").split("@")[0] ?? "Dynafy klant";
+  if (!customerEmail) {
+    console.warn("no email on profile; skip email, still generate PDF");
+  }
+
+  // --- Generate PDF -------------------------------------------------------
+  const pdfBytes = await renderInvoicePdf({
+    invoiceNumber,
+    paidAt: new Date(paidAt),
+    periodStart,
+    periodEnd,
+    customerName,
+    customerEmail: customerEmail ?? "",
+    companyName: profile?.company_name ?? "",
+    address: profile?.address ?? "",
+    postalCode: profile?.postal_code ?? "",
+    city: profile?.city ?? "",
+    btwNumber: profile?.btw_number ?? "",
+    kvk: profile?.kvk ?? "",
+    subtotalCents,
+    vatCents,
+    totalCents,
+    currency,
+    paymentId,
+  });
+
+  // --- Upload to Storage -------------------------------------------------
+  const storagePath = `${userId}/${invoiceNumber}.pdf`;
+  const { error: uploadErr } = await admin.storage
+    .from("invoices")
+    .upload(storagePath, pdfBytes, {
+      contentType: "application/pdf",
+      upsert: true,
+    });
+  if (uploadErr) {
+    console.error("storage upload failed:", uploadErr);
+    // Still try to email if we have bytes
+  } else {
+    await admin
+      .from("billing_invoices")
+      .update({ pdf_storage_path: storagePath })
+      .eq("mollie_payment_id", paymentId);
+  }
+
+  // --- Email via Resend --------------------------------------------------
+  if (customerEmail) {
+    const resendKey = Deno.env.get("RESEND_API_KEY");
+    if (!resendKey) {
+      console.warn("RESEND_API_KEY not set; skip email");
+      return;
+    }
+    const pdfBase64 = bytesToBase64(pdfBytes);
+    const totalEur = (totalCents / 100).toFixed(2).replace(".", ",");
+    const emailPayload = {
+      from: "Dynafy <contact@dynafy.nl>",
+      to: [customerEmail],
+      subject: `Factuur ${invoiceNumber} — Dynafy ZZP Diamond`,
+      html: `
+        <div style="font-family: Inter, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; color: #0f172a;">
+          <h2 style="color: #4f8ef7; margin-top: 0;">Bedankt voor je betaling</h2>
+          <p>Hoi ${escapeHtml(customerName)},</p>
+          <p>We hebben je betaling van <strong>€ ${totalEur}</strong> ontvangen voor Dynafy ZZP Diamond (maand).</p>
+          <p>De factuur <strong>${invoiceNumber}</strong> zit als PDF bij deze e-mail.</p>
+          <p>Je kunt de factuur ook altijd terugvinden in de app onder <em>Instellingen → Facturen</em>.</p>
+          <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+          <p style="font-size: 12px; color: #64748b;">Dynafy is een product van Jong Inzicht B.V. Vragen? Stuur een mail naar <a href="mailto:contact@dynafy.nl" style="color: #4f8ef7;">contact@dynafy.nl</a>.</p>
+        </div>
+      `,
+      attachments: [
+        { filename: `Factuur-${invoiceNumber}.pdf`, content: pdfBase64 },
+      ],
+    };
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${resendKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(emailPayload),
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      console.error("resend send failed:", res.status, err);
+    }
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Render a clean invoice PDF using pdf-lib (Deno-compatible).
+// Layout: Dynafy header, to/from boxes, line table, totals block, footer.
+// ----------------------------------------------------------------------------
+async function renderInvoicePdf(d: {
+  invoiceNumber: string;
+  paidAt: Date;
+  periodStart: Date;
+  periodEnd: Date;
+  customerName: string;
+  customerEmail: string;
+  companyName: string;
+  address: string;
+  postalCode: string;
+  city: string;
+  btwNumber: string;
+  kvk: string;
+  subtotalCents: number;
+  vatCents: number;
+  totalCents: number;
+  currency: string;
+  paymentId: string;
+}): Promise<Uint8Array> {
+  const { PDFDocument, StandardFonts, rgb } = await import(
+    "https://esm.sh/pdf-lib@1.17.1"
+  );
+  const pdf = await PDFDocument.create();
+  const page = pdf.addPage([595.28, 841.89]); // A4 portrait
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+
+  const M = 50; // margin
+  const W = 595.28;
+  let y = 795;
+
+  const text = (s: string, x: number, yy: number, opts: { size?: number; f?: any; color?: any } = {}) => {
+    page.drawText(s, {
+      x, y: yy,
+      size: opts.size ?? 10,
+      font: opts.f ?? font,
+      color: opts.color ?? rgb(0.06, 0.09, 0.16),
+    });
+  };
+  const line = (x1: number, y1: number, x2: number, y2: number, color = rgb(0.85, 0.87, 0.91)) => {
+    page.drawLine({ start: { x: x1, y: y1 }, end: { x: x2, y: y2 }, thickness: 0.5, color });
+  };
+
+  // Header: "Dynafy" brand + invoice title
+  text("Dynafy", M, y, { size: 22, f: bold, color: rgb(0.31, 0.56, 0.97) });
+  text("FACTUUR", W - M - bold.widthOfTextAtSize("FACTUUR", 22), y, { size: 22, f: bold });
+  y -= 26;
+  text("Jong Inzicht B.V.", M, y, { size: 9, color: rgb(0.4, 0.46, 0.53) });
+  y -= 16;
+  line(M, y, W - M, y);
+  y -= 24;
+
+  // Two columns: Van (left), Factuur aan (right)
+  const leftX = M;
+  const rightX = W / 2 + 10;
+  text("VAN", leftX, y, { size: 8, f: bold, color: rgb(0.4, 0.46, 0.53) });
+  text("FACTUUR AAN", rightX, y, { size: 8, f: bold, color: rgb(0.4, 0.46, 0.53) });
+  y -= 14;
+  const fromLines = [
+    "Jong Inzicht B.V.",
+    "contact@dynafy.nl",
+    "https://dynafy.nl",
+  ];
+  const toLines = [
+    d.companyName || d.customerName,
+    ...(d.companyName && d.customerName !== d.companyName ? [d.customerName] : []),
+    ...(d.address ? [d.address] : []),
+    ...(d.postalCode || d.city ? [`${d.postalCode} ${d.city}`.trim()] : []),
+    d.customerEmail,
+    ...(d.btwNumber ? [`BTW: ${d.btwNumber}`] : []),
+    ...(d.kvk ? [`KvK: ${d.kvk}`] : []),
+  ];
+  const maxLines = Math.max(fromLines.length, toLines.length);
+  for (let i = 0; i < maxLines; i++) {
+    if (fromLines[i]) text(fromLines[i], leftX, y, { size: 10 });
+    if (toLines[i]) text(toLines[i], rightX, y, { size: 10 });
+    y -= 14;
+  }
+  y -= 10;
+  line(M, y, W - M, y);
+  y -= 24;
+
+  // Invoice meta
+  const meta = [
+    ["Factuurnummer", d.invoiceNumber],
+    ["Factuurdatum", d.paidAt.toLocaleDateString("nl-NL")],
+    ["Periode", `${d.periodStart.toLocaleDateString("nl-NL")} t/m ${d.periodEnd.toLocaleDateString("nl-NL")}`],
+    ["Betaalreferentie", d.paymentId],
+  ];
+  for (const [k, v] of meta) {
+    text(k, leftX, y, { size: 9, color: rgb(0.4, 0.46, 0.53) });
+    text(v, leftX + 120, y, { size: 10 });
+    y -= 14;
+  }
+  y -= 18;
+
+  // Line item table
+  text("OMSCHRIJVING", leftX, y, { size: 8, f: bold, color: rgb(0.4, 0.46, 0.53) });
+  text("BEDRAG (EXCL.)", W - M - 120, y, { size: 8, f: bold, color: rgb(0.4, 0.46, 0.53) });
+  y -= 8;
+  line(M, y, W - M, y);
+  y -= 18;
+  text("Dynafy ZZP Diamond — maand abonnement", leftX, y, { size: 11 });
+  const amountExcl = eur(d.subtotalCents, d.currency);
+  text(amountExcl, W - M - font.widthOfTextAtSize(amountExcl, 11), y, { size: 11 });
+  y -= 14;
+  text(
+    `Periode: ${d.periodStart.toLocaleDateString("nl-NL")} – ${d.periodEnd.toLocaleDateString("nl-NL")}`,
+    leftX, y, { size: 9, color: rgb(0.4, 0.46, 0.53) },
+  );
+  y -= 22;
+  line(M, y, W - M, y);
+  y -= 20;
+
+  // Totals block (right-aligned)
+  const drawTotalRow = (label: string, value: string, opts: { emphasize?: boolean } = {}) => {
+    const f = opts.emphasize ? bold : font;
+    const size = opts.emphasize ? 12 : 10;
+    const labelX = W - M - 250;
+    const valueX = W - M - f.widthOfTextAtSize(value, size);
+    text(label, labelX, y, { size, f });
+    text(value, valueX, y, { size, f });
+    y -= opts.emphasize ? 20 : 16;
+  };
+  drawTotalRow("Subtotaal (excl. BTW)", eur(d.subtotalCents, d.currency));
+  drawTotalRow(`BTW 21%`, eur(d.vatCents, d.currency));
+  y -= 4;
+  line(W - M - 250, y + 10, W - M, y + 10);
+  drawTotalRow("Totaal (incl. BTW)", eur(d.totalCents, d.currency), { emphasize: true });
+
+  // Paid stamp
+  y -= 20;
+  page.drawRectangle({
+    x: W - M - 110, y: y - 4, width: 110, height: 22,
+    borderColor: rgb(0.13, 0.77, 0.37), borderWidth: 1.5, color: rgb(0.13, 0.77, 0.37), opacity: 0.08,
+  });
+  text("BETAALD ✓", W - M - 95, y + 4, { size: 11, f: bold, color: rgb(0.09, 0.54, 0.25) });
+
+  // Footer
+  y = 80;
+  line(M, y + 20, W - M, y + 20);
+  text(
+    "Betaling is ontvangen via Mollie. Deze factuur voldoet aan de vereisten van de Nederlandse Belastingdienst.",
+    M, y, { size: 8, color: rgb(0.4, 0.46, 0.53) },
+  );
+  text(
+    "Dynafy is een product van Jong Inzicht B.V. — vragen? contact@dynafy.nl",
+    M, y - 12, { size: 8, color: rgb(0.4, 0.46, 0.53) },
+  );
+
+  return await pdf.save();
+}
+
+// EUR formatter in NL style (€ 89,00)
+function eur(cents: number, currency = "EUR"): string {
+  const v = (cents / 100).toFixed(2).replace(".", ",");
+  const sym = currency === "EUR" ? "€" : currency + " ";
+  return `${sym} ${v}`;
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!
+  ));
 }
 
 // ----------------------------------------------------------------------------
