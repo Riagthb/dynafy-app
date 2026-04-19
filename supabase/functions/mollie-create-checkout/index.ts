@@ -37,8 +37,11 @@ const DESCRIPTION = "Dynafy ZZP Diamond — maand (€89 excl. BTW)";
 // URLs
 const APP_URL = "https://app.dynafy.nl";
 const REDIRECT_URL = `${APP_URL}/?billing=success`;
+// NOTE: We use mollie-webhook-v2 slug instead of mollie-webhook because the
+// original slug has a stale ESZIP bundle (Supabase platform issue 2026-04-19).
+// Fresh slugs deploy cleanly. See brain node prob-supabase-edge-stale-bundle.
 const WEBHOOK_URL =
-  "https://gcsvxintwotkezxigpdg.supabase.co/functions/v1/mollie-webhook";
+  "https://gcsvxintwotkezxigpdg.supabase.co/functions/v1/mollie-webhook-v2";
 
 const MOLLIE_API = "https://api.mollie.com/v2";
 
