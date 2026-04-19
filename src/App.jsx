@@ -6510,9 +6510,9 @@ function SettingsView({ lang, setLang, t, accounts, setAccounts, onDeleteAccount
           const planLevel = PLAN_LEVELS[userPlan] ?? 0;
           const planMeta = {
             normal:      { label: "Gratis",       color: "#64748b", icon: "🆓", price: "€0 / maand" },
-            premium:     { label: "Premium",      color: "#4f8ef7", icon: "⭐", price: "€7,99 / maand" },
-            zzp_premium: { label: "ZZP Premium",  color: "#a855f7", icon: "💼", price: "€14,99 / maand" },
-            zzp_diamond: { label: "ZZP Diamond",  color: "#f59e0b", icon: "💎", price: "€24,99 / maand" },
+            premium:     { label: "Premium",      color: "#4f8ef7", icon: "⭐", price: "€5,99 / maand (incl. BTW)" },
+            zzp_premium: { label: "ZZP Premium",  color: "#a855f7", icon: "💼", price: "€17,99 / maand (excl. BTW)" },
+            zzp_diamond: { label: "ZZP Diamond",  color: "#f59e0b", icon: "💎", price: "€89 / maand (excl. BTW)" },
           };
           const meta = planMeta[userPlan] || planMeta.normal;
           const features = {
@@ -6618,11 +6618,16 @@ function SettingsView({ lang, setLang, t, accounts, setAccounts, onDeleteAccount
         {/* About */}
         <div style={{ ...card(isDark), textAlign: "center" }}>
           <div style={{ fontSize: 13, color: isDark ? "#334155" : "#94a3b8" }}>Dynafy • MVP v1.0 • Built for ZZP'ers & freelancers in 🇳🇱</div>
-          <div style={{ marginTop: 8 }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 20, background: "linear-gradient(135deg, rgba(79,142,247,0.2), rgba(99,102,241,0.2))", border: "1px solid rgba(79,142,247,0.3)", fontSize: 12, color: "#4f8ef7", fontWeight: 700 }}>
-              ⚡ Upgrade to Pro — €9,99/month
-            </span>
-          </div>
+          {userPlan !== 'zzp_diamond' && (
+            <div style={{ marginTop: 8 }}>
+              <span
+                onClick={() => onNavigate?.('pricing')}
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 20, background: "linear-gradient(135deg, rgba(79,142,247,0.2), rgba(99,102,241,0.2))", border: "1px solid rgba(79,142,247,0.3)", fontSize: 12, color: "#4f8ef7", fontWeight: 700, cursor: "pointer" }}
+              >
+                ⚡ {lang === 'nl' ? 'Bekijk alle plannen' : 'View all plans'}
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -14523,6 +14528,41 @@ export default function App() {
   const [userPlan, setUserPlan]         = useState('normal');
   const [showZzpModal, setShowZzpModal] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(null); // null | 'premium' | 'zzp_premium' | 'zzp_diamond'
+
+  // ── Realtime listener on profiles.plan ─────────────────────────────────────
+  // Keeps userPlan in sync when webhook upgrades the plan (or admin changes it).
+  // Previously users had to refresh the page after Mollie redirect to see Diamond.
+  useEffect(() => {
+    // Capture user id from supabase session (ignore if not logged in yet)
+    let channel;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (!authUser || cancelled) return;
+        channel = supabase
+          .channel(`profile-plan-${authUser.id}`)
+          .on(
+            'postgres_changes',
+            { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${authUser.id}` },
+            (payload) => {
+              const newPlan = payload?.new?.plan;
+              if (newPlan && ['normal', 'premium', 'zzp_premium', 'zzp_diamond'].includes(newPlan)) {
+                setUserPlan(newPlan);
+              }
+            }
+          )
+          .subscribe();
+      } catch (err) {
+        console.warn('[Dynafy] realtime plan listener setup failed:', err?.message || err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (channel) supabase.removeChannel(channel).catch(() => {});
+    };
+  }, []);
+
   // Billing: detecteer terugkomst van Mollie checkout (?billing=success|cancelled)
   const [billingStatus, setBillingStatus] = useState(() => readBillingStatusFromUrl());
   useEffect(() => {
@@ -15708,20 +15748,51 @@ export default function App() {
           })}
         </nav>
 
-        {/* ── Upgrade badge ── */}
-        {sidebarOpen ? (
-          <div style={{ margin: "8px 12px 16px", padding: "14px", borderRadius: 14, background: (isDark || theme === "light") ? "rgba(217,119,6,0.12)" : "linear-gradient(135deg, rgba(67,97,238,0.08), rgba(99,102,241,0.08))", border: isDark ? "1px solid rgba(79,142,247,0.2)" : "1px solid rgba(79,142,247,0.15)", flexShrink: 0 }}>
+        {/* ── Upgrade badge (hidden on ZZP Diamond: top tier) ── */}
+        {userPlan !== 'zzp_diamond' && (sidebarOpen ? (
+          <button
+            onClick={() => setView('pricing')}
+            style={{
+              margin: "8px 12px 16px",
+              padding: "14px",
+              borderRadius: 14,
+              background: (isDark || theme === "light") ? "rgba(217,119,6,0.12)" : "linear-gradient(135deg, rgba(67,97,238,0.08), rgba(99,102,241,0.08))",
+              border: isDark ? "1px solid rgba(79,142,247,0.2)" : "1px solid rgba(79,142,247,0.15)",
+              flexShrink: 0,
+              cursor: "pointer",
+              textAlign: "left",
+              width: "calc(100% - 24px)",
+              display: "block",
+              transition: "background 0.15s",
+            }}
+          >
             <div style={{ fontSize: 12, fontWeight: 700, color: "#4f8ef7", marginBottom: 4 }}>⚡ {lang === "nl" ? "Upgrade naar Pro" : "Upgrade to Pro"}</div>
             <div style={{ fontSize: 11, color: isDark ? "#64748b" : "#64748b", lineHeight: 1.5 }}>{lang === "nl" ? "Onbeperkte rekeningen & AI-inzichten" : "Unlimited accounts & AI insights"}</div>
-            <div style={{ marginTop: 8, padding: "6px 12px", background: "linear-gradient(135deg, #4f8ef7, #6366f1)", borderRadius: 8, textAlign: "center", fontSize: 12, fontWeight: 700, color: "#fff" }}>Upgrade</div>
-          </div>
+            <div style={{ marginTop: 8, padding: "6px 12px", background: "linear-gradient(135deg, #4f8ef7, #6366f1)", borderRadius: 8, textAlign: "center", fontSize: 12, fontWeight: 700, color: "#fff" }}>
+              {lang === "nl" ? "Upgrade" : "Upgrade"}
+            </div>
+          </button>
         ) : (
           <div style={{ padding: "8px", flexShrink: 0 }}>
-            <div title="Upgrade to Pro" style={{ width: "100%", padding: "10px 0", borderRadius: 12, background: "linear-gradient(135deg, rgba(79,142,247,0.2), rgba(99,102,241,0.2))", border: "1px solid rgba(79,142,247,0.25)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+            <button
+              onClick={() => setView('pricing')}
+              title={lang === "nl" ? "Upgrade naar Pro" : "Upgrade to Pro"}
+              style={{
+                width: "100%",
+                padding: "10px 0",
+                borderRadius: 12,
+                background: "linear-gradient(135deg, rgba(79,142,247,0.2), rgba(99,102,241,0.2))",
+                border: "1px solid rgba(79,142,247,0.25)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+              }}
+            >
               <span style={{ fontSize: 16 }}>⚡</span>
-            </div>
+            </button>
           </div>
-        )}
+        ))}
 
       </div>{/* end SIDEBAR */}
 
