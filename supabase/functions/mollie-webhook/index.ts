@@ -421,7 +421,8 @@ async function generateAndSendInvoice(args: {
     const pdfBase64 = bytesToBase64(pdfBytes);
     const totalEur = (totalCents / 100).toFixed(2).replace(".", ",");
     const emailPayload = {
-      from: "Dynafy <contact@dynafy.nl>",
+      from: "Dynafy Facturen <facturen@dynafy.nl>",
+      reply_to: "contact@dynafy.nl",
       to: [customerEmail],
       subject: `Factuur ${invoiceNumber} — Dynafy ZZP Diamond`,
       html: `
