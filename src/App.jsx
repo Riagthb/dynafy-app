@@ -9888,7 +9888,16 @@ function InvoiceForm({ isDark, user, invoice, clients, onClose, onSaved, zzpProf
       const linesData = collectLinesData();
       await supabase.from('invoice_lines').insert(linesData.map(l => ({ ...l, invoice_id:inv.id })));
       await onSaved();
-    } catch(e) { setErr(e.message || 'Fout bij opslaan'); setSaving(false); }
+    } catch(e) {
+      // Friendly error if DB trigger blocks due to missing company profile
+      const msg = (e?.message || '').toString();
+      if (msg.includes('missing_company_profile')) {
+        setErr('Vul eerst je bedrijfsgegevens in bij Mijn Bedrijf voordat je een factuur maakt.');
+      } else {
+        setErr(msg || 'Fout bij opslaan');
+      }
+      setSaving(false);
+    }
   };
 
   // Phase 2: save changes to existing concept
