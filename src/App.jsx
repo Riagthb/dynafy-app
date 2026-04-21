@@ -6121,10 +6121,10 @@ function SettingsView({ lang, setLang, t, accounts, setAccounts, onDeleteAccount
     if (!displayName.trim()) { setNameMsg({ text: "Naam mag niet leeg zijn.", ok: false }); return; }
     setNameLoading(true); setNameMsg(null);
     const { error: authErr } = await supabase.auth.updateUser({ data: { full_name: displayName.trim(), display_name: displayName.trim() } });
-    // Profile update is best-effort; ignore column-missing errors
-    supabase.from('profiles').update({ display_name: displayName.trim() }).eq('id', user.id).then(({ error }) => {
-      if (error) console.warn('[Dynafy] display_name profile update:', error.message);
-    });
+    // Mirror name to profiles table so other features (PDFs, ZZP profile) see it.
+    // Note: profiles uses column 'name' (not display_name — that is auth.users metadata).
+    const { error: profErr } = await supabase.from('profiles').update({ name: displayName.trim() }).eq('id', user.id);
+    if (profErr) console.error('[Dynafy] profile name update:', profErr.message);
     setNameLoading(false);
     if (authErr) { setNameMsg({ text: "Fout bij opslaan. Probeer opnieuw.", ok: false }); }
     else { setNameMsg({ text: "Naam succesvol bijgewerkt!", ok: true }); if (onNameChange) onNameChange(displayName.trim()); }
@@ -10187,7 +10187,12 @@ function FacturenView({ isDark, user, zzpProfile, onNavigate, activeCompanyId, u
   const clearSelection = () => setSelected(new Set());
 
   const updateStatus = async (inv, newStatus) => {
-    await supabase.from('invoices').update({ status:newStatus, updated_at:new Date().toISOString() }).eq('id', inv.id);
+    const { error } = await supabase.from('invoices').update({ status:newStatus, updated_at:new Date().toISOString() }).eq('id', inv.id);
+    if (error) {
+      console.error('[Dynafy] invoice status update failed:', error);
+      alert('Status wijzigen mislukt: ' + (error.message || 'onbekende fout'));
+      return;
+    }
     setInvoices(prev => prev.map(i => i.id===inv.id ? {...i, status:newStatus} : i));
   };
 
@@ -10208,16 +10213,28 @@ function FacturenView({ isDark, user, zzpProfile, onNavigate, activeCompanyId, u
   // Bulk: mark selected as betaald
   const bulkMarkBetaald = async () => {
     const ids = [...selected];
-    await Promise.all(ids.map(id => supabase.from('invoices').update({ status:'betaald', updated_at:new Date().toISOString() }).eq('id', id)));
-    setInvoices(prev => prev.map(i => ids.includes(i.id) ? {...i, status:'betaald'} : i));
+    const results = await Promise.all(ids.map(id => supabase.from('invoices').update({ status:'betaald', updated_at:new Date().toISOString() }).eq('id', id)));
+    const failed = results.filter(r => r.error);
+    if (failed.length) {
+      console.error('[Dynafy] bulk betaald failed:', failed);
+      alert(`${failed.length}/${ids.length} facturen niet bijgewerkt: ${failed[0].error.message}`);
+    }
+    const okIds = ids.filter((_, i) => !results[i].error);
+    setInvoices(prev => prev.map(i => okIds.includes(i.id) ? {...i, status:'betaald'} : i));
     clearSelection();
   };
 
   // Bulk: mark selected as herinnering
   const bulkMarkHerinnering = async () => {
     const ids = [...selected];
-    await Promise.all(ids.map(id => supabase.from('invoices').update({ status:'herinnering', updated_at:new Date().toISOString() }).eq('id', id)));
-    setInvoices(prev => prev.map(i => ids.includes(i.id) ? {...i, status:'herinnering'} : i));
+    const results = await Promise.all(ids.map(id => supabase.from('invoices').update({ status:'herinnering', updated_at:new Date().toISOString() }).eq('id', id)));
+    const failed = results.filter(r => r.error);
+    if (failed.length) {
+      console.error('[Dynafy] bulk herinnering failed:', failed);
+      alert(`${failed.length}/${ids.length} facturen niet bijgewerkt: ${failed[0].error.message}`);
+    }
+    const okIds = ids.filter((_, i) => !results[i].error);
+    setInvoices(prev => prev.map(i => okIds.includes(i.id) ? {...i, status:'herinnering'} : i));
     clearSelection();
   };
 
@@ -10437,7 +10454,16 @@ function FacturenView({ isDark, user, zzpProfile, onNavigate, activeCompanyId, u
 
       {showForm && <InvoiceForm isDark={isDark} user={user} zzpProfile={zzpProfile} invoice={editingInvoice} clients={clients} onClose={() => { setShowForm(false); setEditingInvoice(null); }} onSaved={async () => { setShowForm(false); setEditingInvoice(null); await load(); }} onNavigate={onNavigate} />}
       {mailInvoice && <MailPopup isDark={isDark} invoice={mailInvoice} zzpProfile={zzpProfile} onClose={() => setMailInvoice(null)} />}
-      {editingClient && <ClientEditModal isDark={isDark} client={editingClient} onClose={() => setEditingClient(null)} onSaved={async (updated) => { await supabase.from('clients').update(updated).eq('id', updated.id); setClients(prev => prev.map(c => c.id===updated.id ? {...c,...updated} : c)); setEditingClient(null); }} />}
+      {editingClient && <ClientEditModal isDark={isDark} client={editingClient} onClose={() => setEditingClient(null)} onSaved={async (updated) => {
+        const { error } = await supabase.from('clients').update(updated).eq('id', updated.id);
+        if (error) {
+          console.error('[Dynafy] client update failed:', error);
+          alert('Klant opslaan mislukt: ' + (error.message || 'onbekende fout'));
+          return;
+        }
+        setClients(prev => prev.map(c => c.id===updated.id ? {...c,...updated} : c));
+        setEditingClient(null);
+      }} />}
     </div>
   );
 }
@@ -10484,7 +10510,13 @@ function InviteCodeInput({ isDark, user, role, onLinked }) {
       if (fetchErr || !link) {
         setError('Ongeldige of verlopen code. Vraag de klant om een nieuwe code te genereren.');
       } else {
-        await supabase.from('client_links').update({ linked_user_id: user.id, status: 'accepted' }).eq('id', link.id);
+        const { error: linkErr } = await supabase.from('client_links').update({ linked_user_id: user.id, status: 'accepted' }).eq('id', link.id);
+        if (linkErr) {
+          console.error('[Dynafy] client_links accept failed:', linkErr);
+          setError('Koppelen mislukt: ' + (linkErr.message || 'onbekende fout'));
+          setLoading(false);
+          return;
+        }
         setSuccess(`Gekoppeld aan ${link.client?.company_name || link.client?.email}!`);
         setCode('');
         onLinked({ ...link, linked_user_id: user.id, status: 'accepted' });
@@ -11838,11 +11870,10 @@ function KostenForm({ isDark, user, cost, onClose, onSaved }) {
     setSaving(true);
     try {
       const payload = { ...form, amount_excl_btw: parseFloat(form.amount_excl_btw), btw_percentage: parseFloat(form.btw_percentage) };
-      if (isEdit) {
-        await supabase.from('costs').update(payload).eq('id', cost.id);
-      } else {
-        await supabase.from('costs').insert({ ...payload, user_id: user.id, booked_by: user.id });
-      }
+      const { error: costErr } = isEdit
+        ? await supabase.from('costs').update(payload).eq('id', cost.id)
+        : await supabase.from('costs').insert({ ...payload, user_id: user.id, booked_by: user.id });
+      if (costErr) throw costErr;
       await onSaved();
     } catch(e) { setErr(e.message || 'Fout bij opslaan'); setSaving(false); }
   };
@@ -12470,7 +12501,12 @@ function BonnenView({ isDark, user, activeCompanyId, userPlan, onUpgrade }) {
     if (editIdx !== null) {
       const existing = bonnen[editIdx];
       const updated = { ...form, id: existing.id, user_id: user.id, company_profile_id: activeCompanyId || 'main' };
-      await supabase.from('bonnen').update(updated).eq('id', existing.id);
+      const { error } = await supabase.from('bonnen').update(updated).eq('id', existing.id);
+      if (error) {
+        console.error('[Dynafy] bon update failed:', error);
+        alert('Bon opslaan mislukt: ' + (error.message || 'onbekende fout'));
+        return;
+      }
       setBonnen(prev => prev.map((b, i) => i === editIdx ? updated : b));
     } else {
       const bon = { ...form, user_id: user.id, company_profile_id: activeCompanyId || 'main' };
@@ -12507,7 +12543,12 @@ function BonnenView({ isDark, user, activeCompanyId, userPlan, onUpgrade }) {
   const toggleGeboekt = async (idx) => {
     const bon = bonnen[idx];
     const newVal = !bon.geboekt;
-    await supabase.from('bonnen').update({ geboekt: newVal }).eq('id', bon.id);
+    const { error } = await supabase.from('bonnen').update({ geboekt: newVal }).eq('id', bon.id);
+    if (error) {
+      console.error('[Dynafy] bon geboekt toggle failed:', error);
+      alert('Status wijzigen mislukt: ' + (error.message || 'onbekende fout'));
+      return;
+    }
     setBonnen(prev => prev.map((b, i) => i === idx ? { ...b, geboekt: newVal } : b));
   };
 
@@ -13793,9 +13834,16 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted }) {
     if (!selected.size) return;
     setBulkApplying(true);
     const ids = [...selected];
-    await Promise.all(ids.map(id => supabase.from('profiles').update({ plan: bulkPlan }).eq('id', id)));
-    setProfiles(prev => prev.map(p => selected.has(p.id) ? { ...p, plan: bulkPlan } : p));
-    flash(`${ids.length} gebruiker${ids.length > 1 ? 's' : ''} → ${PLAN_LABELS[bulkPlan]}`);
+    const results = await Promise.all(ids.map(id => supabase.from('profiles').update({ plan: bulkPlan }).eq('id', id)));
+    const failed = results.filter(r => r.error);
+    if (failed.length) {
+      console.error('[Dynafy] admin bulk plan update failed:', failed);
+      flash(`${failed.length}/${ids.length} gebruikers niet bijgewerkt: ${failed[0].error.message}`);
+    } else {
+      flash(`${ids.length} gebruiker${ids.length > 1 ? 's' : ''} → ${PLAN_LABELS[bulkPlan]}`);
+    }
+    const okIds = ids.filter((_, i) => !results[i].error);
+    setProfiles(prev => prev.map(p => okIds.includes(p.id) ? { ...p, plan: bulkPlan } : p));
     setSelected(new Set());
     setBulkApplying(false);
   };
