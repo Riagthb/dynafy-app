@@ -13051,21 +13051,41 @@ function MijnBedrijfView({ isDark, user, profile, onSave, onNavigate, userPlan, 
 
   const handleSave = async () => {
     setSaving(true);
-    // Save into profiles array
+    // Save into profiles array (local state + localStorage via useEffect below)
     const updated = companyProfiles.map((p, i) => i === activeIdx ? { ...p, ...form } : p);
     setCompanyProfiles(updated);
-    // Always save main profile fields to Supabase profiles table
-    if (activeIdx === 0) {
-      await onSave(form);
-    } else {
-      // For extra profiles: store all profiles as JSON in the profiles table
-      await supabase.from('profiles')
-        .update({ extra_company_profiles: JSON.stringify(updated.slice(1)) })
-        .eq('id', user.id);
+
+    // Also save the extras array as JSONB so server has full state
+    // (needed for cross-device: mobile and desktop both read from server).
+    try {
+      if (activeIdx === 0) {
+        // Main profile: map form to the column subset that actually exists
+        // on profiles. onSave handles the main company_* fields; we set the
+        // extras array here too so both sides persist.
+        await onSave(form);
+        const { error: extrasErr } = await supabase.from('profiles')
+          .update({ extra_company_profiles: updated.slice(1) })
+          .eq('id', user.id);
+        if (extrasErr) throw extrasErr;
+      } else {
+        // Saving an extra profile: update only the extras JSONB.
+        const { error } = await supabase.from('profiles')
+          .update({ extra_company_profiles: updated.slice(1) })
+          .eq('id', user.id);
+        if (error) throw error;
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      console.error('[Dynafy] company save failed:', err);
+      alert(
+        'Opslaan mislukt: ' +
+        (err?.message || String(err)) +
+        '\n\nJe wijzigingen staan nog lokaal op dit apparaat. Probeer opnieuw of neem contact op.'
+      );
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
   };
 
   const inputStyle = {
@@ -14959,9 +14979,14 @@ export default function App() {
       .then(({ data }) => {
         if (!data?.company_name?.trim()) return; // nothing stored in DB
         const dbProfile = { ...data, _id: 'main', extra_company_profiles: undefined };
-        // Parse any extra profiles saved in DB
+        // extra_company_profiles is now a JSONB column — Supabase returns it
+        // already parsed (array or null). Support legacy TEXT-stringified rows too.
         let extras = [];
-        try { extras = JSON.parse(data.extra_company_profiles || '[]') || []; } catch {}
+        const raw = data.extra_company_profiles;
+        if (Array.isArray(raw)) extras = raw;
+        else if (typeof raw === 'string' && raw) {
+          try { const parsed = JSON.parse(raw); if (Array.isArray(parsed)) extras = parsed; } catch {}
+        }
         const allProfiles = [dbProfile, ...extras];
 
         if (!loaded) {
@@ -16159,7 +16184,27 @@ export default function App() {
           {view === "calibrate" && <Calibrate transactions={transactions} setTransactions={setTransactions} t={t} isDark={isDark} lang={lang} accounts={accounts} selectedAccount={selectedAccount} setSelectedAccount={setSelectedAccount} />}
           {view === "rekeningen" && <RekeningenView accounts={accounts} setAccounts={setAccounts} onDeleteAccount={handleDeleteAccount} isDark={isDark} t={t} onUploadClick={() => setShowGlobalUpload(true)} lang={lang} userPlan={userPlan} onUpgrade={() => setView('pricing')} hasCompanyProfile={!!(appCompanyProfiles.some(p => p.company_name?.trim()) || zzpProfile.company_name?.trim())} transactions={transactions} setTransactions={setTransactions} />}
           {view === "zzp-dashboard" && <ZZPDashboardView isDark={isDark} user={user} zzpProfile={appCompanyProfiles.find(p => p._id === activeCompanyId) || zzpProfile} onNavigate={setView} activeCompanyId={activeCompanyId} userPlan={userPlan} accounts={accounts} />}
-          {view === "mijn-bedrijf" && <MijnBedrijfView isDark={isDark} user={user} profile={zzpProfile} onSave={async (p) => { setZzpProfile(p); await supabase.from('profiles').update(p).eq('id', user.id); }} onNavigate={setView} userPlan={userPlan} accounts={accounts} onCompanyChange={(profiles, id) => { setAppCompanyProfiles(profiles); setActiveCompanyId(id); }} />}
+          {view === "mijn-bedrijf" && <MijnBedrijfView isDark={isDark} user={user} profile={zzpProfile} onSave={async (p) => {
+            // Only write columns that actually exist on profiles.
+            // Stripping unknown keys prevents PostgREST 400 "column does not exist" errors.
+            const allowed = {
+              company_name: p.company_name ?? null,
+              kvk: p.kvk ?? null,
+              btw_number: p.btw_number ?? null,
+              iban: p.iban ?? null,
+              address: p.address ?? null,
+              city: p.city ?? null,
+              postal_code: p.postal_code ?? null,
+              payment_term_days: p.payment_term_days ?? 14,
+              moneybird_enabled: !!p.moneybird_enabled,
+            };
+            setZzpProfile(p);
+            const { error } = await supabase.from('profiles').update(allowed).eq('id', user.id);
+            if (error) {
+              console.error('[Dynafy] profiles update failed:', error);
+              throw error;
+            }
+          }} onNavigate={setView} userPlan={userPlan} accounts={accounts} onCompanyChange={(profiles, id) => { setAppCompanyProfiles(profiles); setActiveCompanyId(id); }} />}
           {view === "facturen"     && <FacturenView isDark={isDark} user={user} zzpProfile={appCompanyProfiles.find(p => p._id === activeCompanyId) || zzpProfile} onNavigate={setView} activeCompanyId={activeCompanyId} userPlan={userPlan} onUpgrade={() => setView('pricing')} />}
           {view === "kosten"       && <KostenView isDark={isDark} user={user} activeCompanyId={activeCompanyId} hasActiveCompany={!!(appCompanyProfiles.some(p => p.company_name?.trim()) || zzpProfile?.company_name?.trim())} onNavigate={setView} />}
           {view === "bonnen"       && <BonnenView isDark={isDark} user={user} activeCompanyId={activeCompanyId} userPlan={userPlan} onUpgrade={() => setView('pricing')} />}
