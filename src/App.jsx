@@ -16,7 +16,7 @@ import { Upload, Home, List, TrendingUp, TrendingDown, Lightbulb, Settings,
   CreditCard, DollarSign, Activity, Sliders, Search, Tag, ChevronUp,
   Repeat, Bell, BellOff, Download, FileText, FileSpreadsheet,
   Calendar, Clock, Eye, EyeOff, Filter, ChevronLeft,
-  Shield, Users, UserX, Crown, Ban, RotateCcw, Mail, LogOut, Briefcase, Copy, Link2, UserPlus } from "lucide-react";
+  Shield, Users, UserX, Crown, Ban, RotateCcw, Mail, LogOut, Briefcase, Copy, Link2, UserPlus, UserCheck } from "lucide-react";
 
 // ─── TRANSLATIONS ─────────────────────────────────────────────
 const T = {
@@ -486,6 +486,31 @@ const S = {
 const R = { sm: 8, md: 12, lg: 16, xl: 20, xxl: 24 };
 // Spacing scale
 const SP = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 32 };
+
+// Fire-and-forget activity logger. Silent on failure — never block the UX.
+async function logEvent(userId, eventType, metadata = null) {
+  if (!userId || !eventType) return;
+  try {
+    await supabase.from('user_events').insert({ user_id: userId, event_type: eventType, metadata });
+  } catch (e) {
+    console.warn('[Dynafy] user_events log failed:', e?.message || e);
+  }
+}
+
+// Event display metadata — icon refs resolved lazily at render time.
+const EVENT_META = {
+  login:                  { label: 'Ingelogd',               color: '#94a3b8' },
+  logout:                 { label: 'Uitgelogd',              color: '#94a3b8' },
+  signup:                 { label: 'Account aangemaakt',     color: '#a855f7' },
+  invoice_created:        { label: 'Factuur aangemaakt',     color: '#4f8ef7' },
+  invoice_sent:           { label: 'Factuur verstuurd',      color: '#4f8ef7' },
+  kosten_added:           { label: 'Kostenpost toegevoegd',  color: '#f59e0b' },
+  plan_changed:           { label: 'Abonnement gewijzigd',   color: '#a855f7' },
+  btw_quarter_complete:   { label: 'BTW kwartaal afgerond',  color: '#22c55e' },
+  moneybird_connected:    { label: 'Moneybird gekoppeld',    color: '#22c55e' },
+  moneybird_disconnected: { label: 'Moneybird ontkoppeld',   color: '#f43f5e' },
+};
+const EVENT_META_FALLBACK = { label: null, color: '#64748b' };
 // Dark mode elevation layers
 const DK = {
   L0:  "#050b15",   // page — deepest layer
@@ -9711,6 +9736,7 @@ function MailPopup({ isDark, invoice, zzpProfile, onClose }) {
       );
       const result = await resp.json();
       if (result.success) {
+        if (session?.user?.id) logEvent(session.user.id, 'invoice_sent', { invoice_number: invoice.invoice_number, to, total: totals.inclBtw });
         setSendStatus('ok');
         setSendMsg('Factuur succesvol verstuurd!');
         setTimeout(onClose, 2000);
@@ -9887,6 +9913,7 @@ function InvoiceForm({ isDark, user, invoice, clients, onClose, onSaved, zzpProf
       if (invErr) throw invErr;
       const linesData = collectLinesData();
       await supabase.from('invoice_lines').insert(linesData.map(l => ({ ...l, invoice_id:inv.id })));
+      logEvent(user.id, 'invoice_created', { invoice_id: inv.id, invoice_number: invoiceNumber, status: targetStatus });
       await onSaved();
     } catch(e) {
       // Friendly error if DB trigger blocks due to missing company profile
@@ -11571,6 +11598,7 @@ function BTWAangifteView({ isDark, user, activeCompanyId, userPlan }) {
       const filtered = prev.filter(s => s.quarter !== q.q);
       return [...filtered, { ...payload }];
     });
+    if (newVal) logEvent(user.id, 'btw_quarter_complete', { year: yr, quarter: q.q });
   };
 
   const qInvoiceBtw = (q) => {
@@ -11874,6 +11902,7 @@ function KostenForm({ isDark, user, cost, onClose, onSaved }) {
         ? await supabase.from('costs').update(payload).eq('id', cost.id)
         : await supabase.from('costs').insert({ ...payload, user_id: user.id, booked_by: user.id });
       if (costErr) throw costErr;
+      if (!isEdit) logEvent(user.id, 'kosten_added', { description: form.description, amount: payload.amount_excl_btw });
       await onSaved();
     } catch(e) { setErr(e.message || 'Fout bij opslaan'); setSaving(false); }
   };
@@ -13689,7 +13718,7 @@ function MbFacturenView({ isDark, connected, onConnect, onDisconnect, facturen, 
 }
 
 // ─── ADMIN VIEW ────────────────────────────────────────────────
-function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted }) {
+function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted, onImpersonate }) {
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -13699,6 +13728,8 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted }) {
   const [userData, setUserData] = useState(null);
   const [userDataLoading, setUserDataLoading] = useState(false);
   const [userDataTab, setUserDataTab] = useState("transactions");
+  const [userEvents, setUserEvents] = useState(null);
+  const [userEventsLoading, setUserEventsLoading] = useState(false);
 
   // Bulk selection
   const [selected, setSelected] = useState(new Set());
@@ -13755,6 +13786,22 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted }) {
 
   useEffect(() => { loadProfiles(); }, []);
 
+  // Lazy-load activity events when the Activiteit tab is opened
+  useEffect(() => {
+    if (!viewingUser || userDataTab !== 'activity' || userEvents !== null) return;
+    (async () => {
+      setUserEventsLoading(true);
+      const { data } = await supabase
+        .from('user_events')
+        .select('id, created_at, event_type, metadata')
+        .eq('user_id', viewingUser.id)
+        .order('created_at', { ascending: false })
+        .limit(100);
+      setUserEvents(data || []);
+      setUserEventsLoading(false);
+    })();
+  }, [viewingUser?.id, userDataTab, userEvents]);
+
   const sendPasswordReset = async (profile) => {
     const { error } = await supabase.auth.resetPasswordForEmail(profile.email, {
       redirectTo: window.location.origin,
@@ -13768,6 +13815,7 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted }) {
     setUserDataTab("transactions");
     setUserDataLoading(true);
     setUserData(null);
+    setUserEvents(null);
     const uid = profile.id;
     const [txRes, invRes, goalRes] = await Promise.all([
       supabase.from('transactions').select('*').eq('user_id', uid).order('date', { ascending: false }),
@@ -13783,10 +13831,12 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted }) {
   };
 
   const setPlan = async (profile, newPlan) => {
+    const oldPlan = profile.plan || 'normal';
     const { error } = await supabase.from('profiles').update({ plan: newPlan }).eq('id', profile.id);
     if (!error) {
       setProfiles(prev => prev.map(p => p.id === profile.id ? { ...p, plan: newPlan } : p));
       if (profile.id === user?.id) onOwnPlanChange?.(newPlan);
+      logEvent(profile.id, 'plan_changed', { from: oldPlan, to: newPlan, by_admin: user?.email });
       flash(`${profile.email} → ${PLAN_LABELS[newPlan]}`);
     } else flash('Fout bij bijwerken', false);
   };
@@ -13844,6 +13894,7 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted }) {
     }
     const okIds = ids.filter((_, i) => !results[i].error);
     setProfiles(prev => prev.map(p => okIds.includes(p.id) ? { ...p, plan: bulkPlan } : p));
+    okIds.forEach(id => logEvent(id, 'plan_changed', { to: bulkPlan, by_admin: user?.email, bulk: true }));
     setSelected(new Set());
     setBulkApplying(false);
   };
@@ -14257,6 +14308,17 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted }) {
                 style={{ width: 28, height: 28, borderRadius: 7, border: `1px solid ${C.border}`, background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#a855f7' }}>
                 <Eye size={13} />
               </button>
+              {/* Impersonate — not allowed on self, admins, or disabled users */}
+              {profile.id !== user?.id && !profile.is_admin && !profile.disabled && onImpersonate && (
+                <button onClick={async () => {
+                  if (!window.confirm(`Inloggen als ${profile.email}?\n\nJe sessie wordt tijdelijk vervangen. Klik op de rode banner om terug te keren.`)) return;
+                  const res = await onImpersonate(profile);
+                  if (!res?.ok) flash(`Impersonate mislukt: ${res?.error || 'onbekend'}`, false);
+                }} title="Inloggen als gebruiker"
+                  style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid rgba(245,158,11,0.4)', background: 'rgba(245,158,11,0.08)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f59e0b' }}>
+                  <UserCheck size={13} />
+                </button>
+              )}
               <button onClick={() => sendPasswordReset(profile)} title="Wachtwoord reset sturen"
                 style={{ width: 28, height: 28, borderRadius: 7, border: `1px solid ${C.border}`, background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4f8ef7' }}>
                 <Mail size={13} />
@@ -14313,11 +14375,12 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted }) {
                 </button>
               </div>
               {/* Tabs */}
-              <div style={{ display: 'flex', gap: 6, marginTop: 16 }}>
+              <div style={{ display: 'flex', gap: 6, marginTop: 16, flexWrap: 'wrap' }}>
                 {[
                   { id: 'transactions', label: `Transacties${userData ? ` (${userData.transactions.length})` : ''}` },
                   { id: 'investments',  label: `Investeringen${userData ? ` (${userData.investments.length})` : ''}` },
                   { id: 'goals',        label: `Doelen${userData ? ` (${userData.goals.length})` : ''}` },
+                  { id: 'activity',     label: `Activiteit${userEvents ? ` (${userEvents.length})` : ''}` },
                 ].map(tab => (
                   <button key={tab.id} onClick={() => setUserDataTab(tab.id)}
                     style={{ padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: 'none',
@@ -14331,7 +14394,40 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted }) {
 
             {/* Content */}
             <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px 32px' }}>
-              {userDataLoading ? (
+              {userDataTab === 'activity' ? (
+                userEventsLoading ? (
+                  <div style={{ textAlign: 'center', padding: 40, color: C.muted }}>Laden...</div>
+                ) : !userEvents || userEvents.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: 40, color: C.muted }}>Geen activiteit geregistreerd</div>
+                ) : (
+                  <div style={{ position: 'relative', paddingLeft: 18 }}>
+                    <div style={{ position: 'absolute', left: 5, top: 6, bottom: 6, width: 1, background: isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0' }}/>
+                    {userEvents.map(ev => {
+                      const meta = EVENT_META[ev.event_type] || EVENT_META_FALLBACK;
+                      const absDate = new Date(ev.created_at).toLocaleString('nl-NL', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+                      let detail = null;
+                      const m = ev.metadata || {};
+                      if (ev.event_type === 'plan_changed')        detail = m.from ? `${m.from} → ${m.to}` : `→ ${m.to}`;
+                      else if (ev.event_type === 'invoice_created') detail = m.invoice_number;
+                      else if (ev.event_type === 'invoice_sent')    detail = `${m.invoice_number}${m.to ? ` → ${m.to}` : ''}`;
+                      else if (ev.event_type === 'kosten_added')    detail = `${m.description}${m.amount ? ` · €${Number(m.amount).toLocaleString('nl-NL', { minimumFractionDigits: 2 })}` : ''}`;
+                      else if (ev.event_type === 'btw_quarter_complete') detail = `${m.year} Q${m.quarter}`;
+                      return (
+                        <div key={ev.id} style={{ position: 'relative', paddingBottom: 16 }}>
+                          <div style={{ position: 'absolute', left: -18, top: 3, width: 11, height: 11, borderRadius: '50%', background: meta.color, border: `2px solid ${isDark ? '#0b1628' : '#fff'}`, boxShadow: `0 0 0 1px ${meta.color}40` }}/>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>
+                            {meta.label || ev.event_type}
+                          </div>
+                          {detail && <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{detail}</div>}
+                          <div title={absDate} style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
+                            {relativeTime(ev.created_at)}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )
+              ) : userDataLoading ? (
                 <div style={{ textAlign: 'center', padding: 40, color: C.muted }}>Laden...</div>
               ) : !userData ? null : userDataTab === 'transactions' ? (
                 userData.transactions.length === 0
@@ -14767,6 +14863,92 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
+
+  // ── Admin impersonation ─────────────────────────────────────
+  // Stash admin tokens to localStorage before swapping session, so a refresh
+  // or accidental tab close doesn't leave the admin stuck as the target user.
+  const IMPERSONATION_KEY = 'dynafy_impersonation';
+  const [impersonation, setImpersonation] = useState(() => {
+    try {
+      const raw = localStorage.getItem(IMPERSONATION_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  });
+
+  const startImpersonation = async (targetProfile) => {
+    const { data: { session: adminSession } } = await supabase.auth.getSession();
+    if (!adminSession) return { ok: false, error: 'Geen actieve sessie' };
+
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/impersonate-user`;
+    let res;
+    try {
+      res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${adminSession.access_token}`,
+          'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ userId: targetProfile.id }),
+      });
+    } catch (e) {
+      return { ok: false, error: `Netwerkfout: ${e.message}` };
+    }
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Onbekende fout' }));
+      return { ok: false, error: err.error || `HTTP ${res.status}` };
+    }
+
+    const { token_hash, email } = await res.json();
+
+    const stash = {
+      admin_access_token: adminSession.access_token,
+      admin_refresh_token: adminSession.refresh_token,
+      admin_id: adminSession.user.id,
+      admin_email: adminSession.user.email,
+      target_id: targetProfile.id,
+      target_email: email,
+      started_at: Date.now(),
+    };
+    localStorage.setItem(IMPERSONATION_KEY, JSON.stringify(stash));
+    setImpersonation(stash);
+
+    const { error: otpErr } = await supabase.auth.verifyOtp({ token_hash, type: 'magiclink' });
+    if (otpErr) {
+      localStorage.removeItem(IMPERSONATION_KEY);
+      setImpersonation(null);
+      return { ok: false, error: `Session swap mislukt: ${otpErr.message}` };
+    }
+    return { ok: true, email };
+  };
+
+  const stopImpersonation = async () => {
+    const stash = impersonation;
+    if (!stash) return;
+    const { error } = await supabase.auth.setSession({
+      access_token: stash.admin_access_token,
+      refresh_token: stash.admin_refresh_token,
+    });
+    if (error) {
+      localStorage.removeItem(IMPERSONATION_KEY);
+      setImpersonation(null);
+      await supabase.auth.signOut();
+      window.location.reload();
+      return;
+    }
+    await supabase.from('audit_log').insert({
+      actor_id: stash.admin_id,
+      actor_email: stash.admin_email,
+      action: 'impersonate_end',
+      target_id: stash.target_id,
+      target_email: stash.target_email,
+      metadata: { duration_ms: Date.now() - stash.started_at },
+    });
+    localStorage.removeItem(IMPERSONATION_KEY);
+    setImpersonation(null);
+  };
+
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [showLoginPw, setShowLoginPw] = useState(false);
@@ -14797,6 +14979,30 @@ export default function App() {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  // Reconcile impersonation flag with current session:
+  //  - If impersonation exists but session matches neither admin nor target, the flag is stale → clear.
+  //  - If impersonation exists but user is null (session lost), try silent admin-session restore.
+  useEffect(() => {
+    if (authLoading || !impersonation) return;
+    if (user && user.id !== impersonation.admin_id && user.id !== impersonation.target_id) {
+      localStorage.removeItem(IMPERSONATION_KEY);
+      setImpersonation(null);
+      return;
+    }
+    if (!user) {
+      (async () => {
+        const { error } = await supabase.auth.setSession({
+          access_token: impersonation.admin_access_token,
+          refresh_token: impersonation.admin_refresh_token,
+        });
+        if (error) {
+          localStorage.removeItem(IMPERSONATION_KEY);
+          setImpersonation(null);
+        }
+      })();
+    }
+  }, [user, authLoading, impersonation]);
 
   // Sla thema op per gebruiker — localStorage direct, Supabase voor cross-device
   useEffect(() => {
@@ -15190,6 +15396,7 @@ export default function App() {
     localStorage.setItem("dynafy_mb_token", token);
     localStorage.setItem("dynafy_mb_admin", aid);
     setMbConnected(true);
+    if (user?.id) logEvent(user.id, 'moneybird_connected', { admin_id: aid });
     await fetchMoneybirdData();
   };
 
@@ -15197,6 +15404,7 @@ export default function App() {
     localStorage.removeItem("dynafy_mb_token");
     localStorage.removeItem("dynafy_mb_admin");
     setMbConnected(false); setMbFacturen([]); setMbKosten([]); setMbError("");
+    if (user?.id) logEvent(user.id, 'moneybird_disconnected');
   };
 
   // ── Hierarchical nav structure ──────────────────────────────
@@ -15286,12 +15494,14 @@ export default function App() {
       setLoginLoading(true);
       try {
         if (loginMode === 'login') {
-          const { error } = await supabase.auth.signInWithPassword({ email: loginEmail.trim(), password: loginPassword });
+          const { data: signInData, error } = await supabase.auth.signInWithPassword({ email: loginEmail.trim(), password: loginPassword });
           if (error) {
             const msg = error.message;
             if (msg === 'Invalid login credentials') setLoginError('Onjuist e-mailadres of wachtwoord.');
             else if (msg.includes('rate limit')) setLoginError('Te veel pogingen. Probeer het over een uur opnieuw.');
             else setLoginError(msg);
+          } else if (signInData?.user) {
+            logEvent(signInData.user.id, 'login', { method: 'password' });
           }
         } else if (loginMode === 'register') {
           const { data: signUpData, error } = await supabase.auth.signUp({ email: loginEmail.trim(), password: loginPassword, options: { emailRedirectTo: window.location.origin } });
@@ -15301,6 +15511,7 @@ export default function App() {
             else if (error.message.includes('password') && error.message.includes('6')) setLoginError('Wachtwoord moet minimaal 6 tekens bevatten.');
             else setLoginError(error.message);
           } else {
+            if (signUpData?.user?.id) logEvent(signUpData.user.id, 'signup', { email: loginEmail.trim() });
             setLoginSuccess('Account aangemaakt!');
           }
         } else {
@@ -15425,12 +15636,12 @@ export default function App() {
   // isAdmin always takes priority — admins see the full app regardless of role field
   if (!isAdmin && userRole === 'administrateur') return (
     <AdministrateurPortal isDark={isDark} user={user} clientLinks={clientLinks}
-      onSignOut={() => supabase.auth.signOut()}
+      onSignOut={async () => { if (user?.id) await logEvent(user.id, 'logout'); await supabase.auth.signOut(); }}
       onLinksChange={setClientLinks} />
   );
   if (!isAdmin && userRole === 'boekhouder') return (
     <BoekhouderPortal isDark={isDark} user={user} clientLinks={clientLinks}
-      onSignOut={() => supabase.auth.signOut()}
+      onSignOut={async () => { if (user?.id) await logEvent(user.id, 'logout'); await supabase.auth.signOut(); }}
       onLinksChange={setClientLinks} />
   );
 
@@ -15507,6 +15718,26 @@ export default function App() {
 
   return (
     <div data-theme={theme} style={{ display: "flex", minHeight: "100vh", background: pageBg, fontFamily: "'Inter', -apple-system, 'Segoe UI', sans-serif", color: isDark ? "#e2e8f0" : "#0f172a", position: "relative", overflow: "hidden" }}>
+      {/* Impersonation banner — always visible at top while impersonating */}
+      {impersonation && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100000,
+          padding: '10px 20px', background: 'linear-gradient(90deg,#dc2626,#f43f5e)',
+          color: '#fff', fontSize: 13, fontWeight: 700,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14,
+          boxShadow: '0 4px 16px rgba(220,38,38,0.35)',
+          fontFamily: "'Inter', -apple-system, sans-serif",
+        }}>
+          <UserCheck size={15} style={{ flexShrink: 0 }}/>
+          <span style={{ opacity: 0.95 }}>
+            Ingelogd als <strong>{impersonation.target_email}</strong> (admin: {impersonation.admin_email})
+          </span>
+          <button onClick={stopImpersonation}
+            style={{ padding: '5px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.15)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+            Stop impersoneren
+          </button>
+        </div>
+      )}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
@@ -16104,7 +16335,7 @@ export default function App() {
                         </div>
                       )}
                       {/* Uitloggen */}
-                      <button onClick={async () => { lsClear(user.id); await supabase.auth.signOut(); setShowAvatarMenu(false); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "9px 10px", borderRadius: 10, border: "none", background: "transparent", color: "#f43f5e", cursor: "pointer", fontSize: 13, fontWeight: 500, transition: "all 0.15s" }}
+                      <button onClick={async () => { if (user?.id) await logEvent(user.id, 'logout'); lsClear(user.id); await supabase.auth.signOut(); setShowAvatarMenu(false); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "9px 10px", borderRadius: 10, border: "none", background: "transparent", color: "#f43f5e", cursor: "pointer", fontSize: 13, fontWeight: 500, transition: "all 0.15s" }}
                         onMouseEnter={e => { e.currentTarget.style.background = "rgba(244,63,94,0.08)"; }}
                         onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>
                         <X size={14}/> {lang === "nl" ? "Uitloggen" : "Sign out"}
@@ -16270,7 +16501,7 @@ export default function App() {
           {view === "moneybird"    && <MoneybirdView isDark={isDark} connected={mbConnected} onConnect={handleMbConnect} onDisconnect={handleMbDisconnect} facturen={mbFacturen} kosten={mbKosten} mbLoading={mbLoading} mbError={mbError} onRefresh={fetchMoneybirdData} />}
           {view === "export" && <ExportView transactions={transactions} isDark={isDark} />}
           {view === "pricing" && <PricingView isDark={isDark} userPlan={userPlan} lang={lang} onClose={() => setView("dashboard")} />}
-          {view === "admin" && isAdmin && <AdminView isDark={isDark} user={user} onOwnPlanChange={setUserPlan} onDataDeleted={(uid) => {
+          {view === "admin" && isAdmin && <AdminView isDark={isDark} user={user} onImpersonate={startImpersonation} onOwnPlanChange={setUserPlan} onDataDeleted={(uid) => {
             if (uid === user?.id) {
               setTransactions([]);
               setAppInvestments([]);
