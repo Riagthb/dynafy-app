@@ -486,6 +486,16 @@ const S = {
 const R = { sm: 8, md: 12, lg: 16, xl: 20, xxl: 24 };
 // Spacing scale
 const SP = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 32 };
+
+// Fire-and-forget activity logger. Silent on failure — never block the UX.
+async function logEvent(userId, eventType, metadata = null) {
+  if (!userId || !eventType) return;
+  try {
+    await supabase.from('user_events').insert({ user_id: userId, event_type: eventType, metadata });
+  } catch (e) {
+    console.warn('[Dynafy] user_events log failed:', e?.message || e);
+  }
+}
 // Dark mode elevation layers
 const DK = {
   L0:  "#050b15",   // page — deepest layer
@@ -15407,12 +15417,14 @@ export default function App() {
       setLoginLoading(true);
       try {
         if (loginMode === 'login') {
-          const { error } = await supabase.auth.signInWithPassword({ email: loginEmail.trim(), password: loginPassword });
+          const { data: signInData, error } = await supabase.auth.signInWithPassword({ email: loginEmail.trim(), password: loginPassword });
           if (error) {
             const msg = error.message;
             if (msg === 'Invalid login credentials') setLoginError('Onjuist e-mailadres of wachtwoord.');
             else if (msg.includes('rate limit')) setLoginError('Te veel pogingen. Probeer het over een uur opnieuw.');
             else setLoginError(msg);
+          } else if (signInData?.user) {
+            logEvent(signInData.user.id, 'login', { method: 'password' });
           }
         } else if (loginMode === 'register') {
           const { data: signUpData, error } = await supabase.auth.signUp({ email: loginEmail.trim(), password: loginPassword, options: { emailRedirectTo: window.location.origin } });
@@ -15422,6 +15434,7 @@ export default function App() {
             else if (error.message.includes('password') && error.message.includes('6')) setLoginError('Wachtwoord moet minimaal 6 tekens bevatten.');
             else setLoginError(error.message);
           } else {
+            if (signUpData?.user?.id) logEvent(signUpData.user.id, 'signup', { email: loginEmail.trim() });
             setLoginSuccess('Account aangemaakt!');
           }
         } else {
