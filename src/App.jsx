@@ -13689,7 +13689,7 @@ function MbFacturenView({ isDark, connected, onConnect, onDisconnect, facturen, 
 }
 
 // ─── ADMIN VIEW ────────────────────────────────────────────────
-function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted }) {
+function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted, onImpersonate }) {
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -14257,6 +14257,17 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted }) {
                 style={{ width: 28, height: 28, borderRadius: 7, border: `1px solid ${C.border}`, background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#a855f7' }}>
                 <Eye size={13} />
               </button>
+              {/* Impersonate — not allowed on self, admins, or disabled users */}
+              {profile.id !== user?.id && !profile.is_admin && !profile.disabled && onImpersonate && (
+                <button onClick={async () => {
+                  if (!window.confirm(`Inloggen als ${profile.email}?\n\nJe sessie wordt tijdelijk vervangen. Klik op de rode banner om terug te keren.`)) return;
+                  const res = await onImpersonate(profile);
+                  if (!res?.ok) flash(`Impersonate mislukt: ${res?.error || 'onbekend'}`, false);
+                }} title="Inloggen als gebruiker"
+                  style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid rgba(245,158,11,0.4)', background: 'rgba(245,158,11,0.08)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f59e0b' }}>
+                  <UserCheck size={13} />
+                </button>
+              )}
               <button onClick={() => sendPasswordReset(profile)} title="Wachtwoord reset sturen"
                 style={{ width: 28, height: 28, borderRadius: 7, border: `1px solid ${C.border}`, background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4f8ef7' }}>
                 <Mail size={13} />
@@ -14883,6 +14894,30 @@ export default function App() {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  // Reconcile impersonation flag with current session:
+  //  - If impersonation exists but session matches neither admin nor target, the flag is stale → clear.
+  //  - If impersonation exists but user is null (session lost), try silent admin-session restore.
+  useEffect(() => {
+    if (authLoading || !impersonation) return;
+    if (user && user.id !== impersonation.admin_id && user.id !== impersonation.target_id) {
+      localStorage.removeItem(IMPERSONATION_KEY);
+      setImpersonation(null);
+      return;
+    }
+    if (!user) {
+      (async () => {
+        const { error } = await supabase.auth.setSession({
+          access_token: impersonation.admin_access_token,
+          refresh_token: impersonation.admin_refresh_token,
+        });
+        if (error) {
+          localStorage.removeItem(IMPERSONATION_KEY);
+          setImpersonation(null);
+        }
+      })();
+    }
+  }, [user, authLoading, impersonation]);
 
   // Sla thema op per gebruiker — localStorage direct, Supabase voor cross-device
   useEffect(() => {
@@ -15593,6 +15628,26 @@ export default function App() {
 
   return (
     <div data-theme={theme} style={{ display: "flex", minHeight: "100vh", background: pageBg, fontFamily: "'Inter', -apple-system, 'Segoe UI', sans-serif", color: isDark ? "#e2e8f0" : "#0f172a", position: "relative", overflow: "hidden" }}>
+      {/* Impersonation banner — always visible at top while impersonating */}
+      {impersonation && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100000,
+          padding: '10px 20px', background: 'linear-gradient(90deg,#dc2626,#f43f5e)',
+          color: '#fff', fontSize: 13, fontWeight: 700,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14,
+          boxShadow: '0 4px 16px rgba(220,38,38,0.35)',
+          fontFamily: "'Inter', -apple-system, sans-serif",
+        }}>
+          <UserCheck size={15} style={{ flexShrink: 0 }}/>
+          <span style={{ opacity: 0.95 }}>
+            Ingelogd als <strong>{impersonation.target_email}</strong> (admin: {impersonation.admin_email})
+          </span>
+          <button onClick={stopImpersonation}
+            style={{ padding: '5px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.15)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+            Stop impersoneren
+          </button>
+        </div>
+      )}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
