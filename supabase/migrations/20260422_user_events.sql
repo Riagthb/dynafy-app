@@ -56,4 +56,18 @@ CREATE POLICY "user_events own insert"
   TO authenticated
   WITH CHECK (user_id = auth.uid());
 
+-- Admins can insert events for any user (e.g. plan_changed triggered from admin panel)
+DROP POLICY IF EXISTS "user_events admin insert" ON public.user_events;
+CREATE POLICY "user_events admin insert"
+  ON public.user_events
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.id = auth.uid()
+        AND profiles.is_admin = true
+    )
+  );
+
 -- No updates or deletes from clients (immutable log). Service role bypasses RLS anyway.

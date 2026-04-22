@@ -496,6 +496,21 @@ async function logEvent(userId, eventType, metadata = null) {
     console.warn('[Dynafy] user_events log failed:', e?.message || e);
   }
 }
+
+// Event display metadata — icon refs resolved lazily at render time.
+const EVENT_META = {
+  login:                  { label: 'Ingelogd',               color: '#94a3b8' },
+  logout:                 { label: 'Uitgelogd',              color: '#94a3b8' },
+  signup:                 { label: 'Account aangemaakt',     color: '#a855f7' },
+  invoice_created:        { label: 'Factuur aangemaakt',     color: '#4f8ef7' },
+  invoice_sent:           { label: 'Factuur verstuurd',      color: '#4f8ef7' },
+  kosten_added:           { label: 'Kostenpost toegevoegd',  color: '#f59e0b' },
+  plan_changed:           { label: 'Abonnement gewijzigd',   color: '#a855f7' },
+  btw_quarter_complete:   { label: 'BTW kwartaal afgerond',  color: '#22c55e' },
+  moneybird_connected:    { label: 'Moneybird gekoppeld',    color: '#22c55e' },
+  moneybird_disconnected: { label: 'Moneybird ontkoppeld',   color: '#f43f5e' },
+};
+const EVENT_META_FALLBACK = { label: null, color: '#64748b' };
 // Dark mode elevation layers
 const DK = {
   L0:  "#050b15",   // page — deepest layer
@@ -9721,6 +9736,7 @@ function MailPopup({ isDark, invoice, zzpProfile, onClose }) {
       );
       const result = await resp.json();
       if (result.success) {
+        if (session?.user?.id) logEvent(session.user.id, 'invoice_sent', { invoice_number: invoice.invoice_number, to, total: totals.inclBtw });
         setSendStatus('ok');
         setSendMsg('Factuur succesvol verstuurd!');
         setTimeout(onClose, 2000);
@@ -9897,6 +9913,7 @@ function InvoiceForm({ isDark, user, invoice, clients, onClose, onSaved, zzpProf
       if (invErr) throw invErr;
       const linesData = collectLinesData();
       await supabase.from('invoice_lines').insert(linesData.map(l => ({ ...l, invoice_id:inv.id })));
+      logEvent(user.id, 'invoice_created', { invoice_id: inv.id, invoice_number: invoiceNumber, status: targetStatus });
       await onSaved();
     } catch(e) {
       // Friendly error if DB trigger blocks due to missing company profile
@@ -11581,6 +11598,7 @@ function BTWAangifteView({ isDark, user, activeCompanyId, userPlan }) {
       const filtered = prev.filter(s => s.quarter !== q.q);
       return [...filtered, { ...payload }];
     });
+    if (newVal) logEvent(user.id, 'btw_quarter_complete', { year: yr, quarter: q.q });
   };
 
   const qInvoiceBtw = (q) => {
@@ -11884,6 +11902,7 @@ function KostenForm({ isDark, user, cost, onClose, onSaved }) {
         ? await supabase.from('costs').update(payload).eq('id', cost.id)
         : await supabase.from('costs').insert({ ...payload, user_id: user.id, booked_by: user.id });
       if (costErr) throw costErr;
+      if (!isEdit) logEvent(user.id, 'kosten_added', { description: form.description, amount: payload.amount_excl_btw });
       await onSaved();
     } catch(e) { setErr(e.message || 'Fout bij opslaan'); setSaving(false); }
   };
@@ -13709,6 +13728,8 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted, onImpersonate
   const [userData, setUserData] = useState(null);
   const [userDataLoading, setUserDataLoading] = useState(false);
   const [userDataTab, setUserDataTab] = useState("transactions");
+  const [userEvents, setUserEvents] = useState(null);
+  const [userEventsLoading, setUserEventsLoading] = useState(false);
 
   // Bulk selection
   const [selected, setSelected] = useState(new Set());
@@ -13765,6 +13786,22 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted, onImpersonate
 
   useEffect(() => { loadProfiles(); }, []);
 
+  // Lazy-load activity events when the Activiteit tab is opened
+  useEffect(() => {
+    if (!viewingUser || userDataTab !== 'activity' || userEvents !== null) return;
+    (async () => {
+      setUserEventsLoading(true);
+      const { data } = await supabase
+        .from('user_events')
+        .select('id, created_at, event_type, metadata')
+        .eq('user_id', viewingUser.id)
+        .order('created_at', { ascending: false })
+        .limit(100);
+      setUserEvents(data || []);
+      setUserEventsLoading(false);
+    })();
+  }, [viewingUser?.id, userDataTab, userEvents]);
+
   const sendPasswordReset = async (profile) => {
     const { error } = await supabase.auth.resetPasswordForEmail(profile.email, {
       redirectTo: window.location.origin,
@@ -13778,6 +13815,7 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted, onImpersonate
     setUserDataTab("transactions");
     setUserDataLoading(true);
     setUserData(null);
+    setUserEvents(null);
     const uid = profile.id;
     const [txRes, invRes, goalRes] = await Promise.all([
       supabase.from('transactions').select('*').eq('user_id', uid).order('date', { ascending: false }),
@@ -13793,10 +13831,12 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted, onImpersonate
   };
 
   const setPlan = async (profile, newPlan) => {
+    const oldPlan = profile.plan || 'normal';
     const { error } = await supabase.from('profiles').update({ plan: newPlan }).eq('id', profile.id);
     if (!error) {
       setProfiles(prev => prev.map(p => p.id === profile.id ? { ...p, plan: newPlan } : p));
       if (profile.id === user?.id) onOwnPlanChange?.(newPlan);
+      logEvent(profile.id, 'plan_changed', { from: oldPlan, to: newPlan, by_admin: user?.email });
       flash(`${profile.email} → ${PLAN_LABELS[newPlan]}`);
     } else flash('Fout bij bijwerken', false);
   };
@@ -13854,6 +13894,7 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted, onImpersonate
     }
     const okIds = ids.filter((_, i) => !results[i].error);
     setProfiles(prev => prev.map(p => okIds.includes(p.id) ? { ...p, plan: bulkPlan } : p));
+    okIds.forEach(id => logEvent(id, 'plan_changed', { to: bulkPlan, by_admin: user?.email, bulk: true }));
     setSelected(new Set());
     setBulkApplying(false);
   };
@@ -14334,11 +14375,12 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted, onImpersonate
                 </button>
               </div>
               {/* Tabs */}
-              <div style={{ display: 'flex', gap: 6, marginTop: 16 }}>
+              <div style={{ display: 'flex', gap: 6, marginTop: 16, flexWrap: 'wrap' }}>
                 {[
                   { id: 'transactions', label: `Transacties${userData ? ` (${userData.transactions.length})` : ''}` },
                   { id: 'investments',  label: `Investeringen${userData ? ` (${userData.investments.length})` : ''}` },
                   { id: 'goals',        label: `Doelen${userData ? ` (${userData.goals.length})` : ''}` },
+                  { id: 'activity',     label: `Activiteit${userEvents ? ` (${userEvents.length})` : ''}` },
                 ].map(tab => (
                   <button key={tab.id} onClick={() => setUserDataTab(tab.id)}
                     style={{ padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: 'none',
@@ -14352,7 +14394,40 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted, onImpersonate
 
             {/* Content */}
             <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px 32px' }}>
-              {userDataLoading ? (
+              {userDataTab === 'activity' ? (
+                userEventsLoading ? (
+                  <div style={{ textAlign: 'center', padding: 40, color: C.muted }}>Laden...</div>
+                ) : !userEvents || userEvents.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: 40, color: C.muted }}>Geen activiteit geregistreerd</div>
+                ) : (
+                  <div style={{ position: 'relative', paddingLeft: 18 }}>
+                    <div style={{ position: 'absolute', left: 5, top: 6, bottom: 6, width: 1, background: isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0' }}/>
+                    {userEvents.map(ev => {
+                      const meta = EVENT_META[ev.event_type] || EVENT_META_FALLBACK;
+                      const absDate = new Date(ev.created_at).toLocaleString('nl-NL', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+                      let detail = null;
+                      const m = ev.metadata || {};
+                      if (ev.event_type === 'plan_changed')        detail = m.from ? `${m.from} → ${m.to}` : `→ ${m.to}`;
+                      else if (ev.event_type === 'invoice_created') detail = m.invoice_number;
+                      else if (ev.event_type === 'invoice_sent')    detail = `${m.invoice_number}${m.to ? ` → ${m.to}` : ''}`;
+                      else if (ev.event_type === 'kosten_added')    detail = `${m.description}${m.amount ? ` · €${Number(m.amount).toLocaleString('nl-NL', { minimumFractionDigits: 2 })}` : ''}`;
+                      else if (ev.event_type === 'btw_quarter_complete') detail = `${m.year} Q${m.quarter}`;
+                      return (
+                        <div key={ev.id} style={{ position: 'relative', paddingBottom: 16 }}>
+                          <div style={{ position: 'absolute', left: -18, top: 3, width: 11, height: 11, borderRadius: '50%', background: meta.color, border: `2px solid ${isDark ? '#0b1628' : '#fff'}`, boxShadow: `0 0 0 1px ${meta.color}40` }}/>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>
+                            {meta.label || ev.event_type}
+                          </div>
+                          {detail && <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{detail}</div>}
+                          <div title={absDate} style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
+                            {relativeTime(ev.created_at)}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )
+              ) : userDataLoading ? (
                 <div style={{ textAlign: 'center', padding: 40, color: C.muted }}>Laden...</div>
               ) : !userData ? null : userDataTab === 'transactions' ? (
                 userData.transactions.length === 0
@@ -15321,6 +15396,7 @@ export default function App() {
     localStorage.setItem("dynafy_mb_token", token);
     localStorage.setItem("dynafy_mb_admin", aid);
     setMbConnected(true);
+    if (user?.id) logEvent(user.id, 'moneybird_connected', { admin_id: aid });
     await fetchMoneybirdData();
   };
 
@@ -15328,6 +15404,7 @@ export default function App() {
     localStorage.removeItem("dynafy_mb_token");
     localStorage.removeItem("dynafy_mb_admin");
     setMbConnected(false); setMbFacturen([]); setMbKosten([]); setMbError("");
+    if (user?.id) logEvent(user.id, 'moneybird_disconnected');
   };
 
   // ── Hierarchical nav structure ──────────────────────────────
@@ -15559,12 +15636,12 @@ export default function App() {
   // isAdmin always takes priority — admins see the full app regardless of role field
   if (!isAdmin && userRole === 'administrateur') return (
     <AdministrateurPortal isDark={isDark} user={user} clientLinks={clientLinks}
-      onSignOut={() => supabase.auth.signOut()}
+      onSignOut={async () => { if (user?.id) await logEvent(user.id, 'logout'); await supabase.auth.signOut(); }}
       onLinksChange={setClientLinks} />
   );
   if (!isAdmin && userRole === 'boekhouder') return (
     <BoekhouderPortal isDark={isDark} user={user} clientLinks={clientLinks}
-      onSignOut={() => supabase.auth.signOut()}
+      onSignOut={async () => { if (user?.id) await logEvent(user.id, 'logout'); await supabase.auth.signOut(); }}
       onLinksChange={setClientLinks} />
   );
 
@@ -16258,7 +16335,7 @@ export default function App() {
                         </div>
                       )}
                       {/* Uitloggen */}
-                      <button onClick={async () => { lsClear(user.id); await supabase.auth.signOut(); setShowAvatarMenu(false); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "9px 10px", borderRadius: 10, border: "none", background: "transparent", color: "#f43f5e", cursor: "pointer", fontSize: 13, fontWeight: 500, transition: "all 0.15s" }}
+                      <button onClick={async () => { if (user?.id) await logEvent(user.id, 'logout'); lsClear(user.id); await supabase.auth.signOut(); setShowAvatarMenu(false); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "9px 10px", borderRadius: 10, border: "none", background: "transparent", color: "#f43f5e", cursor: "pointer", fontSize: 13, fontWeight: 500, transition: "all 0.15s" }}
                         onMouseEnter={e => { e.currentTarget.style.background = "rgba(244,63,94,0.08)"; }}
                         onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>
                         <X size={14}/> {lang === "nl" ? "Uitloggen" : "Sign out"}
