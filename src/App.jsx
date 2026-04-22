@@ -16356,7 +16356,7 @@ export default function App() {
           {view === "moneybird"    && <MoneybirdView isDark={isDark} connected={mbConnected} onConnect={handleMbConnect} onDisconnect={handleMbDisconnect} facturen={mbFacturen} kosten={mbKosten} mbLoading={mbLoading} mbError={mbError} onRefresh={fetchMoneybirdData} />}
           {view === "export" && <ExportView transactions={transactions} isDark={isDark} />}
           {view === "pricing" && <PricingView isDark={isDark} userPlan={userPlan} lang={lang} onClose={() => setView("dashboard")} />}
-          {view === "admin" && isAdmin && <AdminView isDark={isDark} user={user} onOwnPlanChange={setUserPlan} onDataDeleted={(uid) => {
+          {view === "admin" && isAdmin && <AdminView isDark={isDark} user={user} onImpersonate={startImpersonation} onOwnPlanChange={setUserPlan} onDataDeleted={(uid) => {
             if (uid === user?.id) {
               setTransactions([]);
               setAppInvestments([]);
