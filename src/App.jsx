@@ -16,7 +16,7 @@ import { Upload, Home, List, TrendingUp, TrendingDown, Lightbulb, Settings,
   CreditCard, DollarSign, Activity, Sliders, Search, Tag, ChevronUp,
   Repeat, Bell, BellOff, Download, FileText, FileSpreadsheet,
   Calendar, Clock, Eye, EyeOff, Filter, ChevronLeft,
-  Shield, Users, UserX, Crown, Ban, RotateCcw, Mail, LogOut, Briefcase, Copy, Link2, UserPlus } from "lucide-react";
+  Shield, Users, UserX, Crown, Ban, RotateCcw, Mail, LogOut, Briefcase, Copy, Link2, UserPlus, UserCheck } from "lucide-react";
 
 // ─── TRANSLATIONS ─────────────────────────────────────────────
 const T = {
@@ -14767,6 +14767,92 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
+
+  // ── Admin impersonation ─────────────────────────────────────
+  // Stash admin tokens to localStorage before swapping session, so a refresh
+  // or accidental tab close doesn't leave the admin stuck as the target user.
+  const IMPERSONATION_KEY = 'dynafy_impersonation';
+  const [impersonation, setImpersonation] = useState(() => {
+    try {
+      const raw = localStorage.getItem(IMPERSONATION_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  });
+
+  const startImpersonation = async (targetProfile) => {
+    const { data: { session: adminSession } } = await supabase.auth.getSession();
+    if (!adminSession) return { ok: false, error: 'Geen actieve sessie' };
+
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/impersonate-user`;
+    let res;
+    try {
+      res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${adminSession.access_token}`,
+          'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ userId: targetProfile.id }),
+      });
+    } catch (e) {
+      return { ok: false, error: `Netwerkfout: ${e.message}` };
+    }
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Onbekende fout' }));
+      return { ok: false, error: err.error || `HTTP ${res.status}` };
+    }
+
+    const { token_hash, email } = await res.json();
+
+    const stash = {
+      admin_access_token: adminSession.access_token,
+      admin_refresh_token: adminSession.refresh_token,
+      admin_id: adminSession.user.id,
+      admin_email: adminSession.user.email,
+      target_id: targetProfile.id,
+      target_email: email,
+      started_at: Date.now(),
+    };
+    localStorage.setItem(IMPERSONATION_KEY, JSON.stringify(stash));
+    setImpersonation(stash);
+
+    const { error: otpErr } = await supabase.auth.verifyOtp({ token_hash, type: 'magiclink' });
+    if (otpErr) {
+      localStorage.removeItem(IMPERSONATION_KEY);
+      setImpersonation(null);
+      return { ok: false, error: `Session swap mislukt: ${otpErr.message}` };
+    }
+    return { ok: true, email };
+  };
+
+  const stopImpersonation = async () => {
+    const stash = impersonation;
+    if (!stash) return;
+    const { error } = await supabase.auth.setSession({
+      access_token: stash.admin_access_token,
+      refresh_token: stash.admin_refresh_token,
+    });
+    if (error) {
+      localStorage.removeItem(IMPERSONATION_KEY);
+      setImpersonation(null);
+      await supabase.auth.signOut();
+      window.location.reload();
+      return;
+    }
+    await supabase.from('audit_log').insert({
+      actor_id: stash.admin_id,
+      actor_email: stash.admin_email,
+      action: 'impersonate_end',
+      target_id: stash.target_id,
+      target_email: stash.target_email,
+      metadata: { duration_ms: Date.now() - stash.started_at },
+    });
+    localStorage.removeItem(IMPERSONATION_KEY);
+    setImpersonation(null);
+  };
+
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [showLoginPw, setShowLoginPw] = useState(false);
