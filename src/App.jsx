@@ -14312,8 +14312,17 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted, onImpersonate
               {profile.id !== user?.id && !profile.is_admin && !profile.disabled && onImpersonate && (
                 <button onClick={async () => {
                   if (!window.confirm(`Inloggen als ${profile.email}?\n\nJe sessie wordt tijdelijk vervangen. Klik op de rode banner om terug te keren.`)) return;
-                  const res = await onImpersonate(profile);
-                  if (!res?.ok) flash(`Impersonate mislukt: ${res?.error || 'onbekend'}`, false);
+                  try {
+                    const res = await onImpersonate(profile);
+                    if (!res?.ok) {
+                      const msg = `Impersonate mislukt: ${res?.error || 'onbekend'}`;
+                      flash(msg, false);
+                      window.alert(msg);
+                    }
+                  } catch (e) {
+                    console.error('[impersonate] button handler threw', e);
+                    window.alert(`Impersonate exception: ${e?.message || e}`);
+                  }
                 }} title="Inloggen als gebruiker"
                   style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid rgba(245,158,11,0.4)', background: 'rgba(245,158,11,0.08)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f59e0b' }}>
                   <UserCheck size={13} />
@@ -14876,51 +14885,72 @@ export default function App() {
   });
 
   const startImpersonation = async (targetProfile) => {
-    const { data: { session: adminSession } } = await supabase.auth.getSession();
-    if (!adminSession) return { ok: false, error: 'Geen actieve sessie' };
-
-    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/impersonate-user`;
-    let res;
+    const L = (...a) => console.log('[impersonate]', ...a);
     try {
-      res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${adminSession.access_token}`,
-          'Content-Type': 'application/json',
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-        },
-        body: JSON.stringify({ userId: targetProfile.id }),
-      });
+      L('step 1: getSession');
+      const { data: { session: adminSession } } = await supabase.auth.getSession();
+      if (!adminSession) { L('no session'); return { ok: false, error: 'Geen actieve sessie' }; }
+
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/impersonate-user`;
+      L('step 2: fetch', url);
+      let res;
+      try {
+        res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${adminSession.access_token}`,
+            'Content-Type': 'application/json',
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({ userId: targetProfile.id }),
+        });
+      } catch (e) {
+        L('fetch threw', e);
+        return { ok: false, error: `Netwerkfout: ${e.message}` };
+      }
+      L('step 3: response status', res.status);
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Onbekende fout' }));
+        L('fn error', err);
+        return { ok: false, error: err.error || `HTTP ${res.status}` };
+      }
+
+      const payload = await res.json();
+      L('step 4: payload', { has_token: !!payload.token_hash, email: payload.email });
+      const { token_hash, email } = payload;
+      if (!token_hash) return { ok: false, error: 'Geen token_hash ontvangen' };
+
+      const stash = {
+        admin_access_token: adminSession.access_token,
+        admin_refresh_token: adminSession.refresh_token,
+        admin_id: adminSession.user.id,
+        admin_email: adminSession.user.email,
+        target_id: targetProfile.id,
+        target_email: email,
+        started_at: Date.now(),
+      };
+      localStorage.setItem(IMPERSONATION_KEY, JSON.stringify(stash));
+      setImpersonation(stash);
+
+      L('step 5: verifyOtp type=email');
+      let otpRes = await supabase.auth.verifyOtp({ token_hash, type: 'email' });
+      if (otpRes.error) {
+        L('verifyOtp type=email failed, retry with magiclink', otpRes.error.message);
+        otpRes = await supabase.auth.verifyOtp({ token_hash, type: 'magiclink' });
+      }
+      if (otpRes.error) {
+        L('verifyOtp both types failed', otpRes.error);
+        localStorage.removeItem(IMPERSONATION_KEY);
+        setImpersonation(null);
+        return { ok: false, error: `Session swap mislukt: ${otpRes.error.message}` };
+      }
+      L('step 6: success, session swapped');
+      return { ok: true, email };
     } catch (e) {
-      return { ok: false, error: `Netwerkfout: ${e.message}` };
+      console.error('[impersonate] uncaught', e);
+      return { ok: false, error: `Exception: ${e?.message || e}` };
     }
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: 'Onbekende fout' }));
-      return { ok: false, error: err.error || `HTTP ${res.status}` };
-    }
-
-    const { token_hash, email } = await res.json();
-
-    const stash = {
-      admin_access_token: adminSession.access_token,
-      admin_refresh_token: adminSession.refresh_token,
-      admin_id: adminSession.user.id,
-      admin_email: adminSession.user.email,
-      target_id: targetProfile.id,
-      target_email: email,
-      started_at: Date.now(),
-    };
-    localStorage.setItem(IMPERSONATION_KEY, JSON.stringify(stash));
-    setImpersonation(stash);
-
-    const { error: otpErr } = await supabase.auth.verifyOtp({ token_hash, type: 'magiclink' });
-    if (otpErr) {
-      localStorage.removeItem(IMPERSONATION_KEY);
-      setImpersonation(null);
-      return { ok: false, error: `Session swap mislukt: ${otpErr.message}` };
-    }
-    return { ok: true, email };
   };
 
   const stopImpersonation = async () => {
