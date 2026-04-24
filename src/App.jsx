@@ -13009,14 +13009,14 @@ function MijnBedrijfView({ isDark, user, profile, onSave, onNavigate, userPlan, 
         // Fetch linked profile emails separately
         const ids = links.map(l => l.linked_user_id).filter(Boolean);
         const { data: profs } = ids.length
-          ? await supabase.from('profiles').select('id, company_name, role').in('id', ids)
+          ? await supabase.from('profiles').select('id, name, company_name, role').in('id', ids)
           : { data: [] };
         const profMap = Object.fromEntries((profs || []).map(p => [p.id, p]));
         setActiveLinks(links.map(l => ({ ...l, linked: profMap[l.linked_user_id] || null })));
         setLinksLoading(false);
       });
-    supabase.from('profiles').select('id, company_name, role').in('role', ['boekhouder', 'administrateur'])
-      .then(({ data }) => { setAvailableAccounts((data || []).filter(a => a.company_name)); setAccountsLoading(false); });
+    supabase.from('profiles').select('id, name, company_name, role').in('role', ['boekhouder', 'administrateur'])
+      .then(({ data }) => { setAvailableAccounts((data || []).filter(a => a.name || a.company_name)); setAccountsLoading(false); });
   }, [showMedewerkers, user?.id]);
 
   const linkAccount = async () => {
@@ -13486,7 +13486,7 @@ function MijnBedrijfView({ isDark, user, profile, onSave, onNavigate, userPlan, 
                           <Users size={14} color={link.role==='boekhouder'?'#a855f7':'#4f8ef7'} />
                         </div>
                         <div style={{ flex:1 }}>
-                          <div style={{ fontSize:13, fontWeight:700, color:C.text }}>{link.linked?.email || '—'}</div>
+                          <div style={{ fontSize:13, fontWeight:700, color:C.text }}>{link.linked?.company_name || '—'}</div>
                           <div style={{ fontSize:11, color: link.role==='boekhouder'?'#a855f7':'#4f8ef7', fontWeight:600, marginTop:1, textTransform:'capitalize' }}>{link.role}</div>
                         </div>
                         <div style={{ fontSize:11, color:'#22c55e', fontWeight:700 }}>● Actief</div>
