@@ -13152,7 +13152,7 @@ function MijnBedrijfView({ isDark, user, profile, onSave, onNavigate, userPlan, 
     }).select().single();
     if (error) { setLinkErr('Fout: ' + error.message); return; }
     if (data) {
-      setActiveLinks(prev => [...prev, { ...data, linked: { id: account.id, name: account.name, company_name: account.company_name, role: account.role } }]);
+      setActiveLinks(prev => [...prev, { ...data, linked: { id: account.id, name: account._displayName, company_name: account.company_name, role: account.role } }]);
       setSelectedAccountId('');
     }
   };
