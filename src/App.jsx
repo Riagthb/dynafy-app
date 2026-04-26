@@ -10865,10 +10865,39 @@ function BerichtenChat({ isDark, user, otherUserId, otherName, clientUserId }) {
   const send = async () => {
     if (!newMsg.trim() || !otherUserId) return;
     setSending(true);
-    const { data } = await supabase.from('berichten').insert({ from_user_id:user.id, to_user_id:otherUserId, client_user_id:clientUserId, bericht:newMsg.trim() }).select().single();
+    const berichtText = newMsg.trim();
+    const { data } = await supabase.from('berichten').insert({ from_user_id:user.id, to_user_id:otherUserId, client_user_id:clientUserId, bericht:berichtText }).select().single();
     if (data) setMsgs(prev => [...prev, data]);
     setNewMsg('');
     setSending(false);
+
+    // Fire-and-forget: stuur email-notificatie naar ontvanger.
+    // Faalt stil zodat de chat-UX niet wordt geblokkeerd.
+    (async () => {
+      try {
+        const [{ data: toProf }, { data: fromProf }, { data: { session } }] = await Promise.all([
+          supabase.from('profiles').select('email, name, company_name').eq('id', otherUserId).single(),
+          supabase.from('profiles').select('name, company_name').eq('id', user.id).single(),
+          supabase.auth.getSession(),
+        ]);
+        if (!toProf?.email) return;
+        const fromName = fromProf?.name || fromProf?.company_name || user?.user_metadata?.full_name || user?.email || 'Een Dynafy-gebruiker';
+        const toName   = toProf?.name  || toProf?.company_name  || '';
+        await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-bericht-notification`, {
+          method: 'POST',
+          headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${session?.access_token}` },
+          body: JSON.stringify({
+            to_email: toProf.email,
+            to_name: toName,
+            from_name: fromName,
+            bericht_preview: berichtText,
+            app_url: window.location.origin,
+          }),
+        });
+      } catch (e) {
+        console.warn('[Dynafy] bericht email-notificatie mislukt:', e?.message || e);
+      }
+    })();
   };
 
   const fmtTime = (ts) => new Date(ts).toLocaleString('nl-NL', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
@@ -10983,6 +11012,30 @@ function BoekhouderPortal({ isDark, user, clientLinks: initialLinks, onSignOut, 
   const [markingAangifte, setMarkingAangifte] = useState(false);
   const [klantenData, setKlantenData]       = useState({});
   const [klantenDataLoading, setKlantenDataLoading] = useState(false);
+
+  // Naam wijzigen (Instellingen)
+  const [displayName, setDisplayName]   = useState('');
+  const [nameLoading, setNameLoading]   = useState(false);
+  const [nameMsg, setNameMsg]           = useState(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    supabase.from('profiles').select('name, company_name').eq('id', user.id).single()
+      .then(({ data }) => {
+        const n = data?.name || user?.user_metadata?.full_name || user?.user_metadata?.display_name || '';
+        setDisplayName(n === user?.email ? '' : n);
+      });
+  }, [user?.id]);
+
+  const handleChangeName = async () => {
+    if (!displayName.trim()) { setNameMsg({ text:'Naam mag niet leeg zijn.', ok:false }); return; }
+    setNameLoading(true); setNameMsg(null);
+    const { error: authErr } = await supabase.auth.updateUser({ data:{ full_name: displayName.trim(), display_name: displayName.trim() } });
+    const { error: profErr } = await supabase.from('profiles').update({ name: displayName.trim() }).eq('id', user.id);
+    setNameLoading(false);
+    if (authErr || profErr) setNameMsg({ text:'Fout bij opslaan. Probeer opnieuw.', ok:false });
+    else setNameMsg({ text:'Naam succesvol bijgewerkt!', ok:true });
+  };
 
   const today = new Date();
   const yr    = today.getFullYear();
@@ -11175,9 +11228,10 @@ function BoekhouderPortal({ isDark, user, clientLinks: initialLinks, onSignOut, 
   }
 
   const navItems = [
-    { id:'dashboard', label:'Dashboard',     icon:BarChart2 },
-    { id:'aangifte',  label:'Aangifte doen', icon:FileText,  badge:nogTeDoen },
-    { id:'klanten',   label:'Klanten',       icon:Users },
+    { id:'dashboard',    label:'Dashboard',     icon:BarChart2 },
+    { id:'aangifte',     label:'Aangifte doen', icon:FileText,  badge:nogTeDoen },
+    { id:'klanten',      label:'Klanten',       icon:Users },
+    { id:'instellingen', label:'Instellingen',  icon:Settings },
   ];
 
   const pData    = getPanelQData(panelQ);
@@ -11447,6 +11501,55 @@ function BoekhouderPortal({ isDark, user, clientLinks: initialLinks, onSignOut, 
                 </div>{/* end overflowX scroll wrapper */}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Instellingen */}
+        {portalView === 'instellingen' && (
+          <div style={{ padding:'32px 36px', maxWidth:680, margin:'0 auto' }}>
+            <div style={{ marginBottom:24 }}>
+              <div style={{ fontSize:22, fontWeight:900, color:C.text, marginBottom:4 }}>Instellingen</div>
+              <div style={{ fontSize:13, color:C.muted }}>Beheer je account — jouw naam is zichtbaar voor klanten die jou willen koppelen.</div>
+            </div>
+
+            {/* Naam wijzigen */}
+            <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:16, padding:'22px 24px', boxShadow:isDark?'0 4px 20px rgba(0,0,0,0.2)':'0 2px 10px rgba(0,0,0,0.05)' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
+                <UserCheck size={16} color="#a855f7"/>
+                <div style={{ fontSize:15, fontWeight:800, color:C.text }}>Jouw naam</div>
+              </div>
+              <div style={{ fontSize:13, color:C.muted, marginBottom:16 }}>
+                Deze naam wordt getoond aan klanten in de koppelings-dropdown. Jouw email blijft privé.
+              </div>
+              <label style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.06em', display:'block', marginBottom:6 }}>Naam of bedrijfsnaam</label>
+              <input
+                type="text"
+                value={displayName}
+                onChange={e => setDisplayName(e.target.value)}
+                placeholder="Bijv. Jan Jansen of Jansen Administratie"
+                style={{ width:'100%', padding:'11px 14px', borderRadius:10, border:`1px solid ${C.border}`, background:isDark?'rgba(255,255,255,0.04)':'#f8fafc', color:C.text, fontSize:14, outline:'none', fontFamily:'inherit', marginBottom:12 }}
+              />
+              {nameMsg && (
+                <div style={{ fontSize:12, color:nameMsg.ok?'#22c55e':'#f43f5e', marginBottom:12, fontWeight:600 }}>
+                  {nameMsg.ok ? '✓ ' : ''}{nameMsg.text}
+                </div>
+              )}
+              <button
+                onClick={handleChangeName}
+                disabled={nameLoading || !displayName.trim()}
+                style={{ padding:'11px 22px', borderRadius:10, border:'none', background: (nameLoading || !displayName.trim()) ? 'rgba(168,85,247,0.4)' : 'linear-gradient(135deg,#a855f7,#6366f1)', color:'#fff', fontSize:14, fontWeight:700, cursor: (nameLoading || !displayName.trim()) ? 'not-allowed' : 'pointer', fontFamily:'inherit', boxShadow: (nameLoading || !displayName.trim()) ? 'none' : '0 4px 14px rgba(168,85,247,0.3)' }}>
+                {nameLoading ? 'Opslaan…' : 'Naam opslaan'}
+              </button>
+            </div>
+
+            {/* Email (readonly) */}
+            <div style={{ marginTop:14, background:C.card, border:`1px solid ${C.border}`, borderRadius:16, padding:'18px 22px' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
+                <Mail size={15} color={C.muted}/>
+                <div style={{ fontSize:13, fontWeight:700, color:C.text }}>Email</div>
+              </div>
+              <div style={{ fontSize:13, color:C.muted }}>{user?.email} <span style={{ marginLeft:8, fontSize:11, color:'#22c55e', fontWeight:700 }}>● Privé — niet zichtbaar voor klanten</span></div>
+            </div>
           </div>
         )}
       </div>
@@ -12976,6 +13079,7 @@ function MijnBedrijfView({ isDark, user, profile, onSave, onNavigate, userPlan, 
   // Machtiging
   const [machtigingEnabled, setMachtigingEnabled] = useState(false);
   const [machtigingTooltip, setMachtigingTooltip] = useState(false);
+  const [machtigingTooltipPos, setMachtigingTooltipPos] = useState({ top:0, left:0 });
   const [geboortedatum, setGeboortedatum] = useState('');
   const [bsn, setBsn] = useState('');
   const [machtigingBtw, setMachtigingBtw] = useState(false);
@@ -13016,7 +13120,18 @@ function MijnBedrijfView({ isDark, user, profile, onSave, onNavigate, userPlan, 
         setLinksLoading(false);
       });
     supabase.from('profiles').select('id, name, company_name, role').in('role', ['boekhouder', 'administrateur'])
-      .then(({ data }) => { setAvailableAccounts((data || []).filter(a => a.name || a.company_name)); setAccountsLoading(false); });
+      .then(({ data }) => {
+        // Filter accounts zonder echte naam: skip als name/company_name leeg is
+        // OF op een email lijkt (privacy: emails mogen niet als display-naam getoond worden)
+        const looksLikeEmail = (s) => typeof s === 'string' && /\S+@\S+\.\S+/.test(s);
+        const cleanName = (a) => {
+          const n = a.name && !looksLikeEmail(a.name) ? a.name : null;
+          const c = a.company_name && !looksLikeEmail(a.company_name) ? a.company_name : null;
+          return n || c;
+        };
+        setAvailableAccounts((data || []).filter(a => cleanName(a)).map(a => ({ ...a, _displayName: cleanName(a) })));
+        setAccountsLoading(false);
+      });
   }, [showMedewerkers, user?.id]);
 
   const linkAccount = async () => {
@@ -13357,14 +13472,19 @@ function MijnBedrijfView({ isDark, user, profile, onSave, onNavigate, userPlan, 
                 <div style={{ fontSize:12, color:C.muted, marginTop:1 }}>Geef je boekhouder toestemming om namens jou BTW en/of inkomstenbelasting te doen</div>
               </div>
               <div style={{ position:'relative' }}
-                onMouseEnter={() => setMachtigingTooltip(true)}
+                onMouseEnter={(e) => {
+                  const r = e.currentTarget.getBoundingClientRect();
+                  setMachtigingTooltipPos({ top: r.bottom + 8, left: Math.max(12, Math.min(window.innerWidth - 308, r.left + r.width/2 - 140)) });
+                  setMachtigingTooltip(true);
+                }}
                 onMouseLeave={() => setMachtigingTooltip(false)}>
                 <div style={{ width:18, height:18, borderRadius:'50%', background:isDark?'rgba(255,255,255,0.1)':'rgba(0,0,0,0.07)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'default', fontSize:11, fontWeight:700, color:C.muted }}>?</div>
-                {machtigingTooltip && (
-                  <div style={{ position:'absolute', left:24, top:-8, width:280, background:isDark?'#1e3a5f':'#1e293b', color:'#f1f5f9', fontSize:12, lineHeight:1.6, padding:'12px 14px', borderRadius:10, zIndex:200, boxShadow:'0 8px 24px rgba(0,0,0,0.3)', pointerEvents:'none' }}>
+                {machtigingTooltip && createPortal(
+                  <div style={{ position:'fixed', top:machtigingTooltipPos.top, left:machtigingTooltipPos.left, width:280, background:isDark?'#1e3a5f':'#1e293b', color:'#f1f5f9', fontSize:12, lineHeight:1.6, padding:'12px 14px', borderRadius:10, zIndex:9999, boxShadow:'0 8px 24px rgba(0,0,0,0.4)', pointerEvents:'none' }}>
                     <div style={{ fontWeight:700, marginBottom:4 }}>🔐 Machtiging</div>
                     Hiermee geef je jouw boekhouder toestemming om je te machtigen voor officiële belasting- en boekhoudhandelingen, zoals het indienen van de BTW-aangifte namens jou.
-                  </div>
+                  </div>,
+                  document.body
                 )}
               </div>
             </div>
@@ -13486,7 +13606,7 @@ function MijnBedrijfView({ isDark, user, profile, onSave, onNavigate, userPlan, 
                           <Users size={14} color={link.role==='boekhouder'?'#a855f7':'#4f8ef7'} />
                         </div>
                         <div style={{ flex:1 }}>
-                          <div style={{ fontSize:13, fontWeight:700, color:C.text }}>{link.linked?.company_name || '—'}</div>
+                          <div style={{ fontSize:13, fontWeight:700, color:C.text }}>{link.linked?.name || link.linked?.company_name || '—'}</div>
                           <div style={{ fontSize:11, color: link.role==='boekhouder'?'#a855f7':'#4f8ef7', fontWeight:600, marginTop:1, textTransform:'capitalize' }}>{link.role}</div>
                         </div>
                         <div style={{ fontSize:11, color:'#22c55e', fontWeight:700 }}>● Actief</div>
