@@ -13576,7 +13576,7 @@ function MijnBedrijfView({ isDark, user, profile, onSave, onNavigate, userPlan, 
                         style={{ flex:1, padding:'11px 14px', borderRadius:10, border:`1px solid ${C.border}`, background:C.input, color:C.text, fontSize:14, outline:'none', fontFamily:'inherit', cursor:'pointer' }}>
                         <option value="">— Kies een account —</option>
                         {availableAccounts.map(a => (
-                          <option key={a.id} value={a.id}>{a.name || a.company_name} ({a.role})</option>
+                          <option key={a.id} value={a.id}>{a._displayName} ({a.role})</option>
                         ))}
                       </select>
                       <button onClick={linkAccount} disabled={!selectedAccountId}
