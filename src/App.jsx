@@ -10578,7 +10578,7 @@ function InviteCodeInput({ isDark, user, role, onLinked }) {
 }
 
 // ─── ADMINISTRATEUR PORTAL ─────────────────────────────────────
-function AdministrateurPortal({ isDark, user, clientLinks: initialLinks, onSignOut, onLinksChange }) {
+function AdministrateurPortal({ isDark, user, clientLinks: initialLinks, unreadMsgCount = 0, onSignOut, onLinksChange }) {
   const C = { bg: isDark ? '#07111f' : '#f1f5f9', card: isDark ? '#0f1e36' : '#fff', border: isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0', text: isDark ? '#f1f5f9' : '#0f172a', muted: isDark ? '#64748b' : '#94a3b8' };
 
   const [links, setLinks]               = useState(initialLinks || []);
