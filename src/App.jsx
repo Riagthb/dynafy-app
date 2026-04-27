@@ -11063,9 +11063,20 @@ function BoekhouderPortal({ isDark, user, clientLinks: initialLinks, onSignOut, 
     { q:3, label:'Q3', periode:'jul–sep', aangifteDeadline:new Date(yr,9,31),   adminDeadline:new Date(yr,9,16) },
     { q:4, label:'Q4', periode:'okt–dec', aangifteDeadline:new Date(yr+1,0,31), adminDeadline:new Date(yr+1,0,16) },
   ];
-  const nextQ          = quarters.find(q => q.adminDeadline >= today) || quarters[3];
+  // Bepaal welk kwartaal getoond wordt:
+  // - Als er een kwartaal is waarvan de admin-deadline is verstreken én er nog
+  //   één of meer klanten incompleet zijn → toon dat (oudste eerst, meest urgent)
+  // - Anders → eerstvolgende kwartaal in de toekomst
+  const getQSRaw      = (cid, q) => (allQStatus[cid] || []).find(s => s.quarter === q);
+  const oldestOverdueQ = quarters
+    .filter(q => q.adminDeadline < today)
+    .find(q => links.some(l => !getQSRaw(l.client_user_id, q.q)?.is_complete));
+  const upcomingQ      = quarters.find(q => q.adminDeadline >= today) || quarters[3];
+  const nextQ          = oldestOverdueQ || upcomingQ;
   const daysToDeadline = Math.ceil((nextQ.adminDeadline - today) / 86400000);
-  const urgColor       = daysToDeadline <= 7 ? '#f43f5e' : daysToDeadline <= 21 ? '#f59e0b' : '#22c55e';
+  const isOverdue      = daysToDeadline < 0;
+  const daysOverdue    = isOverdue ? Math.abs(daysToDeadline) : 0;
+  const urgColor       = isOverdue ? '#f43f5e' : daysToDeadline <= 7 ? '#f43f5e' : daysToDeadline <= 21 ? '#f59e0b' : '#22c55e';
   const fmtDate        = (d) => d.toLocaleDateString('nl-NL', { day:'numeric', month:'long' });
 
   useEffect(() => {
@@ -11332,12 +11343,22 @@ function BoekhouderPortal({ isDark, user, clientLinks: initialLinks, onSignOut, 
                     <div style={{ position:'absolute', inset:0, background:`linear-gradient(135deg,${urgColor}18,${urgColor}04)`, pointerEvents:'none' }}/>
                     <div style={{ position:'relative' }}>
                       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
-                        <div style={{ fontSize:10, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.06em' }}>Administratie deadline</div>
-                        <div style={{ width:28, height:28, borderRadius:8, background:`${urgColor}20`, display:'flex', alignItems:'center', justifyContent:'center', border:`1px solid ${urgColor}30` }}><Clock size={14} color={urgColor}/></div>
+                        <div style={{ fontSize:10, fontWeight:700, color:isOverdue?'#f43f5e':C.muted, textTransform:'uppercase', letterSpacing:'0.06em' }}>{isOverdue ? '⚠ Administratie te laat' : 'Administratie deadline'}</div>
+                        <div style={{ width:28, height:28, borderRadius:8, background:`${urgColor}20`, display:'flex', alignItems:'center', justifyContent:'center', border:`1px solid ${urgColor}30` }}>{isOverdue ? <AlertCircle size={14} color={urgColor}/> : <Clock size={14} color={urgColor}/>}</div>
                       </div>
-                      <div style={{ fontSize:32, fontWeight:900, color:urgColor, letterSpacing:'-1px' }}>{daysToDeadline} dagen</div>
-                      <div style={{ fontSize:12, color:C.muted, marginTop:2 }}>{nextQ.label} ({nextQ.periode}) · {fmtDate(nextQ.adminDeadline)}</div>
-                      <div style={{ fontSize:11, color:C.muted, marginTop:5 }}>BTW aangifte vóór {fmtDate(nextQ.aangifteDeadline)}</div>
+                      <div style={{ fontSize:isOverdue?28:32, fontWeight:900, color:urgColor, letterSpacing:'-1px' }}>
+                        {isOverdue ? `${daysOverdue} dagen te laat` : `${daysToDeadline} dagen`}
+                      </div>
+                      <div style={{ fontSize:12, color:isOverdue?'#f43f5e':C.muted, marginTop:2, fontWeight:isOverdue?700:400 }}>
+                        {isOverdue
+                          ? `${nextQ.label} admin nog niet compleet bij ${adminIncompleet} ${adminIncompleet===1?'klant':'klanten'}`
+                          : `${nextQ.label} (${nextQ.periode}) · ${fmtDate(nextQ.adminDeadline)}`}
+                      </div>
+                      <div style={{ fontSize:11, color:C.muted, marginTop:5 }}>
+                        {isOverdue
+                          ? `Deadline was ${fmtDate(nextQ.adminDeadline)} · BTW aangifte vóór ${fmtDate(nextQ.aangifteDeadline)}`
+                          : `BTW aangifte vóór ${fmtDate(nextQ.aangifteDeadline)}`}
+                      </div>
                     </div>
                   </div>
                   <div style={{ background:C.card, border:`1.5px solid ${nogTeDoen>0?'rgba(244,63,94,0.3)':C.border}`, borderRadius:16, padding:'20px 22px', position:'relative', overflow:'hidden', cursor:nogTeDoen>0?'pointer':'default', boxShadow:isDark?'0 4px 20px rgba(0,0,0,0.2)':'0 2px 10px rgba(0,0,0,0.05)' }}
@@ -11689,11 +11710,22 @@ function BTWAangifteView({ isDark, user, activeCompanyId, userPlan }) {
     { q:3, label:'Q3', periode:'jul–sep', aangifteDeadline:new Date(yr,9,31),   adminDeadline:new Date(yr,9,16) },
     { q:4, label:'Q4', periode:'okt–dec', aangifteDeadline:new Date(yr+1,0,31), adminDeadline:new Date(yr+1,0,16) },
   ];
-  const nextQ        = quarters.find(q => q.adminDeadline >= today) || quarters[0];
-  const daysToAdmin  = Math.ceil((nextQ.adminDeadline - today) / 86400000);
-  const daysToAng    = Math.ceil((nextQ.aangifteDeadline - today) / 86400000);
-  const urgColor     = daysToAdmin <= 7 ? '#f43f5e' : daysToAdmin <= 21 ? '#f59e0b' : '#22c55e';
-  const fmtDate      = (d) => d.toLocaleDateString('nl-NL', { day:'numeric', month:'long', year:'numeric' });
+  // Bepaal welk kwartaal we tonen:
+  // - Als er een kwartaal is waarvan de admin-deadline is verstreken én de
+  //   gebruiker nog niet is_complete heeft gemarkeerd → toon dat (oudste eerst)
+  // - Anders → eerstvolgende kwartaal in de toekomst
+  const isQComplete   = (q) => qStatus.find(s => s.quarter === q.q)?.is_complete || false;
+  const oldestOverdueQ = quarters
+    .filter(q => q.adminDeadline < today)
+    .find(q => !isQComplete(q));
+  const upcomingQ      = quarters.find(q => q.adminDeadline >= today) || quarters[0];
+  const nextQ          = oldestOverdueQ || upcomingQ;
+  const daysToAdmin    = Math.ceil((nextQ.adminDeadline - today) / 86400000);
+  const daysToAng      = Math.ceil((nextQ.aangifteDeadline - today) / 86400000);
+  const isOverdue      = daysToAdmin < 0;
+  const daysOverdue    = isOverdue ? Math.abs(daysToAdmin) : 0;
+  const urgColor       = isOverdue ? '#f43f5e' : daysToAdmin <= 7 ? '#f43f5e' : daysToAdmin <= 21 ? '#f59e0b' : '#22c55e';
+  const fmtDate        = (d) => d.toLocaleDateString('nl-NL', { day:'numeric', month:'long', year:'numeric' });
 
   // Company-filtered data (client-side; null company_profile_id → 'main')
   const companyInvoices = activeCompanyId ? invoices.filter(i => (i.company_profile_id || 'main') === activeCompanyId) : invoices;
@@ -11778,20 +11810,28 @@ function BTWAangifteView({ isDark, user, activeCompanyId, userPlan }) {
                 </button>
               </>
             ) : (
-              /* ── Countdown state ── */
+              /* ── Countdown state (incl. te-laat staat) ── */
               <>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
-                  <div style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.08em' }}>Administratie compleet vóór</div>
-                  <div style={{ width:32, height:32, borderRadius:9, background:`${urgColor}22`, display:'flex', alignItems:'center', justifyContent:'center', border:`1px solid ${urgColor}33` }}><Clock size={16} color={urgColor}/></div>
+                  <div style={{ fontSize:11, fontWeight:700, color:isOverdue?'#f43f5e':C.muted, textTransform:'uppercase', letterSpacing:'0.08em' }}>
+                    {isOverdue ? '⚠ Administratie te laat' : 'Administratie compleet vóór'}
+                  </div>
+                  <div style={{ width:32, height:32, borderRadius:9, background:`${urgColor}22`, display:'flex', alignItems:'center', justifyContent:'center', border:`1px solid ${urgColor}33` }}>
+                    {isOverdue ? <AlertCircle size={16} color={urgColor}/> : <Clock size={16} color={urgColor}/>}
+                  </div>
                 </div>
-                <div style={{ fontSize:32, fontWeight:900, color:urgColor, letterSpacing:'-1px', marginBottom:4 }}>{daysToAdmin} dagen</div>
-                <div style={{ fontSize:12, color:C.muted, display:'flex', alignItems:'center', gap:4, marginBottom:14 }}>
+                <div style={{ fontSize:isOverdue?28:32, fontWeight:900, color:urgColor, letterSpacing:'-1px', marginBottom:4 }}>
+                  {isOverdue ? `Je bent ${daysOverdue} dagen te laat` : `${daysToAdmin} dagen`}
+                </div>
+                <div style={{ fontSize:12, color:isOverdue?'#f43f5e':C.muted, display:'flex', alignItems:'center', gap:4, marginBottom:14, fontWeight:isOverdue?700:400 }}>
                   <div style={{ width:6, height:6, borderRadius:'50%', background:urgColor }}/>
-                  {fmtDate(nextQ.adminDeadline)} · {nextQ.label} ({nextQ.periode})
+                  {isOverdue
+                    ? `Deadline ${nextQ.label} was ${fmtDate(nextQ.adminDeadline)}`
+                    : `${fmtDate(nextQ.adminDeadline)} · ${nextQ.label} (${nextQ.periode})`}
                 </div>
                 <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap' }}>
-                  <button onClick={() => setShowCompleteConfirm(true)} style={{ display:'flex', alignItems:'center', gap:7, padding:'9px 18px', borderRadius:10, border:'none', background:'linear-gradient(135deg,#22c55e,#16a34a)', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', boxShadow:'0 4px 14px rgba(34,197,94,0.4)' }}>
-                    <Check size={14}/> Markeer administratie compleet
+                  <button onClick={() => setShowCompleteConfirm(true)} style={{ display:'flex', alignItems:'center', gap:7, padding:'9px 18px', borderRadius:10, border:'none', background: isOverdue ? 'linear-gradient(135deg,#f43f5e,#e11d48)' : 'linear-gradient(135deg,#22c55e,#16a34a)', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', boxShadow: isOverdue ? '0 4px 14px rgba(244,63,94,0.4)' : '0 4px 14px rgba(34,197,94,0.4)' }}>
+                    <Check size={14}/> {isOverdue ? 'Markeer alsnog compleet' : 'Markeer administratie compleet'}
                   </button>
                   <div style={{ fontSize:11, color:C.muted }}>BTW aangifte: {fmtDate(nextQ.aangifteDeadline)} ({daysToAng}d)</div>
                 </div>
