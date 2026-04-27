@@ -10843,12 +10843,11 @@ function BoekhouderBtwView({ isDark, clientUserId, clientName }) {
 // ─── BERICHTEN CHAT (shared boekhouder ↔ klant) ────────────────
 function BerichtenChat({ isDark, user, otherUserId, otherName, clientUserId }) {
   const C = { border:isDark?'rgba(255,255,255,0.08)':'#e2e8f0', text:isDark?'#f1f5f9':'#0f172a', muted:isDark?'#64748b':'#94a3b8', input:isDark?'rgba(255,255,255,0.06)':'#f8fafc' };
-  const [msgs, setMsgs]             = useState([]);
-  const [loading, setLoading]       = useState(true);
-  const [newMsg, setNewMsg]         = useState('');
-  const [sending, setSending]       = useState(false);
-  const [notifyByEmail, setNotifyByEmail] = useState(false); // opt-in per bericht
-  const bottomRef                   = useRef(null);
+  const [msgs, setMsgs]       = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [newMsg, setNewMsg]   = useState('');
+  const [sending, setSending] = useState(false);
+  const bottomRef             = useRef(null);
 
   useEffect(() => {
     if (!user?.id || !clientUserId) return;
@@ -10863,19 +10862,18 @@ function BerichtenChat({ isDark, user, otherUserId, otherName, clientUserId }) {
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior:'smooth' }); }, [msgs]);
 
-  const send = async () => {
+  const send = async (withNotification = false) => {
     if (!newMsg.trim() || !otherUserId) return;
     setSending(true);
     const berichtText = newMsg.trim();
-    const shouldNotify = notifyByEmail; // capture vóór reset
     const { data } = await supabase.from('berichten').insert({ from_user_id:user.id, to_user_id:otherUserId, client_user_id:clientUserId, bericht:berichtText }).select().single();
     if (data) setMsgs(prev => [...prev, data]);
     setNewMsg('');
     setSending(false);
 
-    // Email-notificatie alleen als gebruiker daar expliciet voor heeft gekozen.
+    // Email-notificatie alleen als gebruiker daar expliciet op klikte.
     // Fire-and-forget: faalt stil zodat de chat-UX niet wordt geblokkeerd.
-    if (!shouldNotify) return;
+    if (!withNotification) return;
     (async () => {
       try {
         const [{ data: toProf }, { data: fromProf }, { data: { session } }] = await Promise.all([
@@ -10933,27 +10931,26 @@ function BerichtenChat({ isDark, user, otherUserId, otherName, clientUserId }) {
           <div ref={bottomRef}/>
         </div>
       )}
-      <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:12, display:'flex', flexDirection:'column', gap:8 }}>
-        <div style={{ display:'flex', gap:8, alignItems:'flex-end' }}>
-          <textarea value={newMsg} onChange={e => setNewMsg(e.target.value)}
-            onKeyDown={e => { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
-            placeholder={`Bericht aan ${otherName}…`} rows={2}
-            style={{ flex:1, padding:'9px 12px', borderRadius:10, border:`1px solid ${C.border}`, background:C.input, color:C.text, fontSize:13, resize:'none', outline:'none', fontFamily:'inherit', lineHeight:1.5 }}/>
-          <button onClick={send} disabled={sending || !newMsg.trim()}
-            style={{ padding:'9px 16px', borderRadius:10, border:'none', background:newMsg.trim()?'linear-gradient(135deg,#a855f7,#6366f1)':'rgba(168,85,247,0.2)', color:newMsg.trim()?'#fff':'rgba(168,85,247,0.5)', fontWeight:700, fontSize:13, cursor:newMsg.trim()?'pointer':'default', fontFamily:'inherit', height:40, flexShrink:0 }}>
-            {sending ? '…' : 'Stuur'}
+      <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:12, display:'flex', flexDirection:'column', gap:10 }}>
+        <textarea value={newMsg} onChange={e => setNewMsg(e.target.value)}
+          onKeyDown={e => { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); send(false); } }}
+          placeholder={`Bericht aan ${otherName}…`} rows={2}
+          style={{ width:'100%', padding:'10px 12px', borderRadius:10, border:`1px solid ${C.border}`, background:C.input, color:C.text, fontSize:13, resize:'none', outline:'none', fontFamily:'inherit', lineHeight:1.5, boxSizing:'border-box' }}/>
+        <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+          <button onClick={() => send(false)} disabled={sending || !newMsg.trim()}
+            title="Stuur het bericht zonder notificatie. De ontvanger ziet het pas bij volgende login."
+            style={{ padding:'10px 18px', borderRadius:10, border:'none', background:newMsg.trim()?'linear-gradient(135deg,#a855f7,#6366f1)':'rgba(168,85,247,0.2)', color:newMsg.trim()?'#fff':'rgba(168,85,247,0.5)', fontWeight:700, fontSize:13, cursor:newMsg.trim() && !sending ?'pointer':'default', fontFamily:'inherit', display:'flex', alignItems:'center', gap:7, transition:'all 0.15s' }}>
+            {sending ? '…' : <>Stuur</>}
+          </button>
+          <button onClick={() => send(true)} disabled={sending || !newMsg.trim()}
+            title={`Stuur het bericht én verstuur een email-notificatie naar ${otherName}.`}
+            style={{ padding:'10px 18px', borderRadius:10, border:`1.5px solid ${newMsg.trim() && !sending ? '#a855f7' : 'rgba(168,85,247,0.25)'}`, background:'transparent', color:newMsg.trim() && !sending ? '#a855f7' : 'rgba(168,85,247,0.4)', fontWeight:700, fontSize:13, cursor:newMsg.trim() && !sending ?'pointer':'default', fontFamily:'inherit', display:'flex', alignItems:'center', gap:7, transition:'all 0.15s' }}>
+            <Mail size={14}/> Stuur + notificatiemail
           </button>
         </div>
-        <label onClick={() => setNotifyByEmail(v => !v)}
-          style={{ display:'flex', alignItems:'center', gap:9, padding:'7px 10px', borderRadius:8, cursor:'pointer', background:notifyByEmail ? (isDark?'rgba(168,85,247,0.10)':'rgba(168,85,247,0.06)') : 'transparent', border:`1px solid ${notifyByEmail ? 'rgba(168,85,247,0.35)' : 'transparent'}`, transition:'all 0.15s', userSelect:'none', alignSelf:'flex-start' }}>
-          <div style={{ width:18, height:18, borderRadius:5, border:`2px solid ${notifyByEmail ? '#a855f7' : C.border}`, background:notifyByEmail ? '#a855f7' : 'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all 0.15s' }}>
-            {notifyByEmail && <Check size={11} color="#fff" strokeWidth={3}/>}
-          </div>
-          <Mail size={13} color={notifyByEmail ? '#a855f7' : C.muted}/>
-          <span style={{ fontSize:12, color:notifyByEmail ? (isDark?'#c084fc':'#7c3aed') : C.muted, fontWeight:notifyByEmail ? 700 : 500 }}>
-            Verstuur ook notificatiemail naar {otherName}
-          </span>
-        </label>
+        <div style={{ fontSize:11, color:C.muted, lineHeight:1.5 }}>
+          💡 Klik <strong>Stuur</strong> voor een normaal bericht, of <strong>Stuur + notificatiemail</strong> om {otherName} ook per email te waarschuwen.
+        </div>
       </div>
     </div>
   );
