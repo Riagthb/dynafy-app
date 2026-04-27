@@ -10933,9 +10933,8 @@ function BerichtenChat({ isDark, user, otherUserId, otherName, clientUserId }) {
       )}
       <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:12, display:'flex', flexDirection:'column', gap:10 }}>
         <textarea value={newMsg} onChange={e => setNewMsg(e.target.value)}
-          onKeyDown={e => { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); send(false); } }}
-          placeholder={`Bericht aan ${otherName}…`} rows={2}
-          style={{ width:'100%', padding:'10px 12px', borderRadius:10, border:`1px solid ${C.border}`, background:C.input, color:C.text, fontSize:13, resize:'none', outline:'none', fontFamily:'inherit', lineHeight:1.5, boxSizing:'border-box' }}/>
+          placeholder={`Bericht aan ${otherName}…`} rows={3}
+          style={{ width:'100%', padding:'10px 12px', borderRadius:10, border:`1px solid ${C.border}`, background:C.input, color:C.text, fontSize:13, resize:'vertical', outline:'none', fontFamily:'inherit', lineHeight:1.5, boxSizing:'border-box', minHeight:64 }}/>
         <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
           <button onClick={() => send(false)} disabled={sending || !newMsg.trim()}
             title="Stuur het bericht zonder notificatie. De ontvanger ziet het pas bij volgende login."
