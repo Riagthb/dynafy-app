@@ -10970,7 +10970,9 @@ function BerichtenView({ isDark, user }) {
     (async () => {
       const { data: links } = await supabase.from('client_links').select('*').eq('client_user_id', user.id).eq('status', 'accepted');
       if (!links?.length) { setLoading(false); return; }
-      const { data: prof } = await supabase.from('profiles').select('id, email, company_name').eq('id', links[0].linked_user_id).single();
+      // email NIET selecteren — boekhouder email moet privé blijven voor klant.
+      // Naam-fallback: name → company_name → 'Boekhouder'.
+      const { data: prof } = await supabase.from('profiles').select('id, name, company_name').eq('id', links[0].linked_user_id).single();
       setBoekhouder(prof);
       setLoading(false);
     })();
@@ -10988,7 +10990,11 @@ function BerichtenView({ isDark, user }) {
     </div>
   );
 
-  const bName = boekhouder.company_name || boekhouder.email;
+  // Privacy: boekhouder email NOOIT tonen aan klant. Defensieve check tegen
+  // gevallen waar name/company_name per ongeluk een email-string bevat.
+  const looksLikeEmail = (s) => typeof s === 'string' && /\S+@\S+\.\S+/.test(s);
+  const cleanBName     = (s) => s && !looksLikeEmail(s) ? s : null;
+  const bName          = cleanBName(boekhouder.name) || cleanBName(boekhouder.company_name) || 'Boekhouder';
   return (
     <div style={{ padding:'28px 32px', maxWidth:700, margin:'0 auto' }}>
       <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:24 }}>
