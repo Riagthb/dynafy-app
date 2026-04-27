@@ -14937,6 +14937,7 @@ export default function App() {
   const [transactions, setTransactions] = useState(MOCK_TRANSACTIONS);
   const [useMockData, setUseMockData]   = useState(true);
   const [sidebarOpen, setSidebarOpen]   = useState(true);
+  const [unreadMsgCount, setUnreadMsgCount] = useState(0); // ongelezen berichten naar huidige user
   const [accounts, setAccounts]         = useState([
     { id: 1, name: "ING Betaalrekening", iban: "NL91 ABNA 0417 1643 00" },
     { id: 2, name: "ABN AMRO", iban: "NL91 ABNA 0417 1643 00" },
@@ -15187,6 +15188,30 @@ export default function App() {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  // ── Ongelezen berichten teller (voor envelope-badge in sidebar/header) ──
+  // Telt berichten waar to_user_id = ik én gelezen = false. Werkt voor zowel
+  // ZZP klant kant (boekhouder → klant) als boekhouder portal (klant → boekhouder).
+  useEffect(() => {
+    if (!user?.id) { setUnreadMsgCount(0); return; }
+    let cancelled = false;
+    const refresh = async () => {
+      const { count } = await supabase
+        .from('berichten')
+        .select('id', { count:'exact', head:true })
+        .eq('to_user_id', user.id)
+        .eq('gelezen', false);
+      if (!cancelled) setUnreadMsgCount(count || 0);
+    };
+    refresh();
+    // Realtime: refresh bij elke insert/update op berichten naar mij.
+    const channel = supabase.channel(`berichten-unread-${user.id}`)
+      .on('postgres_changes',
+          { event:'*', schema:'public', table:'berichten', filter:`to_user_id=eq.${user.id}` },
+          () => refresh())
+      .subscribe();
+    return () => { cancelled = true; supabase.removeChannel(channel); };
+  }, [user?.id]);
 
   // Reconcile impersonation flag with current session:
   //  - If impersonation exists but session matches neither admin nor target, the flag is stale → clear.
@@ -15849,6 +15874,7 @@ export default function App() {
   );
   if (!isAdmin && userRole === 'boekhouder') return (
     <BoekhouderPortal isDark={isDark} user={user} clientLinks={clientLinks}
+      unreadMsgCount={unreadMsgCount}
       onSignOut={async () => { if (user?.id) await logEvent(user.id, 'logout'); await supabase.auth.signOut(); }}
       onLinksChange={setClientLinks} />
   );
@@ -16152,15 +16178,32 @@ export default function App() {
                   {t.appName}
                 </div>
               </div>
-              {/* Toggle knop alleen zichtbaar wanneer uitgeklapt */}
-              <button
-                onClick={() => setSidebarOpen(false)}
-                title="Inklappen"
-                style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", cursor: "pointer", color: "#64748b", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.15s" }}
-                onMouseEnter={e => { e.currentTarget.style.background = "rgba(79,142,247,0.12)"; e.currentTarget.style.color = "#4f8ef7"; e.currentTarget.style.borderColor = "rgba(79,142,247,0.3)"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; e.currentTarget.style.color = "#64748b"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; }}>
-                <ChevronRight size={13} style={{ transform: "rotate(180deg)" }} />
-              </button>
+              {/* Header acties: envelope-notificatie + collapse */}
+              <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
+                {/* Envelope-notificatie */}
+                <button
+                  onClick={() => setView('berichten')}
+                  title={unreadMsgCount > 0 ? `${unreadMsgCount} ongelezen bericht${unreadMsgCount===1?'':'en'}` : 'Berichten'}
+                  style={{ position:'relative', width:28, height:28, borderRadius:8, background:unreadMsgCount>0?'rgba(168,85,247,0.18)':'rgba(255,255,255,0.05)', border:`1px solid ${unreadMsgCount>0?'rgba(168,85,247,0.4)':'rgba(255,255,255,0.08)'}`, cursor:'pointer', color:unreadMsgCount>0?'#a855f7':'#64748b', display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.15s' }}
+                  onMouseEnter={e => { e.currentTarget.style.background='rgba(168,85,247,0.25)'; e.currentTarget.style.color='#c084fc'; e.currentTarget.style.borderColor='rgba(168,85,247,0.5)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background=unreadMsgCount>0?'rgba(168,85,247,0.18)':'rgba(255,255,255,0.05)'; e.currentTarget.style.color=unreadMsgCount>0?'#a855f7':'#64748b'; e.currentTarget.style.borderColor=unreadMsgCount>0?'rgba(168,85,247,0.4)':'rgba(255,255,255,0.08)'; }}>
+                  <Mail size={13}/>
+                  {unreadMsgCount > 0 && (
+                    <span style={{ position:'absolute', top:-4, right:-4, minWidth:16, height:16, padding:'0 4px', borderRadius:8, background:'#f43f5e', color:'#fff', fontSize:9, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 0 0 2px '+(isDark?'#0b1628':'#fff') }}>
+                      {unreadMsgCount > 9 ? '9+' : unreadMsgCount}
+                    </span>
+                  )}
+                </button>
+                {/* Toggle knop */}
+                <button
+                  onClick={() => setSidebarOpen(false)}
+                  title="Inklappen"
+                  style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", cursor: "pointer", color: "#64748b", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(79,142,247,0.12)"; e.currentTarget.style.color = "#4f8ef7"; e.currentTarget.style.borderColor = "rgba(79,142,247,0.3)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; e.currentTarget.style.color = "#64748b"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; }}>
+                  <ChevronRight size={13} style={{ transform: "rotate(180deg)" }} />
+                </button>
+              </div>
             </>
           ) : (
             /* Collapsed: logo + klein pijltje = toggle knop */
@@ -16288,38 +16331,62 @@ export default function App() {
             // Group item
             const isGroupActive = item.children.some(c => c.id === view);
             const isExpanded = expandedGroups.has(item.id);
+            const isZzpGroup = item.id === 'zzp-group';
 
             return (
               <div key={item.id}>
                 {/* Group header */}
                 <div className="nav-item">
-                  <button onClick={() => { if (item.id === 'zzp-group') { toggleGroup(item.id); setView('zzp-dashboard'); } else if (sidebarOpen) { toggleGroup(item.id); setView("overzicht"); } else setView(item.children[0].id); }} className={`nav-btn${isGroupActive ? " nav-btn-active" : ""}`} style={{
+                  <button onClick={() => { if (item.id === 'zzp-group') { toggleGroup(item.id); setView('zzp-dashboard'); } else if (sidebarOpen) { toggleGroup(item.id); setView("overzicht"); } else setView(item.children[0].id); }} className={`nav-btn${isGroupActive && !isZzpGroup ? " nav-btn-active" : ""}`} style={{
                     display: "flex", alignItems: "center", gap: 12,
                     padding: sidebarOpen ? "10px 14px" : "10px",
                     justifyContent: sidebarOpen ? "flex-start" : "center",
                     width: "100%", borderRadius: 12, border: "none", cursor: "pointer", transition: "all 0.2s",
-                    background: isGroupActive ? (theme === "light" ? "rgba(217,119,6,0.12)" : accentBg) : "transparent",
-                    color: isGroupActive ? accent : (isDark || theme === "light") ? "#a8a29e" : "#64748b",
-                    fontWeight: isGroupActive ? 700 : 500, fontSize: 13,
-                    boxShadow: isGroupActive && sidebarOpen ? "inset 2px 0 0 #4f8ef7" : "none",
+                    // ZZP Modus krijgt altijd een gradient pill — onderscheidt zich van de rest
+                    background: isZzpGroup
+                      ? 'linear-gradient(135deg,#a855f7,#6366f1)'
+                      : (isGroupActive ? (theme === "light" ? "rgba(217,119,6,0.12)" : accentBg) : "transparent"),
+                    color: isZzpGroup ? '#ffffff' : (isGroupActive ? accent : (isDark || theme === "light") ? "#a8a29e" : "#64748b"),
+                    fontWeight: isZzpGroup ? 800 : (isGroupActive ? 700 : 500), fontSize: 13,
+                    boxShadow: isZzpGroup ? '0 4px 14px rgba(168,85,247,0.35)' : (isGroupActive && sidebarOpen ? "inset 2px 0 0 #4f8ef7" : "none"),
                     whiteSpace: "nowrap", overflow: "hidden",
                   }}>
                     <item.icon size={18} style={{ flexShrink: 0 }} />
                     {sidebarOpen && (
                       <>
                         <span style={{ flex: 1, textAlign: 'left' }}>{item.label}</span>
+                        {/* Envelope-badge naast ZZP Modus — klik = direct naar berichten */}
+                        {isZzpGroup && unreadMsgCount > 0 && (
+                          <span
+                            role="button"
+                            title={`${unreadMsgCount} ongelezen bericht${unreadMsgCount===1?'':'en'} — klik om te openen`}
+                            onClick={(e) => { e.stopPropagation(); setView('berichten'); }}
+                            style={{
+                              display:'flex', alignItems:'center', gap:5, padding:'3px 8px', borderRadius:7, flexShrink:0,
+                              background:'rgba(255,255,255,0.22)', border:'1px solid rgba(255,255,255,0.35)',
+                              fontSize:11, fontWeight:800, color:'#fff', cursor:'pointer', transition:'all 0.15s'
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.background='rgba(255,255,255,0.32)'; e.currentTarget.style.transform='scale(1.05)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background='rgba(255,255,255,0.22)'; e.currentTarget.style.transform='scale(1)'; }}
+                          >
+                            <Mail size={11}/>
+                            {unreadMsgCount > 9 ? '9+' : unreadMsgCount}
+                          </span>
+                        )}
                         <span style={{
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           width: 20, height: 20, borderRadius: 6, flexShrink: 0,
-                          background: isGroupActive ? 'rgba(79,142,247,0.18)' : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)'),
+                          background: isZzpGroup
+                            ? 'rgba(255,255,255,0.18)'
+                            : (isGroupActive ? 'rgba(79,142,247,0.18)' : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)')),
                           transition: 'background 0.2s',
                         }}>
-                          <ChevronRight size={13} style={{ transform: isExpanded ? "rotate(90deg)" : "none", transition: "transform 0.2s", color: isGroupActive ? accent : (isDark ? '#94a3b8' : '#64748b'), display: 'block' }} />
+                          <ChevronRight size={13} style={{ transform: isExpanded ? "rotate(90deg)" : "none", transition: "transform 0.2s", color: isZzpGroup ? '#ffffff' : (isGroupActive ? accent : (isDark ? '#94a3b8' : '#64748b')), display: 'block' }} />
                         </span>
                       </>
                     )}
                   </button>
-                  {!sidebarOpen && <div className="nav-tooltip">{item.label}</div>}
+                  {!sidebarOpen && <div className="nav-tooltip">{item.label}{isZzpGroup && unreadMsgCount > 0 ? ` · ${unreadMsgCount}` : ''}</div>}
                 </div>
 
                 {/* Sub-items */}
