@@ -11011,7 +11011,7 @@ function BerichtenView({ isDark, user }) {
 }
 
 // ─── BOEKHOUDER PORTAL ─────────────────────────────────────────
-function BoekhouderPortal({ isDark, user, clientLinks: initialLinks, onSignOut, onLinksChange }) {
+function BoekhouderPortal({ isDark, user, clientLinks: initialLinks, unreadMsgCount = 0, onSignOut, onLinksChange }) {
   const C = { bg: isDark?'#07111f':'#f1f5f9', card: isDark?'#0f1e36':'#fff', sidebar: isDark?'#0b1628':'#fff', border: isDark?'rgba(255,255,255,0.08)':'#e2e8f0', text: isDark?'#f1f5f9':'#0f172a', muted: isDark?'#64748b':'#94a3b8' };
   const fmt = (n) => '€ ' + Number(n||0).toLocaleString('nl-NL', { minimumFractionDigits:2, maximumFractionDigits:2 });
 
@@ -11272,16 +11272,30 @@ function BoekhouderPortal({ isDark, user, clientLinks: initialLinks, onSignOut, 
 
       {/* ── Sidebar ── */}
       <div style={{ width:220, flexShrink:0, background:C.sidebar, borderRight:`1px solid ${C.border}`, display:'flex', flexDirection:'column', position:'sticky', top:0, height:'100vh' }}>
-        <div style={{ padding:'18px 14px 10px' }}>
-          <div style={{ display:'flex', alignItems:'center', gap:10, padding:'11px 13px', background:'rgba(168,85,247,0.08)', borderRadius:13, border:'1px solid rgba(168,85,247,0.15)' }}>
+        <div style={{ padding:'18px 14px 10px', display:'flex', alignItems:'center', gap:8 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10, padding:'11px 13px', background:'rgba(168,85,247,0.08)', borderRadius:13, border:'1px solid rgba(168,85,247,0.15)', flex:1, minWidth:0 }}>
             <div style={{ width:32, height:32, borderRadius:9, background:'linear-gradient(135deg,#a855f7,#6366f1)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
               <Briefcase size={15} color="#fff"/>
             </div>
-            <div>
-              <div style={{ fontSize:13, fontWeight:800, color:C.text }}>Boekhouder</div>
+            <div style={{ minWidth:0 }}>
+              <div style={{ fontSize:13, fontWeight:800, color:C.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>Boekhouder</div>
               <div style={{ fontSize:10, color:'#a855f7', fontWeight:700 }}>Portaal</div>
             </div>
           </div>
+          {/* Envelope-notificatie: klik → klanten view (waar ongelezen-counts per klant zichtbaar zijn) */}
+          <button
+            onClick={() => setPortalView('klanten')}
+            title={unreadMsgCount > 0 ? `${unreadMsgCount} ongelezen bericht${unreadMsgCount===1?'':'en'} — klik voor klantenoverzicht` : 'Berichten van klanten'}
+            style={{ position:'relative', width:34, height:34, borderRadius:10, background:unreadMsgCount>0?'rgba(244,63,94,0.12)':'rgba(168,85,247,0.08)', border:`1px solid ${unreadMsgCount>0?'rgba(244,63,94,0.35)':'rgba(168,85,247,0.2)'}`, cursor:'pointer', color:unreadMsgCount>0?'#f43f5e':'#a855f7', display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.15s', flexShrink:0 }}
+            onMouseEnter={e => { e.currentTarget.style.transform='scale(1.05)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform='scale(1)'; }}>
+            <Mail size={15}/>
+            {unreadMsgCount > 0 && (
+              <span style={{ position:'absolute', top:-4, right:-4, minWidth:18, height:18, padding:'0 5px', borderRadius:9, background:'#f43f5e', color:'#fff', fontSize:10, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:`0 0 0 2px ${C.sidebar}` }}>
+                {unreadMsgCount > 9 ? '9+' : unreadMsgCount}
+              </span>
+            )}
+          </button>
         </div>
         <nav style={{ padding:'6px 8px', flex:1 }}>
           {navItems.map(item => {
@@ -15869,6 +15883,7 @@ export default function App() {
   // isAdmin always takes priority — admins see the full app regardless of role field
   if (!isAdmin && userRole === 'administrateur') return (
     <AdministrateurPortal isDark={isDark} user={user} clientLinks={clientLinks}
+      unreadMsgCount={unreadMsgCount}
       onSignOut={async () => { if (user?.id) await logEvent(user.id, 'logout'); await supabase.auth.signOut(); }}
       onLinksChange={setClientLinks} />
   );
