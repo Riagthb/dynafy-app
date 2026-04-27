@@ -10921,7 +10921,7 @@ function BerichtenChat({ isDark, user, otherUserId, otherName, clientUserId }) {
               <div key={m.id || i} style={{ display:'flex', justifyContent:isMine?'flex-end':'flex-start' }}>
                 <div style={{ maxWidth:'75%' }}>
                   <div style={{ fontSize:10, color:C.muted, marginBottom:3, textAlign:isMine?'right':'left' }}>{fmtTime(m.created_at)}</div>
-                  <div style={{ padding:'9px 13px', borderRadius:isMine?'14px 14px 4px 14px':'14px 14px 14px 4px', background:isMine?'linear-gradient(135deg,#a855f7,#6366f1)':isDark?'rgba(255,255,255,0.07)':'#f1f5f9', color:isMine?'#fff':C.text, fontSize:13, lineHeight:1.5, border:isMine?'none':`1px solid ${C.border}` }}>
+                  <div style={{ padding:'9px 13px', borderRadius:isMine?'14px 14px 4px 14px':'14px 14px 14px 4px', background:isMine?'linear-gradient(135deg,#a855f7,#6366f1)':isDark?'rgba(255,255,255,0.07)':'#f1f5f9', color:isMine?'#fff':C.text, fontSize:13, lineHeight:1.5, border:isMine?'none':`1px solid ${C.border}`, whiteSpace:'pre-wrap', wordBreak:'break-word' }}>
                     {m.bericht}
                   </div>
                 </div>
