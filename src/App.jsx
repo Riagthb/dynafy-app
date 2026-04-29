@@ -3,6 +3,14 @@ import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from './supabase.js';
 import { startUpgradeCheckout, readBillingStatusFromUrl, clearBillingStatusFromUrl } from './billing.js';
+import {
+  isBankConnectEnabled,
+  finalizeBankConnect,
+  syncBankConnection,
+  readBankCallbackFromUrl,
+  clearBankCallbackFromUrl,
+} from './bankConnect.js';
+import BankConnectModal from './BankConnectModal.jsx';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import {
@@ -15941,6 +15949,41 @@ export default function App() {
     const t = setTimeout(() => setBillingStatus(null), 8000);
     return () => clearTimeout(t);
   }, [billingStatus]);
+
+  // ── Bank Connect (GoCardless BAD) ───────────────────────────
+  const [showBankModal, setShowBankModal] = useState(false);
+  const [bankBanner, setBankBanner] = useState(null); // { kind: 'success'|'error'|'info', text }
+  const [bankCallbackPending, setBankCallbackPending] = useState(() => readBankCallbackFromUrl() === 'callback');
+
+  useEffect(() => {
+    if (!bankCallbackPending) return;
+    clearBankCallbackFromUrl();
+    (async () => {
+      try {
+        const result = await finalizeBankConnect();
+        if (result?.status === 'LN') {
+          // Trigger sync direct na koppelen — geeft snel feedback met transacties
+          if (result.connection_id) {
+            try { await syncBankConnection({ connection_id: result.connection_id }); }
+            catch (e) { console.warn('[bank-connect] sync na finalize faalde:', e); }
+          }
+          setBankBanner({ kind: 'success', text: `Bank gekoppeld — ${result.accounts?.length ?? 0} rekening(en) geïmporteerd.` });
+        } else {
+          setBankBanner({ kind: 'info', text: `Koppeling status: ${result?.status ?? 'onbekend'}` });
+        }
+      } catch (e) {
+        setBankBanner({ kind: 'error', text: e.message || 'Koppeling mislukt' });
+      } finally {
+        setBankCallbackPending(false);
+      }
+    })();
+  }, [bankCallbackPending]);
+
+  useEffect(() => {
+    if (!bankBanner) return;
+    const t = setTimeout(() => setBankBanner(null), 8000);
+    return () => clearTimeout(t);
+  }, [bankBanner]);
   // ZZP bedrijfsprofiel
   const [zzpProfile, setZzpProfile] = useState({ company_name:'', kvk:'', btw_number:'', iban:'', address:'', city:'', postal_code:'' });
   // App-level multi-company state (lifted from MijnBedrijfView)
