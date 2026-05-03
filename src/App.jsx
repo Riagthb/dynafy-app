@@ -1569,7 +1569,7 @@ function WidgetDashboard({ transactions, t, isDark, accent = "#4f8ef7", accounts
     const locale = lang === "nl" ? "nl-NL" : "en-US";
     return months.map(m => ({
       month: fmtMonthShort(m, locale),
-      income: Math.round(transactions.filter(tx => tx.date.startsWith(m) && tx.amount > 0).reduce((s,tx) => s+tx.amount, 0)),
+      income: Math.round(transactions.filter(tx => tx.date.startsWith(m) && isCountableIncome(tx)).reduce((s,tx) => s+tx.amount, 0)),
       expenses: Math.round(transactions.filter(tx => tx.date.startsWith(m) && tx.amount < 0).reduce((s,tx) => s+Math.abs(tx.amount), 0)),
     }));
   }, [transactions]);
@@ -2379,7 +2379,7 @@ function WidgetDashboard({ transactions, t, isDark, accent = "#4f8ef7", accounts
           const locale = nl ? "nl-NL" : "en-US";
           const rows = months.map(m => ({
             month: fmtMonth(m, locale),
-            income: transactions.filter(tx => tx.date.startsWith(m) && tx.amount > 0).reduce((s,tx) => s+tx.amount, 0),
+            income: transactions.filter(tx => tx.date.startsWith(m) && isCountableIncome(tx)).reduce((s,tx) => s+tx.amount, 0),
             expenses: Math.abs(transactions.filter(tx => tx.date.startsWith(m) && tx.amount < 0).reduce((s,tx) => s+tx.amount, 0)),
           })).map(r => ({ ...r, savings: r.income - r.expenses }));
           const avgSavings = rows.length ? rows.reduce((s,r) => s+r.savings, 0) / rows.length : 0;
@@ -2730,7 +2730,7 @@ function Overzicht({ transactions, t, accounts, selectedAccount, setSelectedAcco
                   .filter(ym => ym.startsWith(currentMonth.slice(0, 4))) // show only selected year
                   .map(ym => {
                   const isActive = ym === currentMonth;
-                  const mIncome   = filtered.filter(tx => tx.date.startsWith(ym) && tx.amount > 0).reduce((s, tx) => s + tx.amount, 0);
+                  const mIncome   = filtered.filter(tx => tx.date.startsWith(ym) && isCountableIncome(tx)).reduce((s, tx) => s + tx.amount, 0);
                   const mExpenses = filtered.filter(tx => tx.date.startsWith(ym) && tx.amount < 0).reduce((s, tx) => s + Math.abs(tx.amount), 0);
                   const net = mIncome - mExpenses;
                   return (
@@ -7918,7 +7918,7 @@ function ExportView({ transactions, isDark }) {
     return transactions.filter(tx => {
       if (dateFrom && tx.date < dateFrom) return false;
       if (dateTo && tx.date > dateTo) return false;
-      if (!includeIncome && tx.amount > 0) return false;
+      if (!includeIncome && isCountableIncome(tx)) return false;
       if (!includeExpenses && tx.amount < 0) return false;
       return true;
     }).sort((a, b) => b.date.localeCompare(a.date));
