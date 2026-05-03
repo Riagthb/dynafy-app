@@ -11203,6 +11203,11 @@ function BoekhouderPortal({ isDark, user, clientLinks: initialLinks, unreadMsgCo
   const [nameLoading, setNameLoading]   = useState(false);
   const [nameMsg, setNameMsg]           = useState(null);
 
+  // Berichten-view state (WhatsApp-style conversation list + chat panel)
+  const [conversations, setConversations]                 = useState([]);
+  const [conversationsLoading, setConversationsLoading]   = useState(false);
+  const [activeConvId, setActiveConvId]                   = useState(null); // client_user_id van geopende chat
+
   useEffect(() => {
     if (!user?.id) return;
     supabase.from('profiles').select('name, company_name').eq('id', user.id).single()
@@ -11335,6 +11340,66 @@ function BoekhouderPortal({ isDark, user, clientLinks: initialLinks, unreadMsgCo
     return () => { cancelled = true; supabase.removeChannel(channel); };
   }, [portalView, links, user?.id, selectedClient]);
 
+  // Conversations voor Berichten-view (WhatsApp-style lijst)
+  useEffect(() => {
+    if (portalView !== 'berichten' || !links.length || !user?.id) return;
+    let cancelled = false;
+    const clientIds = links.map(l => l.client_user_id);
+
+    const loadConversations = async () => {
+      setConversationsLoading(true);
+      // Haal alle berichten op voor gekoppelde klanten in 1 query
+      const { data: msgs } = await supabase
+        .from('berichten')
+        .select('client_user_id, bericht, created_at, from_user_id, to_user_id, gelezen')
+        .in('client_user_id', clientIds)
+        .order('created_at', { ascending: false });
+      if (cancelled) return;
+
+      const byClient = {};
+      (msgs || []).forEach(m => {
+        const cid = m.client_user_id;
+        if (!byClient[cid]) byClient[cid] = { lastMsg:m, unread:0 };
+        if (m.to_user_id === user.id && !m.gelezen) byClient[cid].unread++;
+      });
+
+      const cleanName = (s) => (typeof s === 'string' && /\S+@\S+\.\S+/.test(s)) ? null : s;
+      const convs = links.map(l => {
+        const cid    = l.client_user_id;
+        const c      = l.client || {};
+        const naam   = cleanName(c.name) || cleanName(c.company_name) || c.email || 'Klant';
+        const entry  = byClient[cid] || { lastMsg:null, unread:0 };
+        return { client_user_id:cid, naam, lastMsg:entry.lastMsg, unread:entry.unread, plan:c.plan };
+      });
+
+      // Sorteer: ongelezen eerst, dan op laatste-bericht-tijd desc, dan op naam
+      convs.sort((a, b) => {
+        if ((b.unread > 0) !== (a.unread > 0)) return (b.unread > 0) - (a.unread > 0);
+        const ta = a.lastMsg ? new Date(a.lastMsg.created_at).getTime() : 0;
+        const tb = b.lastMsg ? new Date(b.lastMsg.created_at).getTime() : 0;
+        if (tb !== ta) return tb - ta;
+        return a.naam.localeCompare(b.naam);
+      });
+
+      setConversations(convs);
+      setConversationsLoading(false);
+    };
+
+    loadConversations();
+
+    // Realtime: refresh wanneer een bericht muteert dat te maken heeft met deze klanten
+    const channel = supabase.channel(`bo-conversations-${user.id}`)
+      .on('postgres_changes',
+          { event:'*', schema:'public', table:'berichten' },
+          (payload) => {
+            const cid = payload?.new?.client_user_id || payload?.old?.client_user_id;
+            if (cid && clientIds.includes(cid)) loadConversations();
+          })
+      .subscribe();
+
+    return () => { cancelled = true; supabase.removeChannel(channel); };
+  }, [portalView, links, user?.id]);
+
   const getQS         = (cid, q) => (allQStatus[cid] || []).find(s => s.quarter === q);
   const adminCompleet  = links.filter(l => getQS(l.client_user_id, nextQ.q)?.is_complete).length;
   const aangifteGedaan = links.filter(l => getQS(l.client_user_id, nextQ.q)?.aangifte_ingediend).length;
@@ -11457,6 +11522,7 @@ function BoekhouderPortal({ isDark, user, clientLinks: initialLinks, unreadMsgCo
     { id:'dashboard',    label:'Dashboard',     icon:BarChart2 },
     { id:'aangifte',     label:'Aangifte doen', icon:FileText,  badge:nogTeDoen },
     { id:'klanten',      label:'Klanten',       icon:Users },
+    { id:'berichten',    label:'Berichten',     icon:Mail,      badge:unreadMsgCount },
     { id:'instellingen', label:'Instellingen',  icon:Settings },
   ];
 
@@ -11479,10 +11545,10 @@ function BoekhouderPortal({ isDark, user, clientLinks: initialLinks, unreadMsgCo
               <div style={{ fontSize:10, color:'#a855f7', fontWeight:700 }}>Portaal</div>
             </div>
           </div>
-          {/* Envelope-notificatie: klik → klanten view (waar ongelezen-counts per klant zichtbaar zijn) */}
+          {/* Envelope-notificatie: klik → Berichten view (WhatsApp-style lijst) */}
           <button
-            onClick={() => setPortalView('klanten')}
-            title={unreadMsgCount > 0 ? `${unreadMsgCount} ongelezen bericht${unreadMsgCount===1?'':'en'} — klik voor klantenoverzicht` : 'Berichten van klanten'}
+            onClick={() => setPortalView('berichten')}
+            title={unreadMsgCount > 0 ? `${unreadMsgCount} ongelezen bericht${unreadMsgCount===1?'':'en'} — klik voor berichten` : 'Berichten'}
             style={{ position:'relative', width:34, height:34, borderRadius:10, background:unreadMsgCount>0?'rgba(244,63,94,0.12)':'rgba(168,85,247,0.08)', border:`1px solid ${unreadMsgCount>0?'rgba(244,63,94,0.35)':'rgba(168,85,247,0.2)'}`, cursor:'pointer', color:unreadMsgCount>0?'#f43f5e':'#a855f7', display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.15s', flexShrink:0 }}
             onMouseEnter={e => { e.currentTarget.style.transform='scale(1.05)'; }}
             onMouseLeave={e => { e.currentTarget.style.transform='scale(1)'; }}>
@@ -11754,6 +11820,132 @@ function BoekhouderPortal({ isDark, user, clientLinks: initialLinks, unreadMsgCo
             )}
           </div>
         )}
+
+        {/* Berichten — WhatsApp-style: lijst links, chat rechts */}
+        {portalView === 'berichten' && (() => {
+          const activeConv = conversations.find(c => c.client_user_id === activeConvId);
+          const fmtRel = (ts) => {
+            if (!ts) return '';
+            const diff = (Date.now() - new Date(ts).getTime()) / 1000;
+            if (diff < 60) return 'nu';
+            if (diff < 3600) return `${Math.floor(diff/60)}m`;
+            if (diff < 86400) return `${Math.floor(diff/3600)}u`;
+            if (diff < 7*86400) return `${Math.floor(diff/86400)}d`;
+            return new Date(ts).toLocaleDateString('nl-NL', { day:'numeric', month:'short' });
+          };
+          return (
+            <div style={{ display:'flex', height:'100vh', maxHeight:'100vh' }}>
+              {/* ── Conversation list ── */}
+              <div style={{ width:320, flexShrink:0, borderRight:`1px solid ${C.border}`, display:'flex', flexDirection:'column', background:isDark?'rgba(0,0,0,0.15)':'#fafafa' }}>
+                <div style={{ padding:'20px 20px 14px', borderBottom:`1px solid ${C.border}` }}>
+                  <div style={{ fontSize:20, fontWeight:900, color:C.text }}>Berichten</div>
+                  <div style={{ fontSize:12, color:C.muted, marginTop:2 }}>
+                    {unreadMsgCount > 0 ? `${unreadMsgCount} ongelezen bericht${unreadMsgCount===1?'':'en'}` : 'Alle berichten gelezen'}
+                  </div>
+                </div>
+                <div style={{ flex:1, overflowY:'auto' }}>
+                  {conversationsLoading ? (
+                    <div style={{ padding:30, textAlign:'center', color:C.muted, fontSize:13 }}>Laden…</div>
+                  ) : conversations.length === 0 ? (
+                    <div style={{ padding:30, textAlign:'center', color:C.muted, fontSize:13 }}>
+                      Nog geen klanten gekoppeld.
+                    </div>
+                  ) : (
+                    conversations.map(conv => {
+                      const isActive = activeConvId === conv.client_user_id;
+                      const preview  = conv.lastMsg?.bericht ? (conv.lastMsg.bericht.length > 60 ? conv.lastMsg.bericht.slice(0,60) + '…' : conv.lastMsg.bericht).replace(/\n/g, ' ') : 'Nog geen berichten';
+                      const fromMe   = conv.lastMsg?.from_user_id === user.id;
+                      return (
+                        <button
+                          key={conv.client_user_id}
+                          onClick={() => setActiveConvId(conv.client_user_id)}
+                          style={{
+                            width:'100%', display:'flex', alignItems:'center', gap:12, padding:'12px 16px',
+                            background:isActive ? (isDark?'rgba(168,85,247,0.12)':'rgba(168,85,247,0.08)') : 'transparent',
+                            border:'none', borderBottom:`1px solid ${C.border}`, cursor:'pointer',
+                            textAlign:'left', fontFamily:'inherit', transition:'background 0.12s',
+                            borderLeft: isActive ? '3px solid #a855f7' : '3px solid transparent'
+                          }}
+                          onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = isDark?'rgba(255,255,255,0.025)':'rgba(0,0,0,0.025)'; }}
+                          onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}>
+                          <div style={{ width:42, height:42, borderRadius:12, background:'linear-gradient(135deg,rgba(168,85,247,0.18),rgba(99,102,241,0.18))', display:'flex', alignItems:'center', justifyContent:'center', border:'1px solid rgba(168,85,247,0.25)', flexShrink:0 }}>
+                            <Building2 size={18} color="#a855f7"/>
+                          </div>
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
+                              <div style={{ fontSize:14, fontWeight:conv.unread>0?800:700, color:C.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                                {conv.naam}
+                              </div>
+                              <div style={{ fontSize:10, color:conv.unread>0?'#a855f7':C.muted, fontWeight:conv.unread>0?700:500, flexShrink:0 }}>
+                                {fmtRel(conv.lastMsg?.created_at)}
+                              </div>
+                            </div>
+                            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, marginTop:3 }}>
+                              <div style={{ fontSize:12, color:conv.unread>0?C.text:C.muted, fontWeight:conv.unread>0?600:400, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                                {fromMe && <span style={{ color:C.muted }}>Jij: </span>}{preview}
+                              </div>
+                              {conv.unread > 0 && (
+                                <span style={{ minWidth:20, height:20, padding:'0 6px', borderRadius:10, background:'#f43f5e', color:'#fff', fontSize:11, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                                  {conv.unread > 9 ? '9+' : conv.unread}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* ── Chat panel ── */}
+              <div style={{ flex:1, display:'flex', flexDirection:'column', background:isDark?C.bg:'#fff' }}>
+                {!activeConv ? (
+                  <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:14, color:C.muted, padding:40 }}>
+                    <div style={{ width:72, height:72, borderRadius:18, background:'linear-gradient(135deg,rgba(168,85,247,0.15),rgba(99,102,241,0.15))', display:'flex', alignItems:'center', justifyContent:'center', border:'1px solid rgba(168,85,247,0.2)' }}>
+                      <Mail size={32} color="#a855f7"/>
+                    </div>
+                    <div style={{ fontSize:16, fontWeight:700, color:C.text }}>Selecteer een klant</div>
+                    <div style={{ fontSize:13, color:C.muted, textAlign:'center', maxWidth:320 }}>
+                      Klik op een klant in de lijst om de chat te openen. Ongelezen berichten staan bovenaan.
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Header */}
+                    <div style={{ display:'flex', alignItems:'center', gap:12, padding:'16px 24px', borderBottom:`1px solid ${C.border}`, flexShrink:0, background:isDark?'rgba(255,255,255,0.02)':'#f8fafc' }}>
+                      <div style={{ width:38, height:38, borderRadius:11, background:'linear-gradient(135deg,#a855f7,#6366f1)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                        <Building2 size={18} color="#fff"/>
+                      </div>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:15, fontWeight:800, color:C.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{activeConv.naam}</div>
+                        {activeConv.plan && <div style={{ fontSize:11, color:'#a855f7', fontWeight:700 }}>{activeConv.plan.replace('_',' ').toUpperCase()}</div>}
+                      </div>
+                      <button
+                        onClick={() => { const link = links.find(l => l.client_user_id === activeConv.client_user_id); if (link) { setSelectedClient(link); setClientZzpView('zzp-dashboard'); } }}
+                        title="Open volledige administratie van deze klant"
+                        style={{ padding:'7px 14px', borderRadius:9, border:`1px solid ${C.border}`, background:'transparent', color:C.muted, fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit', display:'flex', alignItems:'center', gap:6 }}>
+                        <Building2 size={13}/> Open profiel
+                      </button>
+                    </div>
+
+                    {/* Chat */}
+                    <div style={{ flex:1, padding:'12px 24px', overflowY:'auto', minHeight:0 }}>
+                      <BerichtenChat
+                        key={activeConv.client_user_id}
+                        isDark={isDark}
+                        user={user}
+                        otherUserId={activeConv.client_user_id}
+                        otherName={activeConv.naam}
+                        clientUserId={activeConv.client_user_id}
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Instellingen */}
         {portalView === 'instellingen' && (
