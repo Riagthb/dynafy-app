@@ -2328,7 +2328,7 @@ function WidgetDashboard({ transactions, t, isDark, accent = "#4f8ef7", accounts
         }
 
         else if (activeDetail === "budget") {
-          const allCats = [...new Set(thisTxs.filter(t => t.amount < 0).map(t => t.category))];
+          const allCats = [...new Set(thisTxs.filter(isCountableExpense).map(t => t.category))];
           const budgetItems = allCats.map(cat => ({
             cat,
             thisPeriod: thisTxs.filter(tx => tx.category === cat && tx.amount < 0).reduce((s,tx) => s+Math.abs(tx.amount), 0),
