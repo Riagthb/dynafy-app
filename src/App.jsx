@@ -452,6 +452,16 @@ const parseCSVTransactions = (text, accountName = "Imported") => {
   return results;
 };
 
+// ─── TRANSFER-AWARE AGGREGATIE-HELPERS ───────────────────────
+// Interne overboekingen (is_transfer=true) tellen NIET mee in income/expense
+// totalen — anders krijgt iemand die €5k heen-en-weer boekt tussen lopend en
+// spaarrekening €5k extra income én €5k extra expenses op zijn dashboard.
+// Display-listen (af/bij overzicht, drawer detail) tonen transfers wel maar
+// met afwijkende styling (grijs + Repeat-icon ipv groen/rood). Truthy-check
+// op !tx.is_transfer vangt zowel false als undefined (mock-data).
+const isCountableIncome  = (tx) => tx.amount > 0 && !tx.is_transfer;
+const isCountableExpense = (tx) => tx.amount < 0 && !tx.is_transfer;
+
 const guessCategory = (desc, amount, counterparty = "") => {
   if (amount > 0) return "income";
   const d = (desc + " " + counterparty).toLowerCase();
