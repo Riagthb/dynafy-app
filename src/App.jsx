@@ -5764,7 +5764,7 @@ function AccountFilterBar({ accounts = [], selectedAccount, setSelectedAccount, 
 
 // ─── SETTINGS VIEW ─────────────────────────────────────────────
 // ─── REKENINGEN VIEW ──────────────────────────────────────────
-function RekeningenView({ accounts, setAccounts, onDeleteAccount, isDark, t, onUploadClick, lang = "nl", userPlan = 'normal', onUpgrade, hasCompanyProfile = false, transactions = [], setTransactions }) {
+function RekeningenView({ accounts, setAccounts, onDeleteAccount, isDark, t, onUploadClick, lang = "nl", userPlan = 'normal', onUpgrade, hasCompanyProfile = false, transactions = [], setTransactions, bankConnectEnabled = false, onBankConnect }) {
   const [categories, setCategories] = useState(Object.keys(CATEGORY_COLORS));
   const [newCat, setNewCat] = useState("");
   const [showAddAccount, setShowAddAccount] = useState(false);
@@ -5878,6 +5878,11 @@ function RekeningenView({ accounts, setAccounts, onDeleteAccount, isDark, t, onU
               {onUploadClick && (
                 <button onClick={onUploadClick} style={{ ...pillBtnGhost(isDark), fontSize: 12, padding: "8px 14px" }}>
                   <Upload size={13}/> {lang === "nl" ? "CSV Uploaden" : "Upload CSV"}
+                </button>
+              )}
+              {bankConnectEnabled && onBankConnect && (
+                <button onClick={onBankConnect} style={{ ...pillBtnGhost(isDark), fontSize: 12, padding: "8px 14px" }}>
+                  <Link2 size={13}/> {lang === "nl" ? "Koppel bank" : "Connect bank"}
                 </button>
               )}
               {!showAddAccount && (
@@ -10577,6 +10582,169 @@ function InviteCodeInput({ isDark, user, role, onLinked }) {
   );
 }
 
+// ─── ACCOUNTANT INVITE: boekhouder nodigt klant uit per email ──
+// Variant A: strict email-match — server checkt of email bekend is in
+// Dynafy. Geen account = error. 14d TTL, 10/dag rate limit. Resend
+// vernieuwt token+expiry op bestaande pending-rij. Intrekken zet
+// status=revoked.
+function AccountantInviteSection({ isDark, user, C }) {
+  const [email, setEmail]         = useState('');
+  const [message, setMessage]     = useState('');
+  const [sending, setSending]     = useState(false);
+  const [feedback, setFeedback]   = useState(null); // { kind: 'ok'|'err', text }
+  const [invites, setInvites]     = useState([]);
+  const [loadingInvites, setLoadingInvites] = useState(true);
+
+  const loadInvites = async () => {
+    setLoadingInvites(true);
+    const { data } = await supabase
+      .from('accountant_invitations')
+      .select('id, invite_email, status, expires_at, created_at, accepted_at, declined_at')
+      .eq('accountant_user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    setInvites(data || []);
+    setLoadingInvites(false);
+  };
+
+  useEffect(() => { if (user?.id) loadInvites(); }, [user?.id]);
+
+  const send = async (resend = false, existingEmail = null) => {
+    const target = (existingEmail || email).trim().toLowerCase();
+    if (!target) { setFeedback({ kind:'err', text:'Vul een e-mailadres in.' }); return; }
+    setSending(true); setFeedback(null);
+    const { data, error } = await supabase.functions.invoke('invite-client', {
+      body: {
+        action: resend ? 'resend' : 'send',
+        email: target,
+        message: message.trim() || null,
+      },
+    });
+    setSending(false);
+    if (error || data?.error) {
+      const code = data?.error || error?.message || 'unknown';
+      const map = {
+        email_not_found:     'Dit e-mailadres heeft geen Dynafy-account.',
+        rate_limit_exceeded: 'Je hebt vandaag al 10 uitnodigingen verstuurd. Probeer morgen opnieuw.',
+        already_linked:      'Je bent al aan deze klant gekoppeld.',
+        cannot_invite_self:  'Je kunt jezelf niet uitnodigen.',
+        invalid_email:       'Geen geldig e-mailadres.',
+        not_an_accountant:   'Alleen boekhouders en administrateurs kunnen uitnodigen.',
+        email_send_failed:   'E-mail kon niet verstuurd worden. Probeer opnieuw.',
+      };
+      setFeedback({ kind:'err', text: map[code] || `Fout: ${code}` });
+      return;
+    }
+    setFeedback({ kind:'ok', text: data?.resent
+      ? `Uitnodiging opnieuw verstuurd naar ${target}.`
+      : `Uitnodiging verstuurd naar ${target}.` });
+    if (!resend) { setEmail(''); setMessage(''); }
+    loadInvites();
+  };
+
+  const revoke = async (invitationId) => {
+    if (!confirm('Uitnodiging intrekken?')) return;
+    const { data, error } = await supabase.functions.invoke('invite-client', {
+      body: { action: 'revoke', invitation_id: invitationId },
+    });
+    if (error || data?.error) {
+      setFeedback({ kind:'err', text:'Intrekken mislukt.' });
+      return;
+    }
+    loadInvites();
+  };
+
+  const statusMeta = {
+    pending:  { label:'Wacht op klant', color:'#f59e0b', bg:'rgba(245,158,11,0.1)' },
+    accepted: { label:'Geaccepteerd',   color:'#22c55e', bg:'rgba(34,197,94,0.1)'  },
+    declined: { label:'Geweigerd',      color:'#f43f5e', bg:'rgba(244,63,94,0.1)'  },
+    expired:  { label:'Verlopen',       color:'#94a3b8', bg:'rgba(148,163,184,0.1)'},
+    revoked:  { label:'Ingetrokken',    color:'#94a3b8', bg:'rgba(148,163,184,0.1)'},
+  };
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('nl-NL', { day:'numeric', month:'short' }) : '';
+
+  return (
+    <div style={{ background: C.card, border:`1px solid ${C.border}`, borderRadius:16, padding:'22px 24px', marginBottom:24, boxShadow: isDark?'0 2px 12px rgba(0,0,0,0.2)':'0 2px 8px rgba(0,0,0,0.05)' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
+        <UserPlus size={16} color="#a855f7"/>
+        <div style={{ fontSize:15, fontWeight:800, color:C.text }}>Klant uitnodigen via e-mail</div>
+      </div>
+      <div style={{ fontSize:12, color:C.muted, marginBottom:16 }}>
+        De klant ontvangt een e-mail met je naam en kan het verzoek met één klik accepteren of weigeren. Geldig 14 dagen.
+      </div>
+      <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
+        <input value={email} onChange={e => { setEmail(e.target.value); setFeedback(null); }}
+          onKeyDown={e => e.key === 'Enter' && !sending && send()}
+          placeholder="klant@voorbeeld.nl" type="email" autoComplete="off"
+          style={{ flex:'1 1 220px', padding:'11px 14px', borderRadius:10, border:`1px solid ${C.border}`, background: isDark?'rgba(255,255,255,0.06)':'#f8fafc', color:C.text, fontSize:14, outline:'none', fontFamily:'inherit' }} />
+        <button onClick={() => send(false)} disabled={sending || !email.trim()}
+          style={{ padding:'11px 22px', borderRadius:10, border:'none', background: sending||!email.trim() ? 'rgba(168,85,247,0.3)' : 'linear-gradient(135deg,#a855f7,#6366f1)', color:'#fff', fontSize:13, fontWeight:700, cursor: sending||!email.trim()?'not-allowed':'pointer', whiteSpace:'nowrap', fontFamily:'inherit' }}>
+          {sending ? 'Versturen…' : 'Verstuur uitnodiging →'}
+        </button>
+      </div>
+      <textarea value={message} onChange={e => setMessage(e.target.value)}
+        placeholder="Optioneel persoonlijk bericht…" rows={2} maxLength={1000}
+        style={{ width:'100%', boxSizing:'border-box', marginTop:10, padding:'10px 14px', borderRadius:10, border:`1px solid ${C.border}`, background: isDark?'rgba(255,255,255,0.06)':'#f8fafc', color:C.text, fontSize:13, outline:'none', fontFamily:'inherit', resize:'vertical' }} />
+      {feedback && (
+        <div style={{ fontSize:12, color: feedback.kind==='ok'?'#22c55e':'#f43f5e', marginTop:10, padding:'8px 12px', background: feedback.kind==='ok'?'rgba(34,197,94,0.08)':'rgba(244,63,94,0.08)', borderRadius:8 }}>
+          {feedback.kind==='ok' ? '✓' : '⚠'} {feedback.text}
+        </div>
+      )}
+
+      {/* Lijst eerdere uitnodigingen */}
+      {!loadingInvites && invites.length > 0 && (
+        <div style={{ marginTop:20, paddingTop:16, borderTop:`1px solid ${C.border}` }}>
+          <div style={{ fontSize:12, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:10 }}>
+            Recente uitnodigingen
+          </div>
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            {invites.map(inv => {
+              const meta = statusMeta[inv.status] || statusMeta.pending;
+              return (
+                <div key={inv.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderRadius:10, background: isDark?'rgba(255,255,255,0.025)':'#f8fafc', border:`1px solid ${C.border}` }}>
+                  <Mail size={13} color={C.muted}/>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:13, fontWeight:600, color:C.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{inv.invite_email}</div>
+                    <div style={{ fontSize:11, color:C.muted, marginTop:1 }}>
+                      Verzonden {fmtDate(inv.created_at)}
+                      {inv.status === 'pending' && ` · verloopt ${fmtDate(inv.expires_at)}`}
+                      {inv.status === 'accepted' && inv.accepted_at && ` · geaccepteerd ${fmtDate(inv.accepted_at)}`}
+                      {inv.status === 'declined' && inv.declined_at && ` · geweigerd ${fmtDate(inv.declined_at)}`}
+                    </div>
+                  </div>
+                  <span style={{ fontSize:11, fontWeight:700, color:meta.color, background:meta.bg, border:`1px solid ${meta.color}40`, borderRadius:20, padding:'3px 10px' }}>
+                    {meta.label}
+                  </span>
+                  {inv.status === 'pending' && (
+                    <>
+                      <button onClick={() => send(true, inv.invite_email)} disabled={sending}
+                        title="Opnieuw versturen"
+                        style={{ display:'flex', alignItems:'center', gap:4, padding:'6px 10px', borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', color:C.muted, cursor:sending?'not-allowed':'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit' }}>
+                        <RotateCcw size={11}/> Resend
+                      </button>
+                      <button onClick={() => revoke(inv.id)}
+                        title="Uitnodiging intrekken"
+                        style={{ display:'flex', alignItems:'center', gap:4, padding:'6px 10px', borderRadius:8, border:'1px solid rgba(244,63,94,0.3)', background:'transparent', color:'#f43f5e', cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit' }}>
+                        <X size={11}/> Intrekken
+                      </button>
+                    </>
+                  )}
+                  {inv.status === 'expired' && (
+                    <button onClick={() => send(true, inv.invite_email)} disabled={sending}
+                      style={{ display:'flex', alignItems:'center', gap:4, padding:'6px 10px', borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', color:C.muted, cursor:sending?'not-allowed':'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit' }}>
+                      <RotateCcw size={11}/> Opnieuw
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── ADMINISTRATEUR PORTAL ─────────────────────────────────────
 function AdministrateurPortal({ isDark, user, clientLinks: initialLinks, unreadMsgCount = 0, onSignOut, onLinksChange }) {
   const C = { bg: isDark ? '#07111f' : '#f1f5f9', card: isDark ? '#0f1e36' : '#fff', border: isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0', text: isDark ? '#f1f5f9' : '#0f172a', muted: isDark ? '#64748b' : '#94a3b8' };
@@ -11107,17 +11275,22 @@ function BoekhouderPortal({ isDark, user, clientLinks: initialLinks, unreadMsgCo
   }, [links]);
 
   useEffect(() => {
-    if (portalView !== 'klanten' || !links.length) return;
-    setKlantenDataLoading(true);
+    if (portalView !== 'klanten' || !links.length || !user?.id) return;
+    let cancelled = false;
     const clientIds = links.map(l => l.client_user_id);
     const qStart = new Date(yr, (nextQ.q-1)*3, 1).toISOString().split('T')[0];
     const qEnd   = new Date(yr, nextQ.q*3, 0).toISOString().split('T')[0];
-    Promise.all([
-      supabase.from('invoices').select('*, lines:invoice_lines(*)').in('user_id', clientIds).gte('invoice_date', qStart).lte('invoice_date', qEnd).not('status', 'in', '(geannuleerd,concept)'),
-      supabase.from('costs').select('user_id, amount_excl_btw, btw_percentage').in('user_id', clientIds).gte('date', qStart).lte('date', qEnd),
-      supabase.from('bonnen').select('id, user_id').in('user_id', clientIds).eq('geboekt', false),
-      supabase.from('berichten').select('id, client_user_id').in('client_user_id', clientIds).eq('to_user_id', user.id).eq('gelezen', false),
-    ]).then(([invRes, costRes, bonnRes, berichtRes]) => {
+
+    // Volledige refresh (omzet, kosten, bonnen, berichten)
+    const refreshAll = async () => {
+      setKlantenDataLoading(true);
+      const [invRes, costRes, bonnRes, berichtRes] = await Promise.all([
+        supabase.from('invoices').select('*, lines:invoice_lines(*)').in('user_id', clientIds).gte('invoice_date', qStart).lte('invoice_date', qEnd).not('status', 'in', '(geannuleerd,concept)'),
+        supabase.from('costs').select('user_id, amount_excl_btw, btw_percentage').in('user_id', clientIds).gte('date', qStart).lte('date', qEnd),
+        supabase.from('bonnen').select('id, user_id').in('user_id', clientIds).eq('geboekt', false),
+        supabase.from('berichten').select('id, client_user_id').in('client_user_id', clientIds).eq('to_user_id', user.id).eq('gelezen', false),
+      ]);
+      if (cancelled) return;
       const d = {};
       clientIds.forEach(id => { d[id] = { omzetExcl:0, btwOmzet:0, btwKosten:0, openBonnen:0, openBerichten:0 }; });
       (invRes.data || []).forEach(inv => {
@@ -11134,8 +11307,33 @@ function BoekhouderPortal({ isDark, user, clientLinks: initialLinks, unreadMsgCo
       (berichtRes.data || []).forEach(m => { if (d[m.client_user_id]) d[m.client_user_id].openBerichten++; });
       setKlantenData(d);
       setKlantenDataLoading(false);
-    });
-  }, [portalView, links]);
+    };
+
+    // Lichtgewicht refresh van alléén ongelezen-berichten counts (voor realtime triggers)
+    const refreshBerichtenOnly = async () => {
+      const { data } = await supabase.from('berichten').select('id, client_user_id').in('client_user_id', clientIds).eq('to_user_id', user.id).eq('gelezen', false);
+      if (cancelled) return;
+      setKlantenData(prev => {
+        const next = {};
+        clientIds.forEach(id => { next[id] = { ...(prev[id] || { omzetExcl:0, btwOmzet:0, btwKosten:0, openBonnen:0 }), openBerichten:0 }; });
+        (data || []).forEach(m => { if (next[m.client_user_id]) next[m.client_user_id].openBerichten++; });
+        return next;
+      });
+    };
+
+    refreshAll();
+
+    // Realtime: zodra een bericht naar mij muteert (insert / gelezen-toggle / delete),
+    // herbereken alleen de berichten-counts. Houdt de Klanten-tabel in sync met
+    // de header envelope, zonder volledige reload van facturen/kosten.
+    const channel = supabase.channel(`klanten-berichten-${user.id}`)
+      .on('postgres_changes',
+          { event:'*', schema:'public', table:'berichten', filter:`to_user_id=eq.${user.id}` },
+          () => refreshBerichtenOnly())
+      .subscribe();
+
+    return () => { cancelled = true; supabase.removeChannel(channel); };
+  }, [portalView, links, user?.id, selectedClient]);
 
   const getQS         = (cid, q) => (allQStatus[cid] || []).find(s => s.quarter === q);
   const adminCompleet  = links.filter(l => getQS(l.client_user_id, nextQ.q)?.is_complete).length;
@@ -11477,6 +11675,7 @@ function BoekhouderPortal({ isDark, user, clientLinks: initialLinks, unreadMsgCo
               <div style={{ fontSize:22, fontWeight:900, color:C.text, marginBottom:4 }}>Klanten</div>
               <div style={{ fontSize:13, color:C.muted }}>{nextQ.label} {yr} · klik op een rij voor de volledige administratie</div>
             </div>
+            <AccountantInviteSection isDark={isDark} user={user} C={C} />
             {linksLoading ? (
               <div style={{ padding:60, textAlign:'center', color:C.muted }}>Laden…</div>
             ) : links.length===0 ? (
@@ -14912,6 +15111,235 @@ function MockDataConfirmModal({ lang = 'nl', isDark = true, onConfirm, onCancel 
   );
 }
 
+// ─── KOPPEL ACCEPT SCREEN: klant accepteert/weigert boekhouder-uitnodiging ──
+// Full-screen modal die opkomt zodra er een token in URL (?koppel=<token>) of
+// in localStorage staat én de gebruiker is ingelogd. Strict email-match: als
+// het ingelogde account niet de uitgenodigde mailbox is, forceren we logout
+// + opnieuw inloggen op het juiste account.
+function KoppelAcceptScreen({ token, user, isDark, onDone }) {
+  const C = { bg: isDark?'#07111f':'#f1f5f9', card: isDark?'#0f1e36':'#fff', border: isDark?'rgba(255,255,255,0.08)':'#e2e8f0', text: isDark?'#f1f5f9':'#0f172a', muted: isDark?'#64748b':'#94a3b8' };
+
+  const [loading, setLoading]   = useState(true);
+  const [info, setInfo]         = useState(null);    // { accountant_name, accountant_role, invite_email, expires_at }
+  const [errorState, setError]  = useState(null);    // 'wrong_account' | 'expired' | 'declined' | 'accepted' | 'revoked' | 'invitation_not_found' | string
+  const [requiredEmail, setRequiredEmail] = useState(null);
+  const [busy, setBusy]         = useState(false);
+  const [done, setDone]         = useState(null);    // 'accepted' | 'declined'
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      const { data, error } = await supabase.functions.invoke('accept-invitation', {
+        body: { action: 'lookup', token },
+      });
+      if (cancelled) return;
+      setLoading(false);
+      if (error || data?.error) {
+        if (data?.error === 'wrong_account') {
+          setError('wrong_account');
+          setRequiredEmail(data.required_email);
+        } else {
+          setError(data?.error || error?.message || 'unknown');
+        }
+        return;
+      }
+      setInfo(data);
+    })();
+    return () => { cancelled = true; };
+  }, [token, user?.id]);
+
+  const handleAccept = async () => {
+    setBusy(true);
+    const { data, error } = await supabase.functions.invoke('accept-invitation', {
+      body: { action: 'accept', token },
+    });
+    setBusy(false);
+    if (error || data?.error) { setError(data?.error || 'accept_failed'); return; }
+    setDone('accepted');
+  };
+
+  const handleDecline = async () => {
+    if (!confirm('Weet je zeker dat je dit verzoek wilt weigeren?')) return;
+    setBusy(true);
+    const { data, error } = await supabase.functions.invoke('accept-invitation', {
+      body: { action: 'decline', token },
+    });
+    setBusy(false);
+    if (error || data?.error) { setError(data?.error || 'decline_failed'); return; }
+    setDone('declined');
+  };
+
+  const forceLogoutAndRelogin = async () => {
+    // Token blijft in localStorage staan zodat hij na re-login opnieuw opgepikt wordt
+    await supabase.auth.signOut();
+    // Page reload zorgt dat we schoon naar het login-scherm gaan
+    window.location.reload();
+  };
+
+  const renderShell = (children) => (
+    <div style={{ minHeight:'100vh', background:C.bg, fontFamily:"'Inter',sans-serif", display:'flex', alignItems:'center', justifyContent:'center', padding:24 }}>
+      <div style={{ maxWidth:520, width:'100%', background:C.card, border:`1px solid ${C.border}`, borderRadius:18, padding:'32px 36px', boxShadow:isDark?'0 8px 32px rgba(0,0,0,0.4)':'0 8px 32px rgba(0,0,0,0.08)' }}>
+        {children}
+      </div>
+    </div>
+  );
+
+  if (loading) {
+    return renderShell(
+      <div style={{ textAlign:'center', padding:'40px 0', color:C.muted, fontSize:14 }}>
+        <div style={{ width:36, height:36, border:'3px solid rgba(168,85,247,0.2)', borderTopColor:'#a855f7', borderRadius:'50%', animation:'spin 0.8s linear infinite', margin:'0 auto 14px' }}/>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        Uitnodiging laden…
+      </div>
+    );
+  }
+
+  if (done === 'accepted') {
+    return renderShell(
+      <div style={{ textAlign:'center' }}>
+        <div style={{ width:60, height:60, borderRadius:'50%', background:'rgba(34,197,94,0.12)', border:'1px solid rgba(34,197,94,0.3)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px' }}>
+          <Check size={28} color="#22c55e"/>
+        </div>
+        <div style={{ fontSize:20, fontWeight:800, color:C.text, marginBottom:8 }}>Gekoppeld!</div>
+        <div style={{ fontSize:14, color:C.muted, marginBottom:24 }}>
+          Je bent nu gekoppeld aan <strong>{info?.accountant_name}</strong>. Zij kunnen vanaf nu je administratie inzien.
+        </div>
+        <button onClick={onDone}
+          style={{ padding:'12px 28px', borderRadius:12, border:'none', background:'linear-gradient(135deg,#a855f7,#6366f1)', color:'#fff', fontSize:14, fontWeight:700, cursor:'pointer' }}>
+          Doorgaan naar Dynafy →
+        </button>
+      </div>
+    );
+  }
+
+  if (done === 'declined') {
+    return renderShell(
+      <div style={{ textAlign:'center' }}>
+        <div style={{ width:60, height:60, borderRadius:'50%', background:'rgba(148,163,184,0.12)', border:'1px solid rgba(148,163,184,0.3)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px' }}>
+          <X size={28} color="#94a3b8"/>
+        </div>
+        <div style={{ fontSize:20, fontWeight:800, color:C.text, marginBottom:8 }}>Verzoek geweigerd</div>
+        <div style={{ fontSize:14, color:C.muted, marginBottom:24 }}>
+          Het verzoek is afgewezen. De boekhouder krijgt hiervan bericht.
+        </div>
+        <button onClick={onDone}
+          style={{ padding:'12px 28px', borderRadius:12, border:`1px solid ${C.border}`, background:'transparent', color:C.text, fontSize:14, fontWeight:700, cursor:'pointer' }}>
+          Doorgaan
+        </button>
+      </div>
+    );
+  }
+
+  if (errorState === 'wrong_account') {
+    const masked = requiredEmail
+      ? requiredEmail.replace(/^(.{2})(.*)(@.*)$/, (_, a, b, c) => a + '•'.repeat(Math.max(b.length, 3)) + c)
+      : '';
+    return renderShell(
+      <div style={{ textAlign:'center' }}>
+        <div style={{ width:60, height:60, borderRadius:'50%', background:'rgba(245,158,11,0.12)', border:'1px solid rgba(245,158,11,0.3)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px' }}>
+          <AlertCircle size={28} color="#f59e0b"/>
+        </div>
+        <div style={{ fontSize:20, fontWeight:800, color:C.text, marginBottom:8 }}>Verkeerd account</div>
+        <div style={{ fontSize:14, color:C.muted, marginBottom:8 }}>
+          Je bent ingelogd als <strong>{user?.email}</strong>, maar deze uitnodiging is gericht aan:
+        </div>
+        <div style={{ fontSize:15, fontWeight:700, color:C.text, marginBottom:20, padding:'10px 14px', background: isDark?'rgba(255,255,255,0.05)':'#f8fafc', borderRadius:10 }}>
+          {masked}
+        </div>
+        <div style={{ fontSize:13, color:C.muted, marginBottom:24 }}>
+          Log uit en log in met het juiste account om de uitnodiging te accepteren.
+        </div>
+        <div style={{ display:'flex', gap:10, justifyContent:'center' }}>
+          <button onClick={onDone}
+            style={{ padding:'11px 22px', borderRadius:11, border:`1px solid ${C.border}`, background:'transparent', color:C.muted, fontSize:13, fontWeight:700, cursor:'pointer' }}>
+            Verzoek negeren
+          </button>
+          <button onClick={forceLogoutAndRelogin}
+            style={{ padding:'11px 22px', borderRadius:11, border:'none', background:'linear-gradient(135deg,#a855f7,#6366f1)', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer' }}>
+            Uitloggen + opnieuw inloggen
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (errorState === 'expired' || errorState === 'declined' || errorState === 'accepted' || errorState === 'revoked' || errorState === 'invitation_not_found') {
+    const map = {
+      expired:   { title:'Verlopen', text:'Deze uitnodiging is verlopen. Vraag de boekhouder om een nieuwe.' },
+      declined:  { title:'Al geweigerd', text:'Deze uitnodiging is al eerder geweigerd.' },
+      accepted:  { title:'Al geaccepteerd', text:'Deze koppeling is al actief — geen verdere actie nodig.' },
+      revoked:   { title:'Ingetrokken', text:'De boekhouder heeft deze uitnodiging ingetrokken.' },
+      invitation_not_found: { title:'Niet gevonden', text:'Deze uitnodigingslink is ongeldig of bestaat niet meer.' },
+    };
+    const { title, text } = map[errorState];
+    return renderShell(
+      <div style={{ textAlign:'center' }}>
+        <div style={{ width:60, height:60, borderRadius:'50%', background:'rgba(148,163,184,0.12)', border:'1px solid rgba(148,163,184,0.3)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px' }}>
+          <AlertCircle size={28} color="#94a3b8"/>
+        </div>
+        <div style={{ fontSize:20, fontWeight:800, color:C.text, marginBottom:8 }}>{title}</div>
+        <div style={{ fontSize:14, color:C.muted, marginBottom:24 }}>{text}</div>
+        <button onClick={onDone}
+          style={{ padding:'12px 28px', borderRadius:12, border:`1px solid ${C.border}`, background:'transparent', color:C.text, fontSize:14, fontWeight:700, cursor:'pointer' }}>
+          Doorgaan
+        </button>
+      </div>
+    );
+  }
+
+  if (errorState) {
+    return renderShell(
+      <div style={{ textAlign:'center' }}>
+        <div style={{ fontSize:18, fontWeight:800, color:C.text, marginBottom:8 }}>Er ging iets mis</div>
+        <div style={{ fontSize:13, color:C.muted, marginBottom:20 }}>Code: {errorState}</div>
+        <button onClick={onDone}
+          style={{ padding:'11px 22px', borderRadius:11, border:`1px solid ${C.border}`, background:'transparent', color:C.text, fontSize:13, fontWeight:700, cursor:'pointer' }}>
+          Sluiten
+        </button>
+      </div>
+    );
+  }
+
+  // Pending — toon consent-modal
+  const expires = info?.expires_at ? new Date(info.expires_at).toLocaleDateString('nl-NL', { day:'numeric', month:'long' }) : '';
+  const roleLabel = info?.accountant_role === 'administrateur' ? 'administrateur' : 'boekhouder';
+  return renderShell(
+    <>
+      <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:18 }}>
+        <div style={{ width:46, height:46, borderRadius:13, background:'linear-gradient(135deg,#a855f7,#6366f1)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <UserCheck size={22} color="#fff"/>
+        </div>
+        <div>
+          <div style={{ fontSize:11, fontWeight:700, color:'#a855f7', textTransform:'uppercase', letterSpacing:'0.06em' }}>Koppelverzoek</div>
+          <div style={{ fontSize:18, fontWeight:800, color:C.text }}>Toestemming geven?</div>
+        </div>
+      </div>
+      <div style={{ fontSize:14, color:C.text, marginBottom:18, lineHeight:1.55 }}>
+        <strong style={{ color:C.text }}>{info.accountant_name}</strong> wil je {roleLabel} zijn op Dynafy en vraagt toestemming om je administratie te bekijken (facturen, kosten, bonnen en BTW-overzichten).
+      </div>
+      <div style={{ padding:'12px 14px', background: isDark?'rgba(168,85,247,0.08)':'rgba(168,85,247,0.06)', border:'1px solid rgba(168,85,247,0.2)', borderRadius:10, marginBottom:18, fontSize:12, color:C.text, lineHeight:1.5 }}>
+        <strong>Wat krijgt {info.accountant_name} te zien?</strong><br/>
+        Je facturen, kosten, bonnen en BTW-overzichten. Géén bankgegevens, wachtwoorden of persoonlijke financiën.
+        Je kunt de koppeling later op elk moment verbreken via <em>Mijn Bedrijf → Medewerkers & Boekhouder</em>.
+      </div>
+      <div style={{ fontSize:11, color:C.muted, marginBottom:22 }}>
+        Verzoek geldig tot {expires}.
+      </div>
+      <div style={{ display:'flex', gap:10 }}>
+        <button onClick={handleDecline} disabled={busy}
+          style={{ flex:1, padding:'12px', borderRadius:11, border:`1px solid ${C.border}`, background:'transparent', color:C.text, fontSize:14, fontWeight:700, cursor:busy?'not-allowed':'pointer', fontFamily:'inherit' }}>
+          Weigeren
+        </button>
+        <button onClick={handleAccept} disabled={busy}
+          style={{ flex:2, padding:'12px', borderRadius:11, border:'none', background: busy?'rgba(168,85,247,0.4)':'linear-gradient(135deg,#a855f7,#6366f1)', color:'#fff', fontSize:14, fontWeight:700, cursor:busy?'not-allowed':'pointer', fontFamily:'inherit' }}>
+          {busy ? 'Bezig…' : 'Akkoord, koppel mij'}
+        </button>
+      </div>
+    </>
+  );
+}
+
 // ─── MAIN APP ──────────────────────────────────────────────────
 export default function App() {
   const [onboarded, setOnboarded] = useState(false);
@@ -15064,6 +15492,32 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
+
+  // ── Boekhouder-uitnodiging accept-token ─────────────────────
+  // Wordt gezet via ?koppel=<token> in URL óf vanuit localStorage
+  // (zodat de token een redirect-naar-login overleeft).
+  const KOPPEL_TOKEN_KEY = 'dynafy_koppel_token';
+  const [koppelToken, setKoppelToken] = useState(() => {
+    try {
+      const fromUrl = new URLSearchParams(window.location.search).get('koppel');
+      return fromUrl || localStorage.getItem(KOPPEL_TOKEN_KEY) || null;
+    } catch { return null; }
+  });
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const t = params.get('koppel');
+    if (!t) return;
+    try { localStorage.setItem(KOPPEL_TOKEN_KEY, t); } catch {}
+    setKoppelToken(t);
+    params.delete('koppel');
+    const search = params.toString();
+    const cleaned = window.location.pathname + (search ? '?' + search : '') + window.location.hash;
+    window.history.replaceState({}, '', cleaned);
+  }, []);
+  const clearKoppelToken = () => {
+    try { localStorage.removeItem(KOPPEL_TOKEN_KEY); } catch {}
+    setKoppelToken(null);
+  };
 
   // ── Admin impersonation ─────────────────────────────────────
   // Stash admin tokens to localStorage before swapping session, so a refresh
@@ -15877,6 +16331,14 @@ export default function App() {
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
+
+  // ── Boekhouder-uitnodiging: full-screen consent flow ────────
+  // Onderbreekt elke verdere routing (portals/onboarding/main app) tot de
+  // klant accepteert, weigert of "doorgaan" kiest. Token zit dan al in
+  // localStorage (zie capture-effect hierboven).
+  if (koppelToken && user) {
+    return <KoppelAcceptScreen token={koppelToken} user={user} isDark={isDark} onDone={clearKoppelToken} />;
+  }
 
   // Route service accounts to their dedicated portals (skip onboarding)
   // isAdmin always takes priority — admins see the full app regardless of role field
@@ -16869,6 +17331,39 @@ export default function App() {
           </div>{/* /page-view */}
         </div>
       </div>
+
+      {/* ── Bank Connect modal ── */}
+      {showBankModal && createPortal(
+        <BankConnectModal
+          onClose={() => setShowBankModal(false)}
+          isDark={isDark}
+          lang={lang}
+        />,
+        document.body
+      )}
+
+      {/* Bank Connect banner (na finalize) */}
+      {bankBanner && createPortal(
+        <div style={{
+          position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 10000, padding: '14px 22px', borderRadius: 14,
+          background: bankBanner.kind === 'success'
+            ? 'linear-gradient(135deg,#10b981,#059669)'
+            : bankBanner.kind === 'error'
+            ? 'linear-gradient(135deg,#ef4444,#dc2626)'
+            : 'linear-gradient(135deg,#4f8ef7,#6366f1)',
+          color: '#fff', fontWeight: 700, fontSize: 14,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+          display: 'flex', alignItems: 'center', gap: 10, maxWidth: '92vw',
+        }}>
+          {bankBanner.kind === 'success' ? <Check size={18} strokeWidth={3} /> : <AlertCircle size={18} />}
+          <span>{bankBanner.text}</span>
+          <button onClick={() => setBankBanner(null)} style={{ marginLeft: 8, background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', padding: 4, display: 'flex' }}>
+            <X size={16} />
+          </button>
+        </div>,
+        document.body
+      )}
 
       {/* ── Centrale upgrade modal ── */}
       {/* Billing return banner (na Mollie checkout redirect) */}
