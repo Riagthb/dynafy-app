@@ -11017,18 +11017,45 @@ function BerichtenChat({ isDark, user, otherUserId, otherName, clientUserId }) {
   const [sending, setSending] = useState(false);
   const bottomRef             = useRef(null);
 
+  const scrollContainerRef = useRef(null);
+  const isFirstLoadRef     = useRef(true);
+
   useEffect(() => {
     if (!user?.id || !clientUserId) return;
+    isFirstLoadRef.current = true; // bij elke conversatie-switch eerst instant naar onder
     (async () => {
       setLoading(true);
       const { data } = await supabase.from('berichten').select('*').eq('client_user_id', clientUserId).order('created_at', { ascending: true });
       setMsgs(data || []);
-      await supabase.from('berichten').update({ gelezen: true }).eq('client_user_id', clientUserId).eq('to_user_id', user.id).eq('gelezen', false);
+      const { data: updated } = await supabase
+        .from('berichten')
+        .update({ gelezen: true })
+        .eq('client_user_id', clientUserId)
+        .eq('to_user_id', user.id)
+        .eq('gelezen', false)
+        .select('id');
       setLoading(false);
+      // Fallback voor wanneer Supabase realtime niet enabled is op de berichten-tabel:
+      // een custom event triggert refresh van counts in App + BoekhouderPortal.
+      if ((updated || []).length > 0) {
+        window.dispatchEvent(new CustomEvent('dynafy:berichten-read', { detail:{ count: updated.length, clientUserId } }));
+      }
     })();
   }, [user?.id, clientUserId]);
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior:'smooth' }); }, [msgs]);
+  // Auto-scroll naar onder bij nieuwe berichten / eerste load.
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el || msgs.length === 0) return;
+    if (isFirstLoadRef.current) {
+      // Eerste render: instant naar onder zonder smooth-animatie
+      el.scrollTop = el.scrollHeight;
+      isFirstLoadRef.current = false;
+    } else {
+      // Daarna: smooth voor nieuwe berichten
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    }
+  }, [msgs]);
 
   const send = async (withNotification = false) => {
     if (!newMsg.trim() || !otherUserId) return;
@@ -11082,7 +11109,7 @@ function BerichtenChat({ isDark, user, otherUserId, otherName, clientUserId }) {
           <div style={{ fontSize:12, color:C.muted }}>Stuur een bericht naar {otherName}</div>
         </div>
       ) : (
-        <div style={{ flex:1, overflowY:'auto', padding:'12px 0', display:'flex', flexDirection:'column', gap:8 }}>
+        <div ref={scrollContainerRef} style={{ flex:1, overflowY:'auto', padding:'12px 0', display:'flex', flexDirection:'column', gap:8 }}>
           {msgs.map((m, i) => {
             const isMine = m.from_user_id === user.id;
             return (
@@ -11336,8 +11363,15 @@ function BoekhouderPortal({ isDark, user, clientLinks: initialLinks, unreadMsgCo
           { event:'*', schema:'public', table:'berichten', filter:`to_user_id=eq.${user.id}` },
           () => refreshBerichtenOnly())
       .subscribe();
+    // Fallback voor wanneer Realtime publication niet enabled is
+    const onLocalRead = () => refreshBerichtenOnly();
+    window.addEventListener('dynafy:berichten-read', onLocalRead);
 
-    return () => { cancelled = true; supabase.removeChannel(channel); };
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+      window.removeEventListener('dynafy:berichten-read', onLocalRead);
+    };
   }, [portalView, links, user?.id, selectedClient]);
 
   // Conversations voor Berichten-view (WhatsApp-style lijst)
@@ -11396,8 +11430,15 @@ function BoekhouderPortal({ isDark, user, clientLinks: initialLinks, unreadMsgCo
             if (cid && clientIds.includes(cid)) loadConversations();
           })
       .subscribe();
+    // Fallback: custom DOM-event uit BerichtenChat na mark-as-read
+    const onLocalRead = () => loadConversations();
+    window.addEventListener('dynafy:berichten-read', onLocalRead);
 
-    return () => { cancelled = true; supabase.removeChannel(channel); };
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+      window.removeEventListener('dynafy:berichten-read', onLocalRead);
+    };
   }, [portalView, links, user?.id]);
 
   const getQS         = (cid, q) => (allQStatus[cid] || []).find(s => s.quarter === q);
@@ -15869,7 +15910,15 @@ export default function App() {
           { event:'*', schema:'public', table:'berichten', filter:`to_user_id=eq.${user.id}` },
           () => refresh())
       .subscribe();
-    return () => { cancelled = true; supabase.removeChannel(channel); };
+    // Fallback: custom DOM-event vanuit BerichtenChat (werkt ook als Realtime
+    // publication niet enabled is op de berichten-tabel).
+    const onLocalRead = () => refresh();
+    window.addEventListener('dynafy:berichten-read', onLocalRead);
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+      window.removeEventListener('dynafy:berichten-read', onLocalRead);
+    };
   }, [user?.id]);
 
   // Reconcile impersonation flag with current session:
