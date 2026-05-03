@@ -1570,7 +1570,7 @@ function WidgetDashboard({ transactions, t, isDark, accent = "#4f8ef7", accounts
     return months.map(m => ({
       month: fmtMonthShort(m, locale),
       income: Math.round(transactions.filter(tx => tx.date.startsWith(m) && isCountableIncome(tx)).reduce((s,tx) => s+tx.amount, 0)),
-      expenses: Math.round(transactions.filter(tx => tx.date.startsWith(m) && tx.amount < 0).reduce((s,tx) => s+Math.abs(tx.amount), 0)),
+      expenses: Math.round(transactions.filter(tx => tx.date.startsWith(m) && isCountableExpense(tx)).reduce((s,tx) => s+Math.abs(tx.amount), 0)),
     }));
   }, [transactions]);
 
@@ -1804,8 +1804,8 @@ function WidgetDashboard({ transactions, t, isDark, accent = "#4f8ef7", accounts
         const cats = ["groceries","eating_out","subscriptions","transport","shopping"];
         const items = cats.map(cat => ({
           cat,
-          spent:  thisTxs.filter(tx => tx.category === cat && tx.amount < 0).reduce((s,tx) => s+Math.abs(tx.amount), 0),
-          budget: prevTxs.filter(tx => tx.category === cat && tx.amount < 0).reduce((s,tx) => s+Math.abs(tx.amount), 0) * 1.1 || 0,
+          spent:  thisTxs.filter(tx => tx.category === cat && isCountableExpense(tx)).reduce((s,tx) => s+Math.abs(tx.amount), 0),
+          budget: prevTxs.filter(tx => tx.category === cat && isCountableExpense(tx)).reduce((s,tx) => s+Math.abs(tx.amount), 0) * 1.1 || 0,
         })).filter(x => x.spent > 0 || x.budget > 0).slice(0, 4);
         return (
           <div style={wCard}>
@@ -2331,8 +2331,8 @@ function WidgetDashboard({ transactions, t, isDark, accent = "#4f8ef7", accounts
           const allCats = [...new Set(thisTxs.filter(isCountableExpense).map(t => t.category))];
           const budgetItems = allCats.map(cat => ({
             cat,
-            thisPeriod: thisTxs.filter(tx => tx.category === cat && tx.amount < 0).reduce((s,tx) => s+Math.abs(tx.amount), 0),
-            lastPeriod: prevTxs.filter(tx => tx.category === cat && tx.amount < 0).reduce((s,tx) => s+Math.abs(tx.amount), 0),
+            thisPeriod: thisTxs.filter(tx => tx.category === cat && isCountableExpense(tx)).reduce((s,tx) => s+Math.abs(tx.amount), 0),
+            lastPeriod: prevTxs.filter(tx => tx.category === cat && isCountableExpense(tx)).reduce((s,tx) => s+Math.abs(tx.amount), 0),
           })).sort((a,b) => b.thisPeriod - a.thisPeriod);
           content = (
             <>
@@ -2380,7 +2380,7 @@ function WidgetDashboard({ transactions, t, isDark, accent = "#4f8ef7", accounts
           const rows = months.map(m => ({
             month: fmtMonth(m, locale),
             income: transactions.filter(tx => tx.date.startsWith(m) && isCountableIncome(tx)).reduce((s,tx) => s+tx.amount, 0),
-            expenses: Math.abs(transactions.filter(tx => tx.date.startsWith(m) && tx.amount < 0).reduce((s,tx) => s+tx.amount, 0)),
+            expenses: Math.abs(transactions.filter(tx => tx.date.startsWith(m) && isCountableExpense(tx)).reduce((s,tx) => s+tx.amount, 0)),
           })).map(r => ({ ...r, savings: r.income - r.expenses }));
           const avgSavings = rows.length ? rows.reduce((s,r) => s+r.savings, 0) / rows.length : 0;
           content = (
@@ -2731,7 +2731,7 @@ function Overzicht({ transactions, t, accounts, selectedAccount, setSelectedAcco
                   .map(ym => {
                   const isActive = ym === currentMonth;
                   const mIncome   = filtered.filter(tx => tx.date.startsWith(ym) && isCountableIncome(tx)).reduce((s, tx) => s + tx.amount, 0);
-                  const mExpenses = filtered.filter(tx => tx.date.startsWith(ym) && tx.amount < 0).reduce((s, tx) => s + Math.abs(tx.amount), 0);
+                  const mExpenses = filtered.filter(tx => tx.date.startsWith(ym) && isCountableExpense(tx)).reduce((s, tx) => s + Math.abs(tx.amount), 0);
                   const net = mIncome - mExpenses;
                   return (
                     <button key={ym} ref={isActive ? activePillRef : null} onClick={() => setSelectedMonth(ym)}
@@ -2834,7 +2834,7 @@ function Overzicht({ transactions, t, accounts, selectedAccount, setSelectedAcco
                       onClick={(entry) => {
                         const cat = entry?.name;
                         if (!cat) return;
-                        const catTxs = thisMonthTxs.filter(tx => tx.category === cat && tx.amount < 0);
+                        const catTxs = thisMonthTxs.filter(tx => tx.category === cat && isCountableExpense(tx));
                         setDrawer({ title: t.categories[cat] || cat, subtitle: `${monthLabel} · ${catTxs.length} transacties`, transactions: catTxs });
                       }}
                       style={{ cursor: "pointer" }}>
@@ -2856,7 +2856,7 @@ function Overzicht({ transactions, t, accounts, selectedAccount, setSelectedAcco
                   {pieData.slice(0, 7).map(d => (
                     <div key={d.name}
                       onClick={() => {
-                        const catTxs = thisMonthTxs.filter(tx => tx.category === d.name && tx.amount < 0);
+                        const catTxs = thisMonthTxs.filter(tx => tx.category === d.name && isCountableExpense(tx));
                         setDrawer({ title: t.categories[d.name] || d.name, subtitle: `${monthLabel} · ${catTxs.length} transacties`, transactions: catTxs });
                       }}
                       onMouseEnter={() => setActiveCategory(d.name)}
@@ -7919,7 +7919,7 @@ function ExportView({ transactions, isDark }) {
       if (dateFrom && tx.date < dateFrom) return false;
       if (dateTo && tx.date > dateTo) return false;
       if (!includeIncome && isCountableIncome(tx)) return false;
-      if (!includeExpenses && tx.amount < 0) return false;
+      if (!includeExpenses && isCountableExpense(tx)) return false;
       return true;
     }).sort((a, b) => b.date.localeCompare(a.date));
   }, [transactions, dateFrom, dateTo, includeIncome, includeExpenses]);
@@ -8578,14 +8578,14 @@ function GoalsView({ transactions, isDark, useMockData = true, goals: appGoals, 
     // Calculate spending this month and last month per category
     const thisMonthSpent = useMemo(() => {
       const map = {};
-      transactions.filter(tx => tx.date.startsWith(currentMonth) && tx.amount < 0)
+      transactions.filter(tx => tx.date.startsWith(currentMonth) && isCountableExpense(tx))
         .forEach(tx => { map[tx.category] = (map[tx.category] || 0) + Math.abs(tx.amount); });
       return map;
     }, [transactions, currentMonth]);
 
     const lastMonthSpent = useMemo(() => {
       const map = {};
-      transactions.filter(tx => tx.date.startsWith(prevMonth) && tx.amount < 0)
+      transactions.filter(tx => tx.date.startsWith(prevMonth) && isCountableExpense(tx))
         .forEach(tx => { map[tx.category] = (map[tx.category] || 0) + Math.abs(tx.amount); });
       return map;
     }, [transactions, prevMonth]);
