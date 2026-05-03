@@ -643,7 +643,7 @@ function TransactionDrawer({ title, subtitle, transactions, allTransactions, isD
   const [catOverrides, setCatOverrides] = useState({});
   const [fuzzyKeys, setFuzzyKeys] = useState({}); // descKey → true if fuzzy enabled
 
-  const totalIncome = transactions.filter(tx => tx.amount > 0).reduce((s, tx) => s + tx.amount, 0);
+  const totalIncome = transactions.filter(tx => isCountableIncome(tx)).reduce((s, tx) => s + tx.amount, 0);
   const totalExpenses = transactions.filter(tx => tx.amount < 0).reduce((s, tx) => s + Math.abs(tx.amount), 0);
 
   // Count how many transactions in the FULL dataset match (exact or fuzzy)
@@ -1550,12 +1550,12 @@ function WidgetDashboard({ transactions, t, isDark, accent = "#4f8ef7", accounts
   const prevMonthStr = latestMonth ? (() => { const [y,m] = latestMonth.split("-").map(Number); return `${m===1?y-1:y}-${String(m===1?12:m-1).padStart(2,"0")}`; })() : "";
   const thisTxs = transactions.filter(tx => tx.date.startsWith(latestMonth));
   const prevTxs = transactions.filter(tx => tx.date.startsWith(prevMonthStr));
-  const income   = thisTxs.filter(tx => tx.amount > 0).reduce((s,tx) => s+tx.amount, 0);
+  const income   = thisTxs.filter(tx => isCountableIncome(tx)).reduce((s,tx) => s+tx.amount, 0);
   const expenses = thisTxs.filter(tx => tx.amount < 0).reduce((s,tx) => s+Math.abs(tx.amount), 0);
   const balance  = income - expenses;
-  const prevIncome = prevTxs.filter(tx => tx.amount > 0).reduce((s,tx) => s+tx.amount, 0);
+  const prevIncome = prevTxs.filter(tx => isCountableIncome(tx)).reduce((s,tx) => s+tx.amount, 0);
   const prevExpenses = prevTxs.filter(tx => tx.amount < 0).reduce((s,tx) => s+Math.abs(tx.amount), 0);
-  const totalSaldo = transactions.filter(tx => tx.amount > 0).reduce((s,tx) => s+tx.amount, 0) -
+  const totalSaldo = transactions.filter(tx => isCountableIncome(tx)).reduce((s,tx) => s+tx.amount, 0) -
                      transactions.filter(tx => tx.amount < 0).reduce((s,tx) => s+Math.abs(tx.amount), 0);
 
   const catData = useMemo(() => {
@@ -2021,7 +2021,7 @@ function WidgetDashboard({ transactions, t, isDark, accent = "#4f8ef7", accounts
         };
         const applyFilter = (arr) => {
           if (detailFilter === "af") return arr.filter(tx => tx.amount < 0);
-          if (detailFilter === "bij") return arr.filter(tx => tx.amount > 0);
+          if (detailFilter === "bij") return arr.filter(tx => isCountableIncome(tx));
           return arr;
         };
 
@@ -2122,7 +2122,7 @@ function WidgetDashboard({ transactions, t, isDark, accent = "#4f8ef7", accounts
         }
 
         else if (activeDetail === "d_income") {
-          const base = thisTxs.filter(tx => tx.amount > 0);
+          const base = thisTxs.filter(tx => isCountableIncome(tx));
           const incomeTxs = applySort(base);
           const topSource = base.length ? base.reduce((best, tx) => tx.amount > best.amount ? tx : best, base[0]) : null;
           content = (
@@ -2512,13 +2512,13 @@ function Overzicht({ transactions, t, accounts, selectedAccount, setSelectedAcco
     : filtered.filter(tx => tx.date.startsWith(currentMonth));
 
   const thisMonthTxs = periodTxs;
-  const income   = thisMonthTxs.filter(tx => tx.amount > 0).reduce((s, tx) => s + tx.amount, 0);
+  const income   = thisMonthTxs.filter(tx => isCountableIncome(tx)).reduce((s, tx) => s + tx.amount, 0);
   const expenses = thisMonthTxs.filter(tx => tx.amount < 0).reduce((s, tx) => s + Math.abs(tx.amount), 0);
-  const allIncome   = filtered.filter(tx => tx.amount > 0).reduce((s, tx) => s + tx.amount, 0);
+  const allIncome   = filtered.filter(tx => isCountableIncome(tx)).reduce((s, tx) => s + tx.amount, 0);
   const allExpenses = filtered.filter(tx => tx.amount < 0).reduce((s, tx) => s + Math.abs(tx.amount), 0);
 
   const prevMonthTxs = (!isMultiPeriod && prevMonthYM) ? filtered.filter(tx => tx.date.startsWith(prevMonthYM)) : [];
-  const prevIncome   = prevMonthTxs.filter(tx => tx.amount > 0).reduce((s, tx) => s + tx.amount, 0);
+  const prevIncome   = prevMonthTxs.filter(tx => isCountableIncome(tx)).reduce((s, tx) => s + tx.amount, 0);
   const prevExpenses = prevMonthTxs.filter(tx => tx.amount < 0).reduce((s, tx) => s + Math.abs(tx.amount), 0);
 
   const pillScrollRef = useRef(null);
@@ -2543,7 +2543,7 @@ function Overzicht({ transactions, t, accounts, selectedAccount, setSelectedAcco
       return {
         month: fmtMonthShort(ym),
         ym,
-        income:   parseFloat(txs.filter(tx => tx.amount > 0).reduce((s, tx) => s + tx.amount, 0).toFixed(2)),
+        income:   parseFloat(txs.filter(tx => isCountableIncome(tx)).reduce((s, tx) => s + tx.amount, 0).toFixed(2)),
         expenses: parseFloat(txs.filter(tx => tx.amount < 0).reduce((s, tx) => s + Math.abs(tx.amount), 0).toFixed(2)),
       };
     });
@@ -2787,7 +2787,7 @@ function Overzicht({ transactions, t, accounts, selectedAccount, setSelectedAcco
             <StatCard label={t.dashboard.netWorth} rawValue={allIncome - allExpenses} formatter={fmt} sub={lang === "nl" ? "Gecumuleerd saldo" : "Cumulative balance"} color="#4f8ef7" icon={Wallet} isDark={isDark}
               onClick={filtered.length > 0 ? () => setDrawer({ title: lang === "nl" ? "Alle transacties" : "All transactions", subtitle: `${filtered.length} ${t.overzicht.transactions} · ${t.dashboard.allTime}`, transactions: filtered }) : undefined} />
             <StatCard label={t.dashboard.totalIncome} rawValue={income} formatter={fmt} sub={monthLabel} color="#22c55e" icon={ArrowUpRight} trend={filtered.length > 0 ? calcTrend(income, prevIncome) : undefined} isDark={isDark}
-              onClick={filtered.length > 0 ? () => setDrawer({ title: t.general.income, subtitle: `${monthLabel} · ${thisMonthTxs.filter(tx => tx.amount > 0).length} transacties`, transactions: thisMonthTxs.filter(tx => tx.amount > 0) }) : undefined} />
+              onClick={filtered.length > 0 ? () => setDrawer({ title: t.general.income, subtitle: `${monthLabel} · ${thisMonthTxs.filter(tx => isCountableIncome(tx)).length} transacties`, transactions: thisMonthTxs.filter(tx => isCountableIncome(tx)) }) : undefined} />
             <StatCard label={t.dashboard.totalExpenses} rawValue={expenses} formatter={fmt} sub={monthLabel} color="#f43f5e" icon={ArrowDownRight} trend={filtered.length > 0 ? calcTrend(expenses, prevExpenses) : undefined} isDark={isDark}
               onClick={filtered.length > 0 ? () => setDrawer({ title: t.general.expenses, subtitle: `${monthLabel} · ${thisMonthTxs.filter(tx => tx.amount < 0).length} transacties`, transactions: thisMonthTxs.filter(tx => tx.amount < 0) }) : undefined} />
             <StatCard label={t.dashboard.monthlyBalance} rawValue={income - expenses} formatter={fmt} sub={monthLabel} color="#a855f7" icon={Activity} trend={filtered.length > 0 ? calcTrend(income - expenses, prevIncome - prevExpenses) : undefined} isDark={isDark}
@@ -5386,7 +5386,7 @@ function Insights({ transactions, t, isDark, recurringItems = [], lang = "nl", a
       const txs = transactions.filter(tx => tx.date.startsWith(m));
       return {
         month: fmtMonthShort(m),
-        income: Math.round(txs.filter(tx => tx.amount > 0).reduce((s,tx) => s + tx.amount, 0)),
+        income: Math.round(txs.filter(tx => isCountableIncome(tx)).reduce((s,tx) => s + tx.amount, 0)),
         expenses: Math.round(txs.filter(tx => tx.amount < 0).reduce((s,tx) => s + Math.abs(tx.amount), 0)),
       };
     });
@@ -7924,7 +7924,7 @@ function ExportView({ transactions, isDark }) {
     }).sort((a, b) => b.date.localeCompare(a.date));
   }, [transactions, dateFrom, dateTo, includeIncome, includeExpenses]);
 
-  const totalIncome = filtered.filter(tx => tx.amount > 0).reduce((s, tx) => s + tx.amount, 0);
+  const totalIncome = filtered.filter(tx => isCountableIncome(tx)).reduce((s, tx) => s + tx.amount, 0);
   const totalExpenses = filtered.filter(tx => tx.amount < 0).reduce((s, tx) => s + Math.abs(tx.amount), 0);
 
   const exportCSV = () => {
