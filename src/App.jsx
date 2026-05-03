@@ -11027,19 +11027,24 @@ function BerichtenChat({ isDark, user, otherUserId, otherName, clientUserId }) {
       setLoading(true);
       const { data } = await supabase.from('berichten').select('*').eq('client_user_id', clientUserId).order('created_at', { ascending: true });
       setMsgs(data || []);
-      const { data: updated } = await supabase
+      // Markeer als gelezen. Returns array van geupdate id's (kan leeg zijn als
+      // alles al gelezen was, of als RLS de update silently blokkeert).
+      const { data: updated, error: updErr } = await supabase
         .from('berichten')
         .update({ gelezen: true })
         .eq('client_user_id', clientUserId)
         .eq('to_user_id', user.id)
         .eq('gelezen', false)
         .select('id');
+      if (updErr) console.warn('[Dynafy] mark-as-read mislukt:', updErr.message);
       setLoading(false);
-      // Fallback voor wanneer Supabase realtime niet enabled is op de berichten-tabel:
-      // een custom event triggert refresh van counts in App + BoekhouderPortal.
-      if ((updated || []).length > 0) {
-        window.dispatchEvent(new CustomEvent('dynafy:berichten-read', { detail:{ count: updated.length, clientUserId } }));
-      }
+      // ALTIJD het event vuren — ook als 0 rijen updaten. Op die manier triggert
+      // het ook een refetch in andere views (klantentabel, conversations) die
+      // mogelijk een oude/foute count hebben gecached door RLS-edge-cases of
+      // missing realtime publication.
+      window.dispatchEvent(new CustomEvent('dynafy:berichten-read', {
+        detail: { count: (updated || []).length, clientUserId }
+      }));
     })();
   }, [user?.id, clientUserId]);
 
