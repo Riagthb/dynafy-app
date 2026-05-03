@@ -644,7 +644,7 @@ function TransactionDrawer({ title, subtitle, transactions, allTransactions, isD
   const [fuzzyKeys, setFuzzyKeys] = useState({}); // descKey → true if fuzzy enabled
 
   const totalIncome = transactions.filter(tx => isCountableIncome(tx)).reduce((s, tx) => s + tx.amount, 0);
-  const totalExpenses = transactions.filter(tx => tx.amount < 0).reduce((s, tx) => s + Math.abs(tx.amount), 0);
+  const totalExpenses = transactions.filter(tx => isCountableExpense(tx)).reduce((s, tx) => s + Math.abs(tx.amount), 0);
 
   // Count how many transactions in the FULL dataset match (exact or fuzzy)
   const getMatchCount = (descKey, useFuzzy) => {
@@ -1130,7 +1130,7 @@ function StatCard({ label, value, rawValue, formatter, sub, color = "#4f8ef7", i
 function CategoryPie({ transactions, t, isDark = true }) {
   const data = useMemo(() => {
     const map = {};
-    transactions.filter(tx => tx.amount < 0).forEach(tx => {
+    transactions.filter(tx => isCountableExpense(tx)).forEach(tx => {
       const key = tx.category;
       map[key] = (map[key] || 0) + Math.abs(tx.amount);
     });
@@ -1551,16 +1551,16 @@ function WidgetDashboard({ transactions, t, isDark, accent = "#4f8ef7", accounts
   const thisTxs = transactions.filter(tx => tx.date.startsWith(latestMonth));
   const prevTxs = transactions.filter(tx => tx.date.startsWith(prevMonthStr));
   const income   = thisTxs.filter(tx => isCountableIncome(tx)).reduce((s,tx) => s+tx.amount, 0);
-  const expenses = thisTxs.filter(tx => tx.amount < 0).reduce((s,tx) => s+Math.abs(tx.amount), 0);
+  const expenses = thisTxs.filter(tx => isCountableExpense(tx)).reduce((s,tx) => s+Math.abs(tx.amount), 0);
   const balance  = income - expenses;
   const prevIncome = prevTxs.filter(tx => isCountableIncome(tx)).reduce((s,tx) => s+tx.amount, 0);
-  const prevExpenses = prevTxs.filter(tx => tx.amount < 0).reduce((s,tx) => s+Math.abs(tx.amount), 0);
+  const prevExpenses = prevTxs.filter(tx => isCountableExpense(tx)).reduce((s,tx) => s+Math.abs(tx.amount), 0);
   const totalSaldo = transactions.filter(tx => isCountableIncome(tx)).reduce((s,tx) => s+tx.amount, 0) -
-                     transactions.filter(tx => tx.amount < 0).reduce((s,tx) => s+Math.abs(tx.amount), 0);
+                     transactions.filter(tx => isCountableExpense(tx)).reduce((s,tx) => s+Math.abs(tx.amount), 0);
 
   const catData = useMemo(() => {
     const map = {};
-    thisTxs.filter(tx => tx.amount < 0).forEach(tx => { map[tx.category] = (map[tx.category]||0) + Math.abs(tx.amount); });
+    thisTxs.filter(tx => isCountableExpense(tx)).forEach(tx => { map[tx.category] = (map[tx.category]||0) + Math.abs(tx.amount); });
     return Object.entries(map).sort((a,b) => b[1]-a[1]).slice(0, 5).map(([name, value]) => ({ name, value }));
   }, [thisTxs]);
 
@@ -2020,7 +2020,7 @@ function WidgetDashboard({ transactions, t, isDark, accent = "#4f8ef7", accounts
           return s;
         };
         const applyFilter = (arr) => {
-          if (detailFilter === "af") return arr.filter(tx => tx.amount < 0);
+          if (detailFilter === "af") return arr.filter(tx => isCountableExpense(tx));
           if (detailFilter === "bij") return arr.filter(tx => isCountableIncome(tx));
           return arr;
         };
@@ -2140,7 +2140,7 @@ function WidgetDashboard({ transactions, t, isDark, accent = "#4f8ef7", accounts
         }
 
         else if (activeDetail === "d_expenses") {
-          const base = thisTxs.filter(tx => tx.amount < 0);
+          const base = thisTxs.filter(tx => isCountableExpense(tx));
           const expenseTxs = applySort(base);
           const highestExp = base.length ? base.reduce((m,tx) => Math.abs(tx.amount) > Math.abs(m.amount) ? tx : m, base[0]) : null;
           content = (
@@ -2158,7 +2158,7 @@ function WidgetDashboard({ transactions, t, isDark, accent = "#4f8ef7", accounts
         }
 
         else if (activeDetail === "spending" || activeDetail === "topcat") {
-          const spendTxs = thisTxs.filter(tx => tx.amount < 0).sort((a,b) => a.amount - b.amount);
+          const spendTxs = thisTxs.filter(tx => isCountableExpense(tx)).sort((a,b) => a.amount - b.amount);
           const cats = {};
           spendTxs.forEach(tx => { const c = tx.category || "other"; if (!cats[c]) cats[c] = { total: 0, txs: [] }; cats[c].total += Math.abs(tx.amount); cats[c].txs.push(tx); });
           const catList = Object.entries(cats).sort((a,b) => b[1].total - a[1].total);
@@ -2513,13 +2513,13 @@ function Overzicht({ transactions, t, accounts, selectedAccount, setSelectedAcco
 
   const thisMonthTxs = periodTxs;
   const income   = thisMonthTxs.filter(tx => isCountableIncome(tx)).reduce((s, tx) => s + tx.amount, 0);
-  const expenses = thisMonthTxs.filter(tx => tx.amount < 0).reduce((s, tx) => s + Math.abs(tx.amount), 0);
+  const expenses = thisMonthTxs.filter(tx => isCountableExpense(tx)).reduce((s, tx) => s + Math.abs(tx.amount), 0);
   const allIncome   = filtered.filter(tx => isCountableIncome(tx)).reduce((s, tx) => s + tx.amount, 0);
-  const allExpenses = filtered.filter(tx => tx.amount < 0).reduce((s, tx) => s + Math.abs(tx.amount), 0);
+  const allExpenses = filtered.filter(tx => isCountableExpense(tx)).reduce((s, tx) => s + Math.abs(tx.amount), 0);
 
   const prevMonthTxs = (!isMultiPeriod && prevMonthYM) ? filtered.filter(tx => tx.date.startsWith(prevMonthYM)) : [];
   const prevIncome   = prevMonthTxs.filter(tx => isCountableIncome(tx)).reduce((s, tx) => s + tx.amount, 0);
-  const prevExpenses = prevMonthTxs.filter(tx => tx.amount < 0).reduce((s, tx) => s + Math.abs(tx.amount), 0);
+  const prevExpenses = prevMonthTxs.filter(tx => isCountableExpense(tx)).reduce((s, tx) => s + Math.abs(tx.amount), 0);
 
   const pillScrollRef = useRef(null);
   const activePillRef = useRef(null);
@@ -2544,7 +2544,7 @@ function Overzicht({ transactions, t, accounts, selectedAccount, setSelectedAcco
         month: fmtMonthShort(ym),
         ym,
         income:   parseFloat(txs.filter(tx => isCountableIncome(tx)).reduce((s, tx) => s + tx.amount, 0).toFixed(2)),
-        expenses: parseFloat(txs.filter(tx => tx.amount < 0).reduce((s, tx) => s + Math.abs(tx.amount), 0).toFixed(2)),
+        expenses: parseFloat(txs.filter(tx => isCountableExpense(tx)).reduce((s, tx) => s + Math.abs(tx.amount), 0).toFixed(2)),
       };
     });
   }, [filtered, allMonths]);
@@ -2789,7 +2789,7 @@ function Overzicht({ transactions, t, accounts, selectedAccount, setSelectedAcco
             <StatCard label={t.dashboard.totalIncome} rawValue={income} formatter={fmt} sub={monthLabel} color="#22c55e" icon={ArrowUpRight} trend={filtered.length > 0 ? calcTrend(income, prevIncome) : undefined} isDark={isDark}
               onClick={filtered.length > 0 ? () => setDrawer({ title: t.general.income, subtitle: `${monthLabel} · ${thisMonthTxs.filter(tx => isCountableIncome(tx)).length} transacties`, transactions: thisMonthTxs.filter(tx => isCountableIncome(tx)) }) : undefined} />
             <StatCard label={t.dashboard.totalExpenses} rawValue={expenses} formatter={fmt} sub={monthLabel} color="#f43f5e" icon={ArrowDownRight} trend={filtered.length > 0 ? calcTrend(expenses, prevExpenses) : undefined} isDark={isDark}
-              onClick={filtered.length > 0 ? () => setDrawer({ title: t.general.expenses, subtitle: `${monthLabel} · ${thisMonthTxs.filter(tx => tx.amount < 0).length} transacties`, transactions: thisMonthTxs.filter(tx => tx.amount < 0) }) : undefined} />
+              onClick={filtered.length > 0 ? () => setDrawer({ title: t.general.expenses, subtitle: `${monthLabel} · ${thisMonthTxs.filter(tx => isCountableExpense(tx)).length} transacties`, transactions: thisMonthTxs.filter(tx => isCountableExpense(tx)) }) : undefined} />
             <StatCard label={t.dashboard.monthlyBalance} rawValue={income - expenses} formatter={fmt} sub={monthLabel} color="#a855f7" icon={Activity} trend={filtered.length > 0 ? calcTrend(income - expenses, prevIncome - prevExpenses) : undefined} isDark={isDark}
               onClick={filtered.length > 0 ? () => setDrawer({ title: lang === "nl" ? "Maandoverzicht" : "Monthly overview", subtitle: monthLabel, transactions: thisMonthTxs }) : undefined} />
           </>
@@ -2805,7 +2805,7 @@ function Overzicht({ transactions, t, accounts, selectedAccount, setSelectedAcco
           <div style={{ fontSize: 11, color: isDark ? "#334155" : "#94a3b8", marginBottom: 14 }}>{monthLabel} · klik een categorie voor detail</div>
           {(() => {
             const map = {};
-            thisMonthTxs.filter(tx => tx.amount < 0).forEach(tx => {
+            thisMonthTxs.filter(tx => isCountableExpense(tx)).forEach(tx => {
               map[tx.category] = (map[tx.category] || 0) + Math.abs(tx.amount);
             });
             const pieData = Object.entries(map).map(([name, value]) => ({ name, value: parseFloat(value.toFixed(2)) }));
@@ -2908,7 +2908,7 @@ function Overzicht({ transactions, t, accounts, selectedAccount, setSelectedAcco
         <div style={{ fontSize: 11, color: isDark ? "#334155" : "#94a3b8", marginBottom: 14 }}>{monthLabel} — uitgaven per dag</div>
         {(() => {
           const dayMap = {};
-          thisMonthTxs.filter(tx => tx.amount < 0).forEach(tx => {
+          thisMonthTxs.filter(tx => isCountableExpense(tx)).forEach(tx => {
             const day = tx.date.slice(8, 10);
             dayMap[day] = (dayMap[day] || 0) + Math.abs(tx.amount);
           });
@@ -5360,7 +5360,7 @@ function Insights({ transactions, t, isDark, recurringItems = [], lang = "nl", a
   // ── Category breakdown ──────────────────────────────────────
   const catBreakdown = useMemo(() => {
     const map = {};
-    thisMonthTxs.filter(tx => tx.amount < 0).forEach(tx => {
+    thisMonthTxs.filter(tx => isCountableExpense(tx)).forEach(tx => {
       map[tx.category] = (map[tx.category] || 0) + Math.abs(tx.amount);
     });
     return Object.entries(map).sort((a,b) => b[1]-a[1]).slice(0, 8);
@@ -5369,7 +5369,7 @@ function Insights({ transactions, t, isDark, recurringItems = [], lang = "nl", a
   // ── Top tegenpartijen ──────────────────────────────────────
   const topCounterparties = useMemo(() => {
     const map = {};
-    thisMonthTxs.filter(tx => tx.amount < 0 && tx.counterparty).forEach(tx => {
+    thisMonthTxs.filter(tx => isCountableExpense(tx) && tx.counterparty).forEach(tx => {
       map[tx.counterparty] = (map[tx.counterparty] || 0) + Math.abs(tx.amount);
     });
     return Object.entries(map).sort((a,b) => b[1]-a[1]).slice(0, 5);
@@ -5377,7 +5377,7 @@ function Insights({ transactions, t, isDark, recurringItems = [], lang = "nl", a
 
   // ── Grootste transacties ──────────────────────────────────
   const biggestTxs = useMemo(() =>
-    [...thisMonthTxs].filter(tx => tx.amount < 0).sort((a,b) => a.amount - b.amount).slice(0, 5)
+    [...thisMonthTxs].filter(tx => isCountableExpense(tx)).sort((a,b) => a.amount - b.amount).slice(0, 5)
   , [thisMonthTxs]);
 
   // ── Maandtrend (laatste 6 maanden) ────────────────────────
@@ -5387,7 +5387,7 @@ function Insights({ transactions, t, isDark, recurringItems = [], lang = "nl", a
       return {
         month: fmtMonthShort(m),
         income: Math.round(txs.filter(tx => isCountableIncome(tx)).reduce((s,tx) => s + tx.amount, 0)),
-        expenses: Math.round(txs.filter(tx => tx.amount < 0).reduce((s,tx) => s + Math.abs(tx.amount), 0)),
+        expenses: Math.round(txs.filter(tx => isCountableExpense(tx)).reduce((s,tx) => s + Math.abs(tx.amount), 0)),
       };
     });
   }, [txFiltered, allMonths]);
@@ -7152,7 +7152,7 @@ function detectRecurring(transactions) {
 
   // ── Pass 1: Group by counterparty (most reliable) ──────────────
   const byCounterparty = {};
-  transactions.filter(tx => tx.amount < 0 && tx.category !== "income").forEach(tx => {
+  transactions.filter(tx => isCountableExpense(tx) && tx.category !== "income").forEach(tx => {
     if (!tx.counterparty || tx.counterparty.length < 3) return;
     const key = tx.counterparty.trim().toLowerCase();
     if (!byCounterparty[key]) byCounterparty[key] = [];
@@ -7191,7 +7191,7 @@ function detectRecurring(transactions) {
 
   // ── Pass 2: Group remaining txs by description ─────────────────
   const byDescription = {};
-  transactions.filter(tx => tx.amount < 0 && tx.category !== "income" && !usedTxIds.has(tx.id)).forEach(tx => {
+  transactions.filter(tx => isCountableExpense(tx) && tx.category !== "income" && !usedTxIds.has(tx.id)).forEach(tx => {
     const key = tx.description.trim().toLowerCase();
     if (!byDescription[key]) byDescription[key] = [];
     byDescription[key].push(tx);
@@ -7274,7 +7274,7 @@ function VasteLasten({ transactions, recurringItems, setRecurringItems, isDark, 
     const q = searchQ.toLowerCase();
     const seen = new Set();
     return accountTxs
-      .filter(tx => tx.amount < 0 && (tx.description.toLowerCase().includes(q)))
+      .filter(tx => isCountableExpense(tx) && (tx.description.toLowerCase().includes(q)))
       .filter(tx => { const k = tx.description.trim().toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; })
       .slice(0, 8);
   }, [searchQ, accountTxs]);
@@ -7925,7 +7925,7 @@ function ExportView({ transactions, isDark }) {
   }, [transactions, dateFrom, dateTo, includeIncome, includeExpenses]);
 
   const totalIncome = filtered.filter(tx => isCountableIncome(tx)).reduce((s, tx) => s + tx.amount, 0);
-  const totalExpenses = filtered.filter(tx => tx.amount < 0).reduce((s, tx) => s + Math.abs(tx.amount), 0);
+  const totalExpenses = filtered.filter(tx => isCountableExpense(tx)).reduce((s, tx) => s + Math.abs(tx.amount), 0);
 
   const exportCSV = () => {
     setExporting("csv");
