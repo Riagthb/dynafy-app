@@ -11049,17 +11049,27 @@ function BerichtenChat({ isDark, user, otherUserId, otherName, clientUserId }) {
   }, [user?.id, clientUserId]);
 
   // Auto-scroll naar onder bij nieuwe berichten / eerste load.
+  // Dubbele requestAnimationFrame wacht tot de browser daadwerkelijk
+  // het nieuwe layout heeft berekend — zonder dit kan scrollHeight nog
+  // de oude (kleinere) waarde teruggeven en blijft de chat bovenaan.
   useEffect(() => {
-    const el = scrollContainerRef.current;
-    if (!el || msgs.length === 0) return;
-    if (isFirstLoadRef.current) {
-      // Eerste render: instant naar onder zonder smooth-animatie
-      el.scrollTop = el.scrollHeight;
-      isFirstLoadRef.current = false;
-    } else {
-      // Daarna: smooth voor nieuwe berichten
-      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-    }
+    if (msgs.length === 0) return;
+    const wasFirstLoad = isFirstLoadRef.current;
+    if (wasFirstLoad) isFirstLoadRef.current = false;
+
+    let raf1, raf2;
+    raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        const el = scrollContainerRef.current;
+        if (!el) return;
+        if (wasFirstLoad) {
+          el.scrollTop = el.scrollHeight; // instant bij eerste load / chat-switch
+        } else {
+          el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+        }
+      });
+    });
+    return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
   }, [msgs]);
 
   const send = async (withNotification = false) => {
@@ -11976,7 +11986,7 @@ function BoekhouderPortal({ isDark, user, clientLinks: initialLinks, unreadMsgCo
                     </div>
 
                     {/* Chat */}
-                    <div style={{ flex:1, padding:'12px 24px', overflowY:'auto', minHeight:0 }}>
+                    <div style={{ flex:1, padding:'12px 24px', minHeight:0, display:'flex' }}>
                       <BerichtenChat
                         key={activeConv.client_user_id}
                         isDark={isDark}
