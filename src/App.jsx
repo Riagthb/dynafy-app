@@ -15027,7 +15027,7 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted, onImpersonate
       {/* Users table */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 18, overflow: 'hidden' }}>
         {/* Table header */}
-        <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr 160px 140px 100px 110px 110px 110px', padding: '12px 20px', borderBottom: `1px solid ${C.border}`, background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', alignItems:'center' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr 160px 140px 100px 130px 110px 110px 110px', padding: '12px 20px', borderBottom: `1px solid ${C.border}`, background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', alignItems:'center' }}>
           {/* Select all checkbox */}
           <div onClick={() => {
             if (selected.size === filtered.length) setSelected(new Set());
@@ -15050,7 +15050,7 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted, onImpersonate
           const plan = profile.plan || 'normal';
           return (
           <div key={profile.id} style={{
-            display: 'grid', gridTemplateColumns: '40px 1fr 160px 140px 100px 110px 110px 110px',
+            display: 'grid', gridTemplateColumns: '40px 1fr 160px 140px 100px 130px 110px 110px 110px',
             padding: '13px 20px', alignItems: 'center',
             borderBottom: i < filtered.length - 1 ? `1px solid ${C.border}` : 'none',
             opacity: profile.disabled ? 0.55 : 1,
@@ -15110,6 +15110,52 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted, onImpersonate
               <span style={{ padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: profile.disabled ? 'rgba(244,63,94,0.12)' : 'rgba(34,197,94,0.12)', color: profile.disabled ? '#f43f5e' : '#22c55e' }}>
                 {profile.disabled ? 'Geblokkeerd' : 'Actief'}
               </span>
+            </div>
+
+            {/* Billing — Mollie subscription status (alleen relevant bij betaalde plannen) */}
+            <div>
+              {(() => {
+                const sub = profile.subscription;
+                const paidPlan = profile.plan && profile.plan !== 'normal';
+                if (!sub) {
+                  // Geen subscription-rij. Twee gevallen:
+                  //  - Plan is 'normal' → geen abonnement nodig, toon "—"
+                  //  - Plan is paid maar geen sub → handmatig opgewaardeerd of legacy
+                  if (!paidPlan) return <span style={{ fontSize: 12, color: C.muted }}>—</span>;
+                  return (
+                    <span title="Geen Mollie-subscription gevonden — handmatig opgewaardeerd of legacy"
+                      style={{ padding:'3px 8px', borderRadius:16, fontSize:11, fontWeight:700, color:'#94a3b8', background:'rgba(148,163,184,0.12)', border:'1px solid rgba(148,163,184,0.2)' }}>
+                      Handmatig
+                    </span>
+                  );
+                }
+                const meta = ({
+                  active:    { label: '✓ Actief',    color: '#22c55e' },
+                  past_due:  { label: '⚠ Past due',  color: '#f43f5e' },
+                  cancelled: { label: 'Opgezegd',    color: '#f59e0b' },
+                  expired:   { label: 'Verlopen',    color: '#94a3b8' },
+                  pending:   { label: 'Pending',     color: '#94a3b8' },
+                  failed:    { label: '✕ Mislukt',   color: '#f43f5e' },
+                })[sub.status] || { label: sub.status, color: C.muted };
+                const periodEnd = sub.current_period_end ? new Date(sub.current_period_end) : null;
+                const dateLabel = periodEnd ? periodEnd.toLocaleDateString('nl-NL', { day:'numeric', month:'short' }) : '';
+                const sublabel =
+                  sub.status === 'active'    ? `vol. ${dateLabel}`   :
+                  sub.status === 'cancelled' ? `t/m ${dateLabel}`    :
+                  sub.status === 'past_due'  ? 'incasso gefaald'      :
+                  sub.status === 'pending'   ? 'wacht op betaling'    :
+                  '';
+                return (
+                  <div>
+                    <span style={{ padding:'3px 8px', borderRadius:16, fontSize:11, fontWeight:700, color:meta.color, background:`${meta.color}18`, border:`1px solid ${meta.color}35`, display:'inline-block', whiteSpace:'nowrap' }}>
+                      {meta.label}
+                    </span>
+                    {sublabel && (
+                      <div style={{ fontSize:10, color:C.muted, marginTop:3 }}>{sublabel}</div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Joined */}
