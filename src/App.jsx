@@ -2939,6 +2939,139 @@ function Overzicht({ transactions, t, accounts, selectedAccount, setSelectedAcco
   );
 }
 
+// ─── MARKEER ALS OVERBOEKING (retro-fit modal) ─────────────────
+// Klant klikt op de transfer-knop bij een transactie → dit modal toont
+// match-kandidaten: andere tx van dezelfde user met (a) omgekeerd bedrag,
+// (b) binnen ±7 dagen, (c) andere rekening, (d) niet zelf al een transfer.
+// Bij selectie krijgen beide rijen is_transfer=true en dezelfde
+// transfer_pair_id (UUID via crypto.randomUUID()). De debounced sync
+// useEffect lager in App pushed dit naar Supabase.
+function MarkAsTransferModal({ tx, transactions, setTransactions, isDark, onClose }) {
+  const C = { card: isDark?'#0f1e36':'#fff', border: isDark?'rgba(255,255,255,0.08)':'#e2e8f0', text: isDark?'#f1f5f9':'#0f172a', muted: isDark?'#64748b':'#94a3b8', rowBg: isDark?'rgba(255,255,255,0.03)':'#f8fafc' };
+
+  const candidates = useMemo(() => {
+    if (!tx) return [];
+    const txDate = new Date(tx.date).getTime();
+    return transactions
+      .filter(other =>
+        other.id !== tx.id &&
+        !other.is_transfer &&
+        Math.abs(other.amount + tx.amount) < 0.01 &&         // exact omgekeerd
+        Math.abs(new Date(other.date).getTime() - txDate) < 7 * 86400000 && // ±7d
+        (other.account || '') !== (tx.account || '')         // andere rekening
+      )
+      .sort((a, b) => Math.abs(new Date(a.date).getTime() - txDate) - Math.abs(new Date(b.date).getTime() - txDate));
+  }, [tx, transactions]);
+
+  if (!tx) return null;
+
+  const fmt = (n) => '€ ' + Math.abs(Number(n||0)).toLocaleString('nl-NL', { minimumFractionDigits:2, maximumFractionDigits:2 });
+  const fmtDate = (d) => new Date(d).toLocaleDateString('nl-NL', { day:'numeric', month:'short' });
+
+  const linkPair = (other) => {
+    // UUID v4 — gebruik crypto.randomUUID waar beschikbaar (modern), anders polyfill.
+    const pairId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+          const r = (Math.random() * 16) | 0;
+          return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+        });
+    setTransactions(prev => prev.map(t =>
+      (t.id === tx.id || t.id === other.id)
+        ? { ...t, is_transfer: true, transfer_pair_id: pairId, category: 'transfer' }
+        : t
+    ));
+    onClose();
+  };
+
+  const unlink = () => {
+    if (!confirm('Markeer deze transactie weer als gewone in/uit-boeking?')) return;
+    const pairId = tx.transfer_pair_id;
+    setTransactions(prev => prev.map(t => {
+      if (t.id === tx.id || (pairId && t.transfer_pair_id === pairId)) {
+        const { is_transfer, transfer_pair_id, ...rest } = t;
+        return { ...rest, is_transfer: false, transfer_pair_id: null };
+      }
+      return t;
+    }));
+    onClose();
+  };
+
+  const isTransfer = !!tx.is_transfer;
+
+  return (
+    <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999, padding:20 }}>
+      <div onClick={e => e.stopPropagation()} style={{ width:'100%', maxWidth:520, background:C.card, border:`1px solid ${C.border}`, borderRadius:18, padding:'24px 26px', boxShadow: isDark?'0 8px 32px rgba(0,0,0,0.4)':'0 8px 32px rgba(0,0,0,0.08)', maxHeight:'88vh', overflowY:'auto' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
+          <Repeat size={16} color="#a855f7"/>
+          <div style={{ fontSize:16, fontWeight:800, color:C.text }}>
+            {isTransfer ? 'Interne overboeking — gekoppeld' : 'Markeer als interne overboeking'}
+          </div>
+        </div>
+        <div style={{ fontSize:12, color:C.muted, marginBottom:14 }}>
+          {isTransfer
+            ? 'Deze transactie is gekoppeld aan een andere transactie en telt niet mee in income/expense totalen.'
+            : 'Selecteer de tegenboeking — de andere transactie van dezelfde overboeking. Beide rijen worden uitgesloten van income/expense totalen.'}
+        </div>
+
+        {/* Source-tx */}
+        <div style={{ padding:'12px 14px', background:C.rowBg, border:`1px solid ${C.border}`, borderRadius:10, marginBottom:14 }}>
+          <div style={{ fontSize:10, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:4 }}>Deze transactie</div>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontSize:13, fontWeight:700, color:C.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{tx.description || '(geen omschrijving)'}</div>
+              <div style={{ fontSize:11, color:C.muted, marginTop:1 }}>{fmtDate(tx.date)} · {tx.account || '—'}</div>
+            </div>
+            <div style={{ fontSize:14, fontWeight:800, fontFamily:"'DM Mono',monospace", color: tx.amount<0?'#f43f5e':'#22c55e' }}>
+              {tx.amount<0?'−':'+'}{fmt(tx.amount)}
+            </div>
+          </div>
+        </div>
+
+        {isTransfer ? (
+          <button onClick={unlink}
+            style={{ width:'100%', padding:'12px', borderRadius:11, border:'1px solid rgba(244,63,94,0.3)', background:'transparent', color:'#f43f5e', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
+            Ontkoppelen — terug naar gewone in/uit-boeking
+          </button>
+        ) : candidates.length === 0 ? (
+          <div style={{ padding:'24px 16px', textAlign:'center', background:C.rowBg, border:`1px dashed ${C.border}`, borderRadius:10, color:C.muted, fontSize:13 }}>
+            Geen passende tegen-transactie gevonden binnen ±7 dagen op een andere rekening met exact het omgekeerde bedrag. Voer hem handmatig in als je hem mist.
+          </div>
+        ) : (
+          <>
+            <div style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:8 }}>
+              Mogelijke tegenboekingen ({candidates.length})
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              {candidates.map(c => (
+                <button key={c.id} onClick={() => linkPair(c)}
+                  style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderRadius:10, background:C.rowBg, border:`1px solid ${C.border}`, cursor:'pointer', textAlign:'left', fontFamily:'inherit', transition:'all 0.12s' }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor='#a855f7'; e.currentTarget.style.background= isDark?'rgba(168,85,247,0.08)':'rgba(168,85,247,0.05)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor=C.border; e.currentTarget.style.background=C.rowBg; }}>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:13, fontWeight:700, color:C.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.description || '(geen omschrijving)'}</div>
+                    <div style={{ fontSize:11, color:C.muted, marginTop:1 }}>{fmtDate(c.date)} · {c.account || '—'}</div>
+                  </div>
+                  <div style={{ fontSize:14, fontWeight:800, fontFamily:"'DM Mono',monospace", color: c.amount<0?'#f43f5e':'#22c55e' }}>
+                    {c.amount<0?'−':'+'}{fmt(c.amount)}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
+        <div style={{ display:'flex', justifyContent:'flex-end', marginTop:16 }}>
+          <button onClick={onClose}
+            style={{ padding:'9px 18px', borderRadius:10, border:`1px solid ${C.border}`, background:'transparent', color:C.muted, fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
+            Sluiten
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── TRANSACTIONS VIEW ─────────────────────────────────────────
 function Transactions({ transactions, setTransactions, t, accounts, setAccounts, isDark, onImportDone, lang = "nl", selectedAccount, setSelectedAccount }) {
   const [search, setSearch] = useState("");
@@ -2950,6 +3083,7 @@ function Transactions({ transactions, setTransactions, t, accounts, setAccounts,
   const [editCat, setEditCat] = useState(null);
   const [inlineCatInput, setInlineCatInput] = useState(null); // tx.id when adding new cat inline
   const [inlineCatVal, setInlineCatVal] = useState("");
+  const [transferTx, setTransferTx] = useState(null); // tx waarvoor MarkAsTransferModal openstaat
 
   const addInlineCat = (txId) => {
     if (!inlineCatVal.trim()) return;
@@ -3019,6 +3153,7 @@ function Transactions({ transactions, setTransactions, t, accounts, setAccounts,
   return (
     <div>
       {showUpload && <CSVModal onClose={() => setShowUpload(false)} onImport={(txs, importedAccounts) => handleImport(txs, importedAccounts)} t={t} accounts={accounts} setAccounts={setAccounts} isDark={isDark} />}
+      {transferTx && <MarkAsTransferModal tx={transferTx} transactions={transactions} setTransactions={setTransactions} isDark={isDark} onClose={() => setTransferTx(null)} />}
 
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
@@ -3202,11 +3337,23 @@ function Transactions({ transactions, setTransactions, t, accounts, setAccounts,
                       <option disabled>──────────</option>
                       <option value="__new__">+ Nieuwe categorie...</option>
                     </select>
+                  ) : tx.is_transfer ? (
+                    <div onClick={() => setTransferTx(tx)} title="Bekijk / ontkoppel overboeking"
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 8, background: "rgba(148,163,184,0.15)", cursor: "pointer", fontSize: 12, color: "#94a3b8", fontWeight: 600, whiteSpace: "nowrap", border: "1px solid rgba(148,163,184,0.25)" }}>
+                      <Repeat size={11} style={{ flexShrink: 0 }} />
+                      Overboeking
+                    </div>
                   ) : (
-                    <div onClick={() => setEditCat(tx.id)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 8, background: `${CATEGORY_COLORS[tx.category] || "#334155"}20`, cursor: "pointer", fontSize: 12, color: CATEGORY_COLORS[tx.category] || "#64748b", fontWeight: 600, whiteSpace: "nowrap" }}>
-                      <div style={{ width: 6, height: 6, borderRadius: 2, background: CATEGORY_COLORS[tx.category] || "#64748b", flexShrink: 0 }} />
-                      {t.categories[tx.category] || tx.category}
-                      <Edit2 size={10} style={{ opacity: 0.5, flexShrink: 0 }} />
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      <div onClick={() => setEditCat(tx.id)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 8, background: `${CATEGORY_COLORS[tx.category] || "#334155"}20`, cursor: "pointer", fontSize: 12, color: CATEGORY_COLORS[tx.category] || "#64748b", fontWeight: 600, whiteSpace: "nowrap" }}>
+                        <div style={{ width: 6, height: 6, borderRadius: 2, background: CATEGORY_COLORS[tx.category] || "#64748b", flexShrink: 0 }} />
+                        {t.categories[tx.category] || tx.category}
+                        <Edit2 size={10} style={{ opacity: 0.5, flexShrink: 0 }} />
+                      </div>
+                      <button onClick={() => setTransferTx(tx)} title="Markeer als interne overboeking"
+                        style={{ width: 22, height: 22, borderRadius: 6, background: "transparent", border: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "#e2e6ed"}`, color: isDark ? "#64748b" : "#94a3b8", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, padding: 0 }}>
+                        <Repeat size={11}/>
+                      </button>
                     </div>
                   )}
                 </td>
@@ -3216,7 +3363,7 @@ function Transactions({ transactions, setTransactions, t, accounts, setAccounts,
                     {tx.account}
                   </div>
                 </td>
-                <td style={{ padding: "8px 16px", textAlign: "right", fontFamily: "'DM Mono', monospace", fontSize: 14, fontWeight: 700, color: tx.amount < 0 ? "#f43f5e" : "#22c55e", whiteSpace: "nowrap" }}>
+                <td style={{ padding: "8px 16px", textAlign: "right", fontFamily: "'DM Mono', monospace", fontSize: 14, fontWeight: 700, color: tx.is_transfer ? "#94a3b8" : (tx.amount < 0 ? "#f43f5e" : "#22c55e"), whiteSpace: "nowrap" }}>
                   {tx.amount < 0 ? "−" : "+"}{fmt(Math.abs(tx.amount))}
                 </td>
               </tr>
@@ -5347,7 +5494,7 @@ function Insights({ transactions, t, isDark, recurringItems = [], lang = "nl", a
   }, [txFiltered]);
 
   const sum = (txs, cat, sign) => txs
-    .filter(tx => (!cat || tx.category === cat) && (sign === "+" ? tx.amount > 0 : sign === "-" ? tx.amount < 0 : true))
+    .filter(tx => (!cat || tx.category === cat) && (sign === "+" ? isCountableIncome(tx) : sign === "-" ? isCountableExpense(tx) : true))
     .reduce((s, tx) => s + Math.abs(tx.amount), 0);
 
   const income    = sum(thisMonthTxs, null, "+");
@@ -9746,6 +9893,10 @@ function MailPopup({ isDark, invoice, zzpProfile, onClose }) {
             clientName,
             totalAmount: fmtEur(totals.inclBtw),
             pdfBase64: base64,
+            // Sender-info zodat de From-display de bedrijfsnaam toont
+            // ("Bakkerij Jansen via Dynafy") en Reply-To naar de afzender gaat.
+            senderName:  zzpProfile?.company_name?.trim() || zzpProfile?.name?.trim() || undefined,
+            senderEmail: session?.user?.email || undefined,
           }),
         }
       );
@@ -14421,14 +14572,31 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted, onImpersonate
   const ROLE_COLORS = { '': C.muted, admin: '#f43f5e', boekhouder: '#a855f7', administrateur: '#4f8ef7' };
   const ROLE_BG     = { '': 'rgba(100,116,139,0.1)', admin: 'rgba(244,63,94,0.12)', boekhouder: 'rgba(168,85,247,0.12)', administrateur: 'rgba(79,142,247,0.12)' };
 
-  // Load all profiles (admin sees all via RLS policy)
+  // Load all profiles (admin sees all via RLS policy) + subscriptions per user
+  // zodat we de billing-status per Diamond/Premium-klant in dezelfde tabel
+  // kunnen tonen (Mollie-incasso loopt automatisch — admin moet alleen wakker
+  // worden bij past_due / failed).
   const loadProfiles = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .order('created_at', { ascending: false });
-    if (!error && data) setProfiles(data);
+    const [profRes, subRes] = await Promise.all([
+      supabase.from('profiles').select('*').order('created_at', { ascending: false }),
+      // Service-role-only table normaliter, maar admin-sessie heeft de bypass
+      // via een aparte policy (zie 20260417_mollie_billing.sql). Als die er
+      // niet is, falen we silent (geen subs zichtbaar) — ipv heel lijst breken.
+      supabase.from('subscriptions').select('user_id, status, current_period_end, cancelled_at, tier, billing_interval'),
+    ]);
+    if (!profRes.error && profRes.data) {
+      const subMap = {};
+      (subRes.data || []).forEach(s => {
+        // Bij meerdere subs per user: pak de meest urgente (past_due > active > cancelled > rest)
+        const priority = { past_due: 5, failed: 4, active: 3, pending: 2, cancelled: 1, expired: 0 };
+        const existing = subMap[s.user_id];
+        if (!existing || (priority[s.status] ?? -1) > (priority[existing.status] ?? -1)) {
+          subMap[s.user_id] = s;
+        }
+      });
+      setProfiles(profRes.data.map(p => ({ ...p, subscription: subMap[p.id] || null })));
+    }
     setLoading(false);
   };
 
