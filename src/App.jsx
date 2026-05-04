@@ -15036,7 +15036,7 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted, onImpersonate
             {selected.size === filtered.length && filtered.length > 0 && <Check size={11} color="#fff" strokeWidth={3}/>}
             {selected.size > 0 && selected.size < filtered.length && <div style={{ width:8, height:2, background:'#4f8ef7', borderRadius:1 }}/>}
           </div>
-          {['Gebruiker', 'Plan', 'Rol', 'Status', 'Aangemeld', 'Actief', 'Acties'].map(h => (
+          {['Gebruiker', 'Plan', 'Rol', 'Status', 'Billing', 'Aangemeld', 'Actief', 'Acties'].map(h => (
             <div key={h} style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</div>
           ))}
         </div>
