@@ -9900,18 +9900,28 @@ function MailPopup({ isDark, invoice, zzpProfile, onClose }) {
           }),
         }
       );
-      const result = await resp.json();
-      if (result.success) {
+      const rawText = await resp.text();
+      let result = null;
+      try { result = rawText ? JSON.parse(rawText) : null; } catch { /* keep raw */ }
+
+      if (result?.success) {
         if (session?.user?.id) logEvent(session.user.id, 'invoice_sent', { invoice_number: invoice.invoice_number, to, total: totals.inclBtw });
         setSendStatus('ok');
         setSendMsg('Factuur succesvol verstuurd!');
         setTimeout(onClose, 2000);
       } else {
-        throw new Error(result.error || 'Onbekende fout');
+        const detail =
+          result?.error ||
+          result?.message ||
+          result?.msg ||
+          (rawText && rawText.length < 500 ? rawText : null) ||
+          `HTTP ${resp.status} ${resp.statusText || ''}`.trim();
+        if (typeof console !== 'undefined') console.error('[send-invoice-email] failed', { status: resp.status, body: result ?? rawText });
+        throw new Error(detail);
       }
     } catch (err) {
       setSendStatus('error');
-      setSendMsg(`Fout: ${err.message}`);
+      setSendMsg(`Fout: ${err.message || 'Onbekende fout'}`);
     } finally {
       setSending(false);
     }
