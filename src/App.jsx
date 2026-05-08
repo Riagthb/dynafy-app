@@ -9763,7 +9763,7 @@ async function generateInvoicePDFBase64(invoice, zzpProfile) {
 
   const htmlContent = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;padding:48px;width:794px}
+    .invoice-page{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;padding:48px;width:794px;background:#fff}
     .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:48px}
     .company-name{font-size:22px;font-weight:800;margin-bottom:8px}
     .meta{color:#64748b;line-height:1.7;font-size:12px}
@@ -9778,6 +9778,7 @@ async function generateInvoicePDFBase64(invoice, zzpProfile) {
     .grand-total td{font-size:16px;font-weight:800;border-top:2px solid #1a1a1a;padding-top:10px!important}
     .footer{margin-top:48px;padding-top:20px;border-top:1px solid #e2e8f0;color:#64748b;font-size:11px;line-height:1.6}
   </style></head><body>
+  <div class="invoice-page">
   <div class="header">
     <div>
       <div class="company-name">${p.company_name || 'Bedrijfsnaam'}</div>
@@ -9801,6 +9802,7 @@ async function generateInvoicePDFBase64(invoice, zzpProfile) {
   </table>
   ${invoice.notes ? `<div style="margin-top:32px;padding:16px;background:#f8fafc;border-radius:8px"><div class="label">Opmerkingen</div><div style="margin-top:4px">${invoice.notes}</div></div>` : ''}
   <div class="footer">Gelieve € ${fmtN(totals.inclBtw)} over te maken op <b>${p.iban || '—'}</b> o.v.v. factuurnummer <b>${invoice.invoice_number}</b>.</div>
+  </div>
   </body></html>`;
 
   // Render off-screen
@@ -9900,18 +9902,28 @@ function MailPopup({ isDark, invoice, zzpProfile, onClose }) {
           }),
         }
       );
-      const result = await resp.json();
-      if (result.success) {
+      const rawText = await resp.text();
+      let result = null;
+      try { result = rawText ? JSON.parse(rawText) : null; } catch { /* keep raw */ }
+
+      if (result?.success) {
         if (session?.user?.id) logEvent(session.user.id, 'invoice_sent', { invoice_number: invoice.invoice_number, to, total: totals.inclBtw });
         setSendStatus('ok');
         setSendMsg('Factuur succesvol verstuurd!');
         setTimeout(onClose, 2000);
       } else {
-        throw new Error(result.error || 'Onbekende fout');
+        const detail =
+          result?.error ||
+          result?.message ||
+          result?.msg ||
+          (rawText && rawText.length < 500 ? rawText : null) ||
+          `HTTP ${resp.status} ${resp.statusText || ''}`.trim();
+        if (typeof console !== 'undefined') console.error('[send-invoice-email] failed', { status: resp.status, body: result ?? rawText });
+        throw new Error(detail);
       }
     } catch (err) {
       setSendStatus('error');
-      setSendMsg(`Fout: ${err.message}`);
+      setSendMsg(`Fout: ${err.message || 'Onbekende fout'}`);
     } finally {
       setSending(false);
     }
