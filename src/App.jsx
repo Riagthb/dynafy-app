@@ -3,6 +3,14 @@ import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from './supabase.js';
 import { startUpgradeCheckout, readBillingStatusFromUrl, clearBillingStatusFromUrl } from './billing.js';
+import {
+  isBankConnectEnabled,
+  finalizeBankConnect,
+  syncBankConnection,
+  readBankCallbackFromUrl,
+  clearBankCallbackFromUrl,
+} from './bankConnect.js';
+import BankConnectModal from './BankConnectModal.jsx';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import {
@@ -15941,6 +15949,41 @@ export default function App() {
     const t = setTimeout(() => setBillingStatus(null), 8000);
     return () => clearTimeout(t);
   }, [billingStatus]);
+
+  // ── Bank Connect (GoCardless BAD) ───────────────────────────
+  const [showBankModal, setShowBankModal] = useState(false);
+  const [bankBanner, setBankBanner] = useState(null); // { kind: 'success'|'error'|'info', text }
+  const [bankCallbackPending, setBankCallbackPending] = useState(() => readBankCallbackFromUrl() === 'callback');
+
+  useEffect(() => {
+    if (!bankCallbackPending) return;
+    clearBankCallbackFromUrl();
+    (async () => {
+      try {
+        const result = await finalizeBankConnect();
+        if (result?.status === 'LN') {
+          // Trigger sync direct na koppelen — geeft snel feedback met transacties
+          if (result.connection_id) {
+            try { await syncBankConnection({ connection_id: result.connection_id }); }
+            catch (e) { console.warn('[bank-connect] sync na finalize faalde:', e); }
+          }
+          setBankBanner({ kind: 'success', text: `Bank gekoppeld — ${result.accounts?.length ?? 0} rekening(en) geïmporteerd.` });
+        } else {
+          setBankBanner({ kind: 'info', text: `Koppeling status: ${result?.status ?? 'onbekend'}` });
+        }
+      } catch (e) {
+        setBankBanner({ kind: 'error', text: e.message || 'Koppeling mislukt' });
+      } finally {
+        setBankCallbackPending(false);
+      }
+    })();
+  }, [bankCallbackPending]);
+
+  useEffect(() => {
+    if (!bankBanner) return;
+    const t = setTimeout(() => setBankBanner(null), 8000);
+    return () => clearTimeout(t);
+  }, [bankBanner]);
   // ZZP bedrijfsprofiel
   const [zzpProfile, setZzpProfile] = useState({ company_name:'', kvk:'', btw_number:'', iban:'', address:'', city:'', postal_code:'' });
   // App-level multi-company state (lifted from MijnBedrijfView)
@@ -17701,7 +17744,7 @@ export default function App() {
           {view === "goals" && <GoalsView key={resetKey} transactions={transactions} isDark={isDark} useMockData={useMockData} goals={appGoals} setGoals={setAppGoals} t={t} lang={lang} investments={appInvestments} />}
           {view === "insights" && <Insights transactions={transactions} t={t} isDark={isDark} recurringItems={recurringItems} lang={lang} accounts={accounts} selectedAccount={selectedAccount} setSelectedAccount={setSelectedAccount} />}
           {view === "calibrate" && <Calibrate transactions={transactions} setTransactions={setTransactions} t={t} isDark={isDark} lang={lang} accounts={accounts} selectedAccount={selectedAccount} setSelectedAccount={setSelectedAccount} />}
-          {view === "rekeningen" && <RekeningenView accounts={accounts} setAccounts={setAccounts} onDeleteAccount={handleDeleteAccount} isDark={isDark} t={t} onUploadClick={() => setShowGlobalUpload(true)} lang={lang} userPlan={userPlan} onUpgrade={() => setView('pricing')} hasCompanyProfile={!!(appCompanyProfiles.some(p => p.company_name?.trim()) || zzpProfile.company_name?.trim())} transactions={transactions} setTransactions={setTransactions} />}
+          {view === "rekeningen" && <RekeningenView accounts={accounts} setAccounts={setAccounts} onDeleteAccount={handleDeleteAccount} isDark={isDark} t={t} onUploadClick={() => setShowGlobalUpload(true)} lang={lang} userPlan={userPlan} onUpgrade={() => setView('pricing')} hasCompanyProfile={!!(appCompanyProfiles.some(p => p.company_name?.trim()) || zzpProfile.company_name?.trim())} transactions={transactions} setTransactions={setTransactions} bankConnectEnabled={isBankConnectEnabled(user)} onBankConnect={() => setShowBankModal(true)} />}
           {view === "zzp-dashboard" && <ZZPDashboardView isDark={isDark} user={user} zzpProfile={appCompanyProfiles.find(p => p._id === activeCompanyId) || zzpProfile} onNavigate={setView} activeCompanyId={activeCompanyId} userPlan={userPlan} accounts={accounts} />}
           {view === "mijn-bedrijf" && <MijnBedrijfView isDark={isDark} user={user} profile={zzpProfile} onSave={async (p) => {
             // Only write columns that actually exist on profiles.
@@ -17813,11 +17856,25 @@ export default function App() {
       </div>
 
       {/* ── Bank Connect modal + banner ── */}
-      {/* Verwijderd: dood code-pad. State (showBankModal, bankBanner) en
-          component (BankConnectModal) zijn nooit gedefinieerd op main —
-          komt mee uit feat/bank-connect branch. Veroorzaakte ReferenceError
-          bij elke render → wit scherm na login. Wordt herintroduceerd
-          wanneer de Bank-koppeling feature volledig gemerged wordt. */}
+      {showBankModal && (
+        <BankConnectModal
+          onClose={() => setShowBankModal(false)}
+          isDark={isDark}
+          lang={lang}
+        />
+      )}
+      {bankBanner && createPortal(
+        <div style={{ position:'fixed', top:20, left:'50%', transform:'translateX(-50%)', zIndex:10000, padding:'14px 22px', borderRadius:14, background: bankBanner.kind === 'success' ? 'linear-gradient(135deg,#10b981,#059669)' : bankBanner.kind === 'error' ? 'linear-gradient(135deg,#ef4444,#dc2626)' : 'linear-gradient(135deg,#3b82f6,#2563eb)', color:'#fff', fontWeight:600, fontSize:14, boxShadow:'0 8px 32px rgba(0,0,0,0.3)', display:'flex', alignItems:'center', gap:10, maxWidth:'92vw' }}>
+          {bankBanner.kind === 'success' && <Check size={18} strokeWidth={3} />}
+          {bankBanner.kind === 'error' && <AlertCircle size={18} />}
+          {bankBanner.kind === 'info' && <Link2 size={18} />}
+          <span>{bankBanner.text}</span>
+          <button onClick={() => setBankBanner(null)} style={{ marginLeft:8, background:'transparent', border:'none', color:'#fff', cursor:'pointer', padding:4, display:'flex' }}>
+            <X size={16} />
+          </button>
+        </div>,
+        document.body
+      )}
 
       {/* ── Centrale upgrade modal ── */}
       {/* Billing return banner (na Mollie checkout redirect) */}
