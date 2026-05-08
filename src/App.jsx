@@ -17856,11 +17856,25 @@ export default function App() {
       </div>
 
       {/* ── Bank Connect modal + banner ── */}
-      {/* Verwijderd: dood code-pad. State (showBankModal, bankBanner) en
-          component (BankConnectModal) zijn nooit gedefinieerd op main —
-          komt mee uit feat/bank-connect branch. Veroorzaakte ReferenceError
-          bij elke render → wit scherm na login. Wordt herintroduceerd
-          wanneer de Bank-koppeling feature volledig gemerged wordt. */}
+      {showBankModal && (
+        <BankConnectModal
+          onClose={() => setShowBankModal(false)}
+          isDark={isDark}
+          lang={lang}
+        />
+      )}
+      {bankBanner && createPortal(
+        <div style={{ position:'fixed', top:20, left:'50%', transform:'translateX(-50%)', zIndex:10000, padding:'14px 22px', borderRadius:14, background: bankBanner.kind === 'success' ? 'linear-gradient(135deg,#10b981,#059669)' : bankBanner.kind === 'error' ? 'linear-gradient(135deg,#ef4444,#dc2626)' : 'linear-gradient(135deg,#3b82f6,#2563eb)', color:'#fff', fontWeight:600, fontSize:14, boxShadow:'0 8px 32px rgba(0,0,0,0.3)', display:'flex', alignItems:'center', gap:10, maxWidth:'92vw' }}>
+          {bankBanner.kind === 'success' && <Check size={18} strokeWidth={3} />}
+          {bankBanner.kind === 'error' && <AlertCircle size={18} />}
+          {bankBanner.kind === 'info' && <Link2 size={18} />}
+          <span>{bankBanner.text}</span>
+          <button onClick={() => setBankBanner(null)} style={{ marginLeft:8, background:'transparent', border:'none', color:'#fff', cursor:'pointer', padding:4, display:'flex' }}>
+            <X size={16} />
+          </button>
+        </div>,
+        document.body
+      )}
 
       {/* ── Centrale upgrade modal ── */}
       {/* Billing return banner (na Mollie checkout redirect) */}

@@ -1,13 +1,18 @@
 // ============================================================================
-// bankConnect.js — GoCardless Bank Account Data (ex-Nordigen) helpers
+// bankConnect.js — Enable Banking PSD2 AIS helpers
 // ----------------------------------------------------------------------------
 // Mirrors the shape of billing.js. Wraps the bank-link / bank-sync Edge
 // Functions and keeps URL-callback parsing in one place.
+//
+// Provider: Enable Banking. Callback URL is path-based (`/bank-callback`)
+// omdat Enable Banking geen query parameters in de geregistreerde redirect
+// URL accepteert; de provider voegt zelf `?code=…&state=…` toe na consent.
 // ============================================================================
 
 import { supabase } from './supabase.js';
 
 const BANK_CONNECT_REF_KEY = 'dynafy_bank_connect_ref';
+const BANK_CALLBACK_PATH = '/bank-callback';
 
 /**
  * Feature flag — alleen Ranny's hoofdaccount ziet de UI tot we breder uitrollen.
@@ -17,8 +22,8 @@ export function isBankConnectEnabled(user) {
 }
 
 /**
- * Lijst banken (institutions) ophalen voor land. Default NL.
- * Voor sandbox-tests wordt SANDBOXFINANCE_SFIN0000 ook teruggegeven binnen NL.
+ * Lijst banken (ASPSPs) ophalen voor land. Default NL.
+ * Voor sandbox-tests retourneert Enable Banking ook fake-ASPSPs binnen NL.
  */
 export async function fetchInstitutions(country = 'NL') {
   const { data, error } = await supabase.functions.invoke('bank-link', {
@@ -30,7 +35,7 @@ export async function fetchInstitutions(country = 'NL') {
 }
 
 /**
- * Start de consent-flow: maak requisition, redirect naar bank.
+ * Start de consent-flow: maak authorization, redirect naar bank.
  * Bewaart de connection_id in localStorage zodat finalize 'm op pickt na callback.
  */
 export async function startBankConnect(institution) {
@@ -40,6 +45,7 @@ export async function startBankConnect(institution) {
       institution_id: institution.id,
       institution_name: institution.name,
       institution_logo: institution.logo ?? null,
+      country: institution.country ?? null,
     },
   });
   if (error) throw new Error(error.message || 'Kon koppeling niet starten');
@@ -49,7 +55,11 @@ export async function startBankConnect(institution) {
   try {
     localStorage.setItem(
       BANK_CONNECT_REF_KEY,
-      JSON.stringify({ connection_id: data.connection_id, requisition_id: data.requisition_id }),
+      JSON.stringify({
+        connection_id: data.connection_id,
+        authorization_id: data.authorization_id,
+        state: data.state,
+      }),
     );
   } catch { /* ignore */ }
 
@@ -57,8 +67,8 @@ export async function startBankConnect(institution) {
 }
 
 /**
- * Roept de finalize-actie aan na bank-redirect. Pakt de bewaarde connection_id
- * uit localStorage; URL-param `ref` is fallback.
+ * Roept de finalize-actie aan na bank-redirect. Pakt code + state uit URL,
+ * combineert met de bewaarde connection_id uit localStorage als anti-CSRF check.
  */
 export async function finalizeBankConnect() {
   let stored = null;
@@ -68,13 +78,25 @@ export async function finalizeBankConnect() {
   } catch { /* ignore */ }
 
   const params = new URLSearchParams(window.location.search);
-  const ref = params.get('ref') ?? null;
+  const code = params.get('code');
+  const state = params.get('state');
+  const errParam = params.get('error');
 
-  const body = { action: 'finalize' };
+  if (errParam) {
+    const desc = params.get('error_description');
+    try { localStorage.removeItem(BANK_CONNECT_REF_KEY); } catch { /* ignore */ }
+    throw new Error(desc || `Bank-koppeling afgebroken: ${errParam}`);
+  }
+
+  if (!code) throw new Error('Geen autorisatie-code ontvangen');
+
+  const body = { action: 'finalize', code };
+  if (state) body.state = state;
   if (stored?.connection_id) body.connection_id = stored.connection_id;
-  else if (stored?.requisition_id) body.requisition_id = stored.requisition_id;
-  else if (ref) body.reference = ref;
-  else throw new Error('Geen actieve bank-koppeling gevonden');
+
+  if (!body.connection_id && !state) {
+    throw new Error('Geen actieve bank-koppeling gevonden');
+  }
 
   const { data, error } = await supabase.functions.invoke('bank-link', { body });
   if (error) throw new Error(error.message || 'Finalize mislukt');
@@ -100,25 +122,31 @@ export async function syncBankConnection({ connection_id, account_id }) {
 }
 
 /**
- * Lees ?bank_link=callback uit URL. Returnt 'callback' | null.
+ * Detecteer of de huidige URL een bank-callback is.
+ * Enable Banking redirect format: https://app.dynafy.nl/bank-callback?code=…&state=…
+ *
+ * Returnt 'callback' als path matcht én er een code/state/error aanwezig is.
+ * Returnt null in alle andere gevallen.
  */
 export function readBankCallbackFromUrl() {
   try {
+    if (window.location.pathname !== BANK_CALLBACK_PATH) return null;
     const params = new URLSearchParams(window.location.search);
-    return params.get('bank_link') === 'callback' ? 'callback' : null;
+    if (params.has('code') || params.has('state') || params.has('error')) {
+      return 'callback';
+    }
+    return null;
   } catch {
     return null;
   }
 }
 
 /**
- * Verwijder bank_link + ref params uit URL zonder reload.
+ * Verwijder bank-callback querystring én navigeer terug naar `/` zonder reload,
+ * zodat de SPA-state behouden blijft maar de URL "schoon" wordt.
  */
 export function clearBankCallbackFromUrl() {
   try {
-    const url = new URL(window.location.href);
-    url.searchParams.delete('bank_link');
-    url.searchParams.delete('ref');
-    window.history.replaceState({}, '', url.toString());
+    window.history.replaceState({}, '', '/');
   } catch { /* ignore */ }
 }

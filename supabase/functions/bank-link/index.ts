@@ -1,18 +1,22 @@
 // ============================================================================
 // bank-link
 // ----------------------------------------------------------------------------
-// Eén Edge Function die de drie stappen van de GoCardless Bank Account Data
-// (ex-Nordigen) consent-flow afhandelt:
+// Eén Edge Function die de drie stappen van de Enable Banking AIS consent-flow
+// afhandelt:
 //
-//   action: "list_institutions"   → lijst banken voor land (default NL)
-//   action: "create_requisition"  → maak consent, return checkout URL
-//   action: "finalize"            → na bank-callback: opslaan accounts
+//   action: "list_institutions"   → lijst banken (ASPSPs) voor land (default NL)
+//   action: "create_requisition"  → start consent (POST /auth), return checkout URL
+//   action: "finalize"            → na bank-callback (?code=&state=): exchange
+//                                    code voor session, opslaan accounts
 //
 // Auth: Supabase user JWT vereist in Authorization header.
 //
 // Env (via `supabase secrets set`):
-//   GOCARDLESS_SECRET_ID   — UUID, te vinden in BAD dashboard
-//   GOCARDLESS_SECRET_KEY  — secret, idem
+//   ENABLE_BANKING_APP_ID       — Application ID (UUID) uit Enable Banking CP
+//   ENABLE_BANKING_PRIVATE_KEY  — PEM-encoded RSA private key (PKCS8), volledige
+//                                 -----BEGIN PRIVATE KEY----- ... ----- string,
+//                                 inclusief newlines (gebruik `supabase secrets
+//                                 set --env-file` of multi-line value)
 //
 // Auto-injected:
 //   SUPABASE_URL
@@ -20,6 +24,7 @@
 // ============================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { SignJWT, importPKCS8 } from "https://esm.sh/jose@5";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -28,9 +33,12 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const GC_API = "https://bankaccountdata.gocardless.com/api/v2";
+const EB_API = "https://api.enablebanking.com";
 const APP_URL = "https://app.dynafy.nl";
-const REDIRECT_URL = `${APP_URL}/?bank_link=callback`;
+const REDIRECT_URL = `${APP_URL}/bank-callback`;
+// Default consent-duur in dagen (Enable Banking laat tot 180 toe waar bank
+// dat ondersteunt; we vragen 90 voor brede compatibiliteit).
+const CONSENT_DAYS = 90;
 
 // ----------------------------------------------------------------------------
 Deno.serve(async (req) => {
@@ -44,11 +52,11 @@ Deno.serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const gcSecretId = Deno.env.get("GOCARDLESS_SECRET_ID");
-    const gcSecretKey = Deno.env.get("GOCARDLESS_SECRET_KEY");
+    const ebAppId = Deno.env.get("ENABLE_BANKING_APP_ID");
+    const ebPrivateKey = Deno.env.get("ENABLE_BANKING_PRIVATE_KEY");
 
-    if (!gcSecretId || !gcSecretKey) {
-      return json({ error: "gocardless_not_configured" }, 500);
+    if (!ebAppId || !ebPrivateKey) {
+      return json({ error: "enable_banking_not_configured" }, 500);
     }
 
     // Verify user JWT
@@ -64,60 +72,94 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = body?.action;
 
-    // Get GC access token (fresh per request — simple, no cache yet)
-    const token = await getGcToken(gcSecretId, gcSecretKey);
-    if (!token) return json({ error: "gc_token_failed" }, 502);
+    // Sign one JWT per request — TTL 1h is far longer than needed.
+    const token = await getEbToken(ebAppId, ebPrivateKey);
+    if (!token) return json({ error: "eb_token_failed" }, 502);
 
     // ------------------------------------------------------------------------
     if (action === "list_institutions") {
       const country = body.country || "NL";
-      const res = await gcFetch(token, "GET", `/institutions/?country=${country}`);
-      if (!res.ok) return json({ error: "gc_institutions_failed", detail: res.body }, 502);
-      // Trim payload — UI doesn't need everything
-      const trimmed = (res.body as any[]).map((i) => ({
-        id: i.id,
-        name: i.name,
-        bic: i.bic,
-        logo: i.logo,
-        transaction_total_days: i.transaction_total_days,
+      const res = await ebFetch(token, "GET", `/aspsps?country=${country}`);
+      if (!res.ok) return json({ error: "eb_aspsps_failed", detail: res.body }, 502);
+
+      // Enable Banking returns { aspsps: [...] }
+      const aspsps = (res.body as any).aspsps ?? [];
+
+      // Adapt to UI shape: id = "${name}_${country}", behoud GoCardless-like fields.
+      const trimmed = aspsps.map((a: any) => ({
+        id: `${a.name}_${a.country}`,
+        name: a.name,
+        country: a.country,
+        bic: a.bic ?? null,
+        logo: a.logo ?? null,
+        // psu_types / auth_methods nodig voor /auth call later; nemen we mee:
+        psu_types: a.psu_types ?? ["personal"],
+        maximum_consent_validity: a.maximum_consent_validity ?? null,
       }));
+
       return json({ institutions: trimmed });
     }
 
     // ------------------------------------------------------------------------
     if (action === "create_requisition") {
-      const { institution_id, institution_name, institution_logo } = body;
+      const { institution_id, institution_name, institution_logo, country } = body;
       if (!institution_id) return json({ error: "missing_institution_id" }, 400);
 
-      // Use a stable reference per (user, institution, date) — debugging-friendly
+      // institution_id = "${name}_${country}" — split eruit
+      const aspspCountry = country || institution_id.split("_").pop() || "NL";
+      const aspspName = institution_name
+        || institution_id.slice(0, institution_id.lastIndexOf("_"))
+        || institution_id;
+
+      // Generate state UUID — wordt door Enable Banking teruggegeven in callback.
+      const authState = crypto.randomUUID();
       const reference = `dynafy_${user.id.slice(0, 8)}_${Date.now()}`;
 
-      const res = await gcFetch(token, "POST", "/requisitions/", {
-        redirect: REDIRECT_URL,
-        institution_id,
-        reference,
-        user_language: "NL",
+      // Consent valid_until: now + CONSENT_DAYS, ISO 8601
+      const validUntil = new Date(
+        Date.now() + CONSENT_DAYS * 24 * 60 * 60 * 1000,
+      ).toISOString();
+
+      const psuType = "personal"; // Dynafy = persoonlijk financieel beheer
+
+      const res = await ebFetch(token, "POST", "/auth", {
+        aspsp: { name: aspspName, country: aspspCountry },
+        access: {
+          valid_until: validUntil,
+          balances: true,
+          transactions: true,
+        },
+        state: authState,
+        redirect_url: REDIRECT_URL,
+        psu_type: psuType,
+        language: aspspCountry === "NL" ? "nl" : "en",
       });
       if (!res.ok) {
-        return json({ error: "gc_requisition_failed", detail: res.body }, 502);
+        return json({ error: "eb_auth_failed", detail: res.body }, 502);
       }
 
-      const requisition = res.body;
+      const auth = res.body as any;
+      // Response: { url, authorization_id, psu_id_hash }
+      if (!auth?.url || !auth?.authorization_id) {
+        return json({ error: "eb_auth_invalid_response", detail: auth }, 502);
+      }
 
-      // Compute expiry — GC default access valid 90 days
-      const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+      const expiresAt = new Date(validUntil);
 
       const { data: connection, error: dbErr } = await admin
         .from("bank_connections")
         .insert({
           user_id: user.id,
+          aspsp_name: aspspName,
+          aspsp_country: aspspCountry,
           institution_id,
-          institution_name: institution_name ?? null,
+          institution_name: institution_name ?? aspspName,
           institution_logo: institution_logo ?? null,
-          requisition_id: requisition.id,
+          provider_session_id: auth.authorization_id,
           reference,
-          status: requisition.status ?? "CR",
-          consent_url: requisition.link,
+          auth_state: authState,
+          status: "PENDING",
+          consent_url: auth.url,
           expires_at: expiresAt.toISOString(),
         })
         .select()
@@ -127,16 +169,19 @@ Deno.serve(async (req) => {
 
       return json({
         connection_id: connection.id,
-        consent_url: requisition.link,
-        requisition_id: requisition.id,
+        consent_url: auth.url,
+        authorization_id: auth.authorization_id,
+        state: authState,
       });
     }
 
     // ------------------------------------------------------------------------
     if (action === "finalize") {
-      // Frontend roept dit aan na bank-redirect terug naar /?bank_link=callback&ref=...
-      // We zoeken de connection op via reference of requisition_id.
-      const { reference, requisition_id, connection_id } = body;
+      // Frontend roept dit aan na bank-redirect terug naar /bank-callback?code=…&state=…
+      // Voorkeur: connection_id (uit localStorage). Anders zoek op state.
+      const { connection_id, code, state } = body;
+
+      if (!code) return json({ error: "missing_code" }, 400);
 
       let conn: any = null;
       if (connection_id) {
@@ -147,67 +192,63 @@ Deno.serve(async (req) => {
           .eq("user_id", user.id)
           .maybeSingle();
         conn = data;
-      } else if (requisition_id) {
+      } else if (state) {
         const { data } = await admin
           .from("bank_connections")
           .select("*")
-          .eq("requisition_id", requisition_id)
-          .eq("user_id", user.id)
-          .maybeSingle();
-        conn = data;
-      } else if (reference) {
-        const { data } = await admin
-          .from("bank_connections")
-          .select("*")
-          .eq("reference", reference)
+          .eq("auth_state", state)
           .eq("user_id", user.id)
           .maybeSingle();
         conn = data;
       }
       if (!conn) return json({ error: "connection_not_found" }, 404);
 
-      // Fetch fresh requisition state from GC
-      const reqRes = await gcFetch(token, "GET", `/requisitions/${conn.requisition_id}/`);
-      if (!reqRes.ok) {
-        return json({ error: "gc_requisition_fetch_failed", detail: reqRes.body }, 502);
+      // Anti-CSRF: state moet matchen met opgeslagen state
+      if (state && conn.auth_state && state !== conn.auth_state) {
+        return json({ error: "state_mismatch" }, 400);
       }
-      const requisition = reqRes.body as any;
 
-      // Update connection status
+      // Exchange code for session
+      const sessRes = await ebFetch(token, "POST", "/sessions", { code });
+      if (!sessRes.ok) {
+        await admin
+          .from("bank_connections")
+          .update({ status: "ERROR" })
+          .eq("id", conn.id);
+        return json({ error: "eb_sessions_failed", detail: sessRes.body }, 502);
+      }
+      const session = sessRes.body as any;
+      // Response: { session_id, accounts: [{ uid, account_id:{iban}, name, currency, cash_account_type }], aspsp, access }
+
+      // Update connection: vervang authorization_id → session_id,  status AUTHORIZED
       await admin
         .from("bank_connections")
-        .update({ status: requisition.status })
+        .update({
+          provider_session_id: session.session_id ?? conn.provider_session_id,
+          status: "AUTHORIZED",
+        })
         .eq("id", conn.id);
 
-      // Status LN = Linked = consent geslaagd, accounts beschikbaar
-      if (requisition.status !== "LN") {
-        return json({
-          status: requisition.status,
-          accounts: [],
-          message: `consent_status=${requisition.status}`,
-        });
-      }
-
-      // Voor elke account: details ophalen + opslaan
-      const accountIds: string[] = requisition.accounts ?? [];
+      const accounts: any[] = session.accounts ?? [];
       const accountsOut: any[] = [];
 
-      for (const gcAccountId of accountIds) {
-        const [detailsRes, balancesRes] = await Promise.all([
-          gcFetch(token, "GET", `/accounts/${gcAccountId}/details/`),
-          gcFetch(token, "GET", `/accounts/${gcAccountId}/balances/`),
-        ]);
+      for (const acc of accounts) {
+        const uid = acc.uid;
+        if (!uid) continue;
 
-        const details = detailsRes.ok ? (detailsRes.body as any).account ?? {} : {};
-        const balances = balancesRes.ok ? (balancesRes.body as any).balances ?? [] : [];
-
-        // Pak eerst booked balance, anders eerste beschikbare
-        const booked = balances.find((b: any) => b.balanceType === "closingBooked")
-          ?? balances[0]
-          ?? null;
-        const balanceCents = booked
-          ? Math.round(parseFloat(booked.balanceAmount.amount) * 100)
-          : null;
+        // Best-effort balance fetch (apart endpoint in Enable Banking)
+        let balanceCents: number | null = null;
+        const balRes = await ebFetch(token, "GET", `/accounts/${uid}/balances`);
+        if (balRes.ok) {
+          const balances = (balRes.body as any).balances ?? [];
+          // Pak interim/closing booked, anders eerste
+          const booked = balances.find((b: any) =>
+            b.balance_type === "CLBD" || b.balance_type === "ITBD"
+          ) ?? balances[0];
+          if (booked?.balance_amount?.amount) {
+            balanceCents = Math.round(parseFloat(booked.balance_amount.amount) * 100);
+          }
+        }
 
         const { data: bankAcc, error: accErr } = await admin
           .from("bank_accounts")
@@ -215,20 +256,20 @@ Deno.serve(async (req) => {
             {
               user_id: user.id,
               connection_id: conn.id,
-              gc_account_id: gcAccountId,
-              iban: details.iban ?? null,
-              name: details.name ?? details.ownerName ?? "Bankrekening",
-              currency: details.currency ?? "EUR",
+              provider_account_id: uid,
+              iban: acc.account_id?.iban ?? null,
+              name: acc.name ?? acc.product ?? "Bankrekening",
+              currency: acc.currency ?? "EUR",
+              cash_account_type: acc.cash_account_type ?? null,
               balance_cents: balanceCents,
               balance_synced_at: balanceCents !== null ? new Date().toISOString() : null,
             },
-            { onConflict: "gc_account_id" },
+            { onConflict: "provider_account_id" },
           )
           .select()
           .single();
 
         if (accErr) {
-          // Don't bail — log and continue with the others
           console.error("bank_accounts upsert error:", accErr);
           continue;
         }
@@ -236,7 +277,7 @@ Deno.serve(async (req) => {
       }
 
       return json({
-        status: "LN",
+        status: "AUTHORIZED",
         connection_id: conn.id,
         accounts: accountsOut,
       });
@@ -257,27 +298,46 @@ function json(body: unknown, status = 200) {
   });
 }
 
-async function getGcToken(secretId: string, secretKey: string): Promise<string | null> {
-  const res = await fetch(`${GC_API}/token/new/`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ secret_id: secretId, secret_key: secretKey }),
-  });
-  if (!res.ok) {
-    console.error("gc_token error:", res.status, await res.text());
+/**
+ * Sign a self-issued JWT for Enable Banking API auth.
+ *
+ * Spec (https://enablebanking.com/docs/api/reference/):
+ *   alg: RS256
+ *   typ: JWT
+ *   kid: <application_id>
+ *   iss: enablebanking.com
+ *   aud: api.enablebanking.com
+ *   iat: now
+ *   exp: now + (max 24h)
+ */
+async function getEbToken(appId: string, privateKeyPem: string): Promise<string | null> {
+  try {
+    // Edge Function env vars met meerregelige PEM kunnen \n als letters bevatten
+    // afhankelijk van hoe `supabase secrets set` is aangeroepen. Normaliseer.
+    const pem = privateKeyPem.replace(/\\n/g, "\n").trim();
+    const privateKey = await importPKCS8(pem, "RS256");
+
+    const jwt = await new SignJWT({})
+      .setProtectedHeader({ alg: "RS256", typ: "JWT", kid: appId })
+      .setIssuer("enablebanking.com")
+      .setAudience("api.enablebanking.com")
+      .setIssuedAt()
+      .setExpirationTime("1h")
+      .sign(privateKey);
+    return jwt;
+  } catch (e) {
+    console.error("eb_token sign error:", e);
     return null;
   }
-  const data = await res.json();
-  return data.access ?? null;
 }
 
-async function gcFetch(
+async function ebFetch(
   token: string,
   method: string,
   path: string,
   body?: unknown,
 ): Promise<{ ok: boolean; status: number; body: any }> {
-  const res = await fetch(`${GC_API}${path}`, {
+  const res = await fetch(`${EB_API}${path}`, {
     method,
     headers: {
       Authorization: `Bearer ${token}`,
@@ -287,5 +347,8 @@ async function gcFetch(
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    console.error(`eb_fetch ${method} ${path} → ${res.status}`, data);
+  }
   return { ok: res.ok, status: res.status, body: data };
 }

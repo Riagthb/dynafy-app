@@ -1,10 +1,11 @@
 // ============================================================================
 // BankConnectModal — institution picker + start consent flow
 // ----------------------------------------------------------------------------
-// Toont een lijst van NL banken (incl. Sandbox voor testen). Bij klik op een
-// bank wordt startBankConnect aangeroepen, wat de browser redirect naar de
-// bank-consent pagina. Na consent komt de gebruiker terug op
-// /?bank_link=callback&ref=... — dat handelt App.jsx af via finalizeBankConnect.
+// Toont een lijst van NL banken (Enable Banking ASPSPs, incl. sandbox/mock
+// voor testen). Bij klik op een bank wordt startBankConnect aangeroepen, wat
+// de browser redirect naar de bank-consent pagina. Na consent komt de
+// gebruiker terug op /bank-callback?code=…&state=… — dat handelt App.jsx af
+// via finalizeBankConnect.
 // ============================================================================
 
 import { useEffect, useMemo, useState } from 'react';

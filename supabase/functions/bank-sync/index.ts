@@ -4,10 +4,12 @@
 // Haalt transacties + balance op voor één bank_connection (alle accounts
 // daarbinnen) en schrijft ze additief in public.transactions.
 //
+// Provider: Enable Banking (https://api.enablebanking.com).
+// Authenticatie: self-signed RS256 JWT, zelfde als bank-link.
+//
 // Dedupe: bank_transaction_id is UNIQUE per user via partial index, dus we
 // gebruiken upsert met onConflict op (user_id, bank_transaction_id) om
-// dubbele rijen te voorkomen wanneer dezelfde transactie meerdere keren
-// langs komt (GoCardless levert dezelfde tx soms in opeenvolgende calls).
+// dubbele rijen te voorkomen.
 //
 // Body:
 //   { connection_id: uuid }     — sync alle accounts onder deze connection
@@ -16,11 +18,12 @@
 // Auth: Supabase user JWT vereist.
 //
 // Env:
-//   GOCARDLESS_SECRET_ID
-//   GOCARDLESS_SECRET_KEY
+//   ENABLE_BANKING_APP_ID
+//   ENABLE_BANKING_PRIVATE_KEY
 // ============================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { SignJWT, importPKCS8 } from "https://esm.sh/jose@5";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -29,7 +32,12 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const GC_API = "https://bankaccountdata.gocardless.com/api/v2";
+const EB_API = "https://api.enablebanking.com";
+
+// Hoeveel dagen historie ophalen per sync-run als er nog niet eerder gesynced is.
+const INITIAL_HISTORY_DAYS = 90;
+// Hoeveel dagen overlap pakken bij een refresh-sync (om late-booked tx te vangen).
+const REFRESH_OVERLAP_DAYS = 7;
 
 // ----------------------------------------------------------------------------
 Deno.serve(async (req) => {
@@ -43,11 +51,11 @@ Deno.serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const gcSecretId = Deno.env.get("GOCARDLESS_SECRET_ID");
-    const gcSecretKey = Deno.env.get("GOCARDLESS_SECRET_KEY");
+    const ebAppId = Deno.env.get("ENABLE_BANKING_APP_ID");
+    const ebPrivateKey = Deno.env.get("ENABLE_BANKING_PRIVATE_KEY");
 
-    if (!gcSecretId || !gcSecretKey) {
-      return json({ error: "gocardless_not_configured" }, 500);
+    if (!ebAppId || !ebPrivateKey) {
+      return json({ error: "enable_banking_not_configured" }, 500);
     }
 
     const userClient = createClient(supabaseUrl, serviceKey, {
@@ -84,65 +92,104 @@ Deno.serve(async (req) => {
       return json({ error: "no_accounts_found" }, 404);
     }
 
-    const token = await getGcToken(gcSecretId, gcSecretKey);
-    if (!token) return json({ error: "gc_token_failed" }, 502);
+    const token = await getEbToken(ebAppId, ebPrivateKey);
+    if (!token) return json({ error: "eb_token_failed" }, 502);
 
     let totalInserted = 0;
     let totalSeen = 0;
     const perAccount: any[] = [];
 
     for (const acc of bankAccounts) {
-      // 1. Transactions
-      const txRes = await gcFetch(token, "GET", `/accounts/${acc.gc_account_id}/transactions/`);
-      if (!txRes.ok) {
-        perAccount.push({ account_id: acc.id, error: "gc_transactions_failed", detail: txRes.body });
+      const uid = acc.provider_account_id;
+      if (!uid) {
+        perAccount.push({ account_id: acc.id, error: "missing_provider_account_id" });
         continue;
       }
-      const booked = (txRes.body as any).transactions?.booked ?? [];
-      totalSeen += booked.length;
 
-      // Map GC tx → our transactions schema
-      const rows = booked.map((tx: any) => mapGcTransaction(tx, user.id, acc));
-      // Filter out rows we couldn't map (missing required fields)
-      const validRows = rows.filter((r: any) => r !== null);
+      // 1. Transactions — bepaal date_from
+      const dateFrom = pickDateFrom(acc);
+      const txParams = new URLSearchParams({
+        date_from: dateFrom,
+        transaction_status: "BOOK",
+      });
 
-      // Upsert per chunk to avoid huge single statement
-      const CHUNK = 200;
-      let inserted = 0;
-      for (let i = 0; i < validRows.length; i += CHUNK) {
-        const chunk = validRows.slice(i, i + CHUNK);
-        const { error, count } = await admin
-          .from("transactions")
-          .upsert(chunk, {
-            onConflict: "user_id,bank_transaction_id",
-            ignoreDuplicates: false,
-            count: "exact",
-          });
-        if (error) {
-          perAccount.push({ account_id: acc.id, error: "db_upsert_failed", detail: error.message });
+      let pageCount = 0;
+      let seenThisAcc = 0;
+      let upsertedThisAcc = 0;
+      let continuationKey: string | null = null;
+
+      do {
+        if (continuationKey) txParams.set("continuation_key", continuationKey);
+        const txRes = await ebFetch(
+          token,
+          "GET",
+          `/accounts/${uid}/transactions?${txParams.toString()}`,
+        );
+        if (!txRes.ok) {
+          perAccount.push({ account_id: acc.id, error: "eb_transactions_failed", detail: txRes.body });
           break;
         }
-        inserted += count ?? chunk.length;
-      }
-      totalInserted += inserted;
+        const page = txRes.body as any;
+        const txs: any[] = page.transactions ?? [];
+        seenThisAcc += txs.length;
+
+        const rows = txs.map((tx: any) => mapEbTransaction(tx, user.id, acc));
+        const validRows = rows.filter((r: any) => r !== null);
+
+        const CHUNK = 200;
+        for (let i = 0; i < validRows.length; i += CHUNK) {
+          const chunk = validRows.slice(i, i + CHUNK);
+          const { error, count } = await admin
+            .from("transactions")
+            .upsert(chunk, {
+              onConflict: "user_id,bank_transaction_id",
+              ignoreDuplicates: false,
+              count: "exact",
+            });
+          if (error) {
+            perAccount.push({ account_id: acc.id, error: "db_upsert_failed", detail: error.message });
+            continuationKey = null;
+            break;
+          }
+          upsertedThisAcc += count ?? chunk.length;
+        }
+
+        continuationKey = page.continuation_key ?? null;
+        pageCount += 1;
+        // Veiligheidsklep — voorkom infinite loop bij API-foutje
+        if (pageCount > 50) {
+          console.warn(`bank-sync pagination cap hit for ${acc.id}`);
+          break;
+        }
+      } while (continuationKey);
+
+      totalSeen += seenThisAcc;
+      totalInserted += upsertedThisAcc;
 
       // 2. Balance refresh
-      const balRes = await gcFetch(token, "GET", `/accounts/${acc.gc_account_id}/balances/`);
+      const balRes = await ebFetch(token, "GET", `/accounts/${uid}/balances`);
       if (balRes.ok) {
         const balances = (balRes.body as any).balances ?? [];
-        const booked = balances.find((b: any) => b.balanceType === "closingBooked") ?? balances[0];
-        if (booked) {
+        const booked = balances.find((b: any) =>
+          b.balance_type === "CLBD" || b.balance_type === "ITBD"
+        ) ?? balances[0];
+        if (booked?.balance_amount?.amount) {
           await admin
             .from("bank_accounts")
             .update({
-              balance_cents: Math.round(parseFloat(booked.balanceAmount.amount) * 100),
+              balance_cents: Math.round(parseFloat(booked.balance_amount.amount) * 100),
               balance_synced_at: new Date().toISOString(),
             })
             .eq("id", acc.id);
         }
       }
 
-      perAccount.push({ account_id: acc.id, seen: booked.length, upserted: inserted });
+      perAccount.push({
+        account_id: acc.id,
+        seen: seenThisAcc,
+        upserted: upsertedThisAcc,
+        pages: pageCount,
+      });
     }
 
     // Update last_synced_at on connection
@@ -170,32 +217,63 @@ Deno.serve(async (req) => {
 });
 
 // ----------------------------------------------------------------------------
-// Map een GoCardless booked-transaction naar Dynafy's transactions schema.
-// Dynafy schema (afgeleid uit App.jsx queries — geen migratie file aanwezig):
-//   id, user_id, date, description, category, account, amount, ...
-// We voegen toe: bank_transaction_id, bank_account_id.
+// Bepaal date_from voor de transactions-call op deze account.
+// Eerste sync: nu - INITIAL_HISTORY_DAYS.
+// Refresh sync: laatste balance_synced_at - REFRESH_OVERLAP_DAYS, capped op 90d.
+function pickDateFrom(acc: any): string {
+  const now = Date.now();
+  const initialFrom = new Date(now - INITIAL_HISTORY_DAYS * 24 * 60 * 60 * 1000);
+
+  if (!acc.balance_synced_at) return formatDate(initialFrom);
+
+  const lastSync = new Date(acc.balance_synced_at);
+  const refreshFrom = new Date(lastSync.getTime() - REFRESH_OVERLAP_DAYS * 24 * 60 * 60 * 1000);
+  // Niet verder terug dan onze initial-history-window
+  if (refreshFrom < initialFrom) return formatDate(initialFrom);
+  return formatDate(refreshFrom);
+}
+
+function formatDate(d: Date): string {
+  // YYYY-MM-DD
+  return d.toISOString().slice(0, 10);
+}
+
+// ----------------------------------------------------------------------------
+// Map een Enable Banking transactie naar Dynafy's transactions schema.
 //
-// account: vult de bestaande client-side account-naam in voor UI consistentie.
-// category: laten we leeg ("Other") — bestaande Categorize-flow pakt het op.
-function mapGcTransaction(tx: any, userId: string, bankAcc: any): any | null {
-  // Stable id: prefer transactionId, fallback internalTransactionId
-  const bankTxId = tx.transactionId ?? tx.internalTransactionId;
+// Enable Banking format (https://enablebanking.com/docs/api/reference/):
+//   transaction_id, entry_reference, transaction_amount: { currency, amount },
+//   credit_debit_indicator: "CRDT"|"DBIT",
+//   booking_date, value_date, status: "BOOK"|"PEND"|...,
+//   remittance_information: [...],
+//   creditor: { name }, debtor: { name }, ...
+//
+// Dynafy schema:
+//   id, user_id, date, description, category, account, amount, ...
+//   + bank_transaction_id, bank_account_id (toegevoegd in 20260429 migratie)
+function mapEbTransaction(tx: any, userId: string, bankAcc: any): any | null {
+  // Stable id: prefer transaction_id, fallback entry_reference
+  const bankTxId = tx.transaction_id ?? tx.entry_reference;
   if (!bankTxId) return null;
 
-  const date = tx.bookingDate ?? tx.valueDate ?? null;
+  const date = tx.booking_date ?? tx.value_date ?? null;
   if (!date) return null;
 
-  const amount = parseFloat(tx.transactionAmount?.amount);
-  if (Number.isNaN(amount)) return null;
+  const rawAmount = parseFloat(tx.transaction_amount?.amount);
+  if (Number.isNaN(rawAmount)) return null;
 
-  const description =
-    tx.remittanceInformationUnstructured ??
-    (Array.isArray(tx.remittanceInformationUnstructuredArray)
-      ? tx.remittanceInformationUnstructuredArray.join(" ")
-      : null) ??
-    tx.creditorName ??
-    tx.debtorName ??
-    "Bank transactie";
+  // CRDT = inkomend (positief), DBIT = uitgaand (negatief)
+  const sign = tx.credit_debit_indicator === "DBIT" ? -1 : 1;
+  const amount = Math.abs(rawAmount) * sign;
+
+  // Description: best-effort uit remittance_information of namen
+  const remittance = Array.isArray(tx.remittance_information)
+    ? tx.remittance_information.filter(Boolean).join(" ")
+    : null;
+  const counterparty = sign < 0
+    ? tx.creditor?.name
+    : tx.debtor?.name;
+  const description = remittance || counterparty || "Bank transactie";
 
   return {
     user_id: userId,
@@ -217,27 +295,32 @@ function json(body: unknown, status = 200) {
   });
 }
 
-async function getGcToken(secretId: string, secretKey: string): Promise<string | null> {
-  const res = await fetch(`${GC_API}/token/new/`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ secret_id: secretId, secret_key: secretKey }),
-  });
-  if (!res.ok) {
-    console.error("gc_token error:", res.status, await res.text());
+async function getEbToken(appId: string, privateKeyPem: string): Promise<string | null> {
+  try {
+    const pem = privateKeyPem.replace(/\\n/g, "\n").trim();
+    const privateKey = await importPKCS8(pem, "RS256");
+
+    const jwt = await new SignJWT({})
+      .setProtectedHeader({ alg: "RS256", typ: "JWT", kid: appId })
+      .setIssuer("enablebanking.com")
+      .setAudience("api.enablebanking.com")
+      .setIssuedAt()
+      .setExpirationTime("1h")
+      .sign(privateKey);
+    return jwt;
+  } catch (e) {
+    console.error("eb_token sign error:", e);
     return null;
   }
-  const data = await res.json();
-  return data.access ?? null;
 }
 
-async function gcFetch(
+async function ebFetch(
   token: string,
   method: string,
   path: string,
   body?: unknown,
 ): Promise<{ ok: boolean; status: number; body: any }> {
-  const res = await fetch(`${GC_API}${path}`, {
+  const res = await fetch(`${EB_API}${path}`, {
     method,
     headers: {
       Authorization: `Bearer ${token}`,
@@ -247,5 +330,8 @@ async function gcFetch(
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    console.error(`eb_fetch ${method} ${path} → ${res.status}`, data);
+  }
   return { ok: res.ok, status: res.status, body: data };
 }
