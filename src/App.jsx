@@ -24,7 +24,7 @@ import { Upload, Home, List, TrendingUp, TrendingDown, Lightbulb, Settings,
   CreditCard, DollarSign, Activity, Sliders, Search, Tag, ChevronUp,
   Repeat, Bell, BellOff, Download, FileText, FileSpreadsheet,
   Calendar, Clock, Eye, EyeOff, Filter, ChevronLeft,
-  Shield, Users, UserX, Crown, Ban, RotateCcw, Mail, LogOut, Briefcase, Copy, Link2, UserPlus, UserCheck } from "lucide-react";
+  Shield, Users, UserX, Crown, Ban, RotateCcw, Mail, LogOut, Briefcase, Copy, Link2, UserPlus, UserCheck, Menu } from "lucide-react";
 
 // ─── TRANSLATIONS ─────────────────────────────────────────────
 const T = {
@@ -17965,6 +17965,35 @@ export default function App() {
             </button>
           </div>
         </div>,
+        document.body
+      )}
+
+      {/* MOBILE BOTTOM-TAB-BAR — alleen <=768px (zie mobile.css)
+          Items: dashboard, rekeningen, transactions, investments, meer.
+          "Meer" opent de sidebar-drawer voor lange-tail navigatie. */}
+      {createPortal(
+        <nav className={`mobile-tab-bar${!isDark ? ' light-mode' : ''}`} aria-label="Hoofdnavigatie">
+          <button onClick={() => setView('dashboard')} className={view === 'dashboard' ? 'active' : ''} aria-label="Dashboard">
+            <Home size={20} />
+            <span>Home</span>
+          </button>
+          <button onClick={() => setView('rekeningen')} className={view === 'rekeningen' ? 'active' : ''} aria-label="Rekeningen">
+            <CreditCard size={20} />
+            <span>Rekeningen</span>
+          </button>
+          <button onClick={() => setView('transactions')} className={view === 'transactions' ? 'active' : ''} aria-label="Transacties">
+            <List size={20} />
+            <span>Transacties</span>
+          </button>
+          <button onClick={() => setView('investments')} className={view === 'investments' ? 'active' : ''} aria-label="Investments">
+            <TrendingUp size={20} />
+            <span>Invest</span>
+          </button>
+          <button onClick={() => setSidebarOpen(true)} aria-label="Meer">
+            <Menu size={20} />
+            <span>Meer</span>
+          </button>
+        </nav>,
         document.body
       )}
     </div>
