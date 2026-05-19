@@ -162,6 +162,51 @@ html, body {
   }
 }
 
+/* ── 11. Horizontale overflow voorkomen ────────────────────────
+   Visueel bevestigd 2026-05-19: Income/Expenses cards op dashboard
+   stonden naast elkaar in inline grid, kapten rechts af op 375px.
+   Veel widgets gebruiken inline `display:grid; grid-template-columns:1fr 1fr`
+   of horizontale flex. Forceer single-column / wrap op phone. */
+@media (max-width: 640px) {
+  html, body {
+    overflow-x: hidden;
+  }
+  .page-view {
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+  }
+  .page-view > * {
+    max-width: 100% !important;
+    box-sizing: border-box;
+  }
+  /* Inline grids: alle 2/3-kolom grids → 1 kolom via display:block.
+     Block-conversie is robuuster dan grid-template-columns override
+     omdat track-sizing kan worden gepushed door content min-width.
+     Uitzondering: .ins-kpi-grid (insights) blijft 2 cols zoals
+     bestaande App.jsx:17151 al specificeerde. */
+  .page-view [style*="grid-template-columns"]:not(.ins-kpi-grid) {
+    display: block !important;
+  }
+  /* Voeg vertical spacing toe tussen direct children van geconvert-
+     eerde block-grids (anders zouden de items zonder gap vlak op
+     elkaar zitten). */
+  .page-view [style*="grid-template-columns"]:not(.ins-kpi-grid) > * {
+    margin-bottom: 14px;
+  }
+  .page-view [style*="grid-template-columns"]:not(.ins-kpi-grid) > *:last-child {
+    margin-bottom: 0;
+  }
+  /* Horizontale flex containers mogen wrappen, kids mogen shrinken */
+  .page-view [style*="display: flex"]:not([style*="flex-direction: column"]),
+  .page-view [style*="display:flex"]:not([style*="flex-direction:column"]) {
+    flex-wrap: wrap !important;
+  }
+  .page-view [style*="display: flex"] > *,
+  .page-view [style*="display:flex"] > * {
+    min-width: 0;
+  }
+}
+
 /* ── 10. Modal portals — full-screen onder 640px (best-effort) ──
    Modals zitten via createPortal(..., document.body). De overlay
    is een direct child van <body> met inset:0. De modal-box is een
