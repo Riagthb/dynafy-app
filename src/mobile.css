@@ -1,0 +1,178 @@
+/* ──────────────────────────────────────────────────────────────
+   Dynafy mobile-first overrides — sprint 1 (2026-05-19)
+   ──────────────────────────────────────────────────────────────
+   Strategie: globale CSS-overrides met !important omdat 95% van
+   de styling in App.jsx inline zit (style={{}}). Inline styles
+   winnen normaal van CSS — alleen !important kan dat doorbreken.
+
+   Scope: <= 640px = "phone", 641px-768px = "small tablet".
+   Bestaande sidebar-slideout (App.jsx:17118-17145) blijft intact.
+   ────────────────────────────────────────────────────────────── */
+
+/* ── 1. iOS auto-zoom voorkomen ─────────────────────────────────
+   iOS Safari zoomt in als input font-size < 16px. Killer voor UX. */
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* ── 2. Tap highlight verwijderen ───────────────────────────────
+   Grijze flash bij tap op iOS/Android weghalen. */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ── 3. Touch targets — min 40px op interactieve elementen ──────
+   Apple HIG = 44px, Material = 48px. We doen 40px om bestaande
+   compacte sidebar/header layouts niet te breken; geldt alleen
+   binnen .page-view (de content-area), niet in sidebar/topbar. */
+@media (max-width: 640px) {
+  .page-view button,
+  .page-view a[role="button"],
+  .page-view [role="button"] {
+    min-height: 40px;
+  }
+  /* Pas op: icon-only buttons hebben vaak square dimensions —
+     forceer min-width niet, kan grid-layouts breken. */
+}
+
+/* ── 4. Page padding — ruimte tegen schermrand ──────────────────
+   Bestaande regel (App.jsx:17153) zet padding 0 — dat plakt
+   content tegen de rand. Beter: 12px horizontaal, ruimte onderaan
+   voor bottom-tab-bar (56px) + safe-area-inset. */
+@media (max-width: 640px) {
+  .page-view {
+    padding: 12px 12px calc(72px + env(safe-area-inset-bottom)) 12px !important;
+  }
+}
+
+/* ── 5. Tabellen — horizontaal scrollbaar ───────────────────────
+   Vier <table>'s in de app (cashflow, investeringsdetail,
+   transactieexport, rendement-historiek). Op mobile = breekt
+   layout. Tijdelijke fix: wrap in scrollable container via
+   display:block. Op termijn → card-layout per rij. */
+@media (max-width: 640px) {
+  .page-view table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+    white-space: nowrap;
+  }
+  .page-view table thead,
+  .page-view table tbody,
+  .page-view table tr {
+    display: table;
+    width: max-content;
+    min-width: 100%;
+    table-layout: auto;
+  }
+}
+
+/* ── 6. Headings kleiner op mobile ──────────────────────────────
+   Bestaande index.css doet h1: 36px / h2: 20px op <= 1024px.
+   Op phone is dat nog steeds te groot voor smalle viewport. */
+@media (max-width: 640px) {
+  h1 {
+    font-size: 22px !important;
+    margin: 12px 0 !important;
+  }
+  h2 {
+    font-size: 17px !important;
+  }
+  h3 {
+    font-size: 15px !important;
+  }
+}
+
+/* ── 7. Overscroll bouncing voorkomen ───────────────────────────
+   iOS pull-to-refresh kan modals/sidebars wegduwen. */
+html, body {
+  overscroll-behavior-y: contain;
+}
+
+/* ── 8. Safe-area insets — iPhone notch / home indicator ────────
+   Hoofdcontainer mag niet onder de notch verdwijnen. */
+@supports (padding: env(safe-area-inset-top)) {
+  .main-panel {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+/* ── 9. Bottom-tab-bar — geldt voor <= 768px (telefoon+mini) ────
+   Sidebar slideout (van App.jsx:17119) blijft de "Meer" route.
+   Bottom-tab-bar geeft direct toegang tot 4 hoofdschermen +
+   hamburger naar de rest. Verstopt boven 768px. */
+.mobile-tab-bar {
+  display: none;
+}
+@media (max-width: 768px) {
+  .mobile-tab-bar {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 150;
+    height: 56px;
+    padding-bottom: env(safe-area-inset-bottom);
+    background: var(--mtb-bg, #0b1628);
+    border-top: 1px solid var(--mtb-border, rgba(255,255,255,0.08));
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.25);
+    justify-content: space-around;
+    align-items: stretch;
+  }
+  .mobile-tab-bar.light-mode {
+    --mtb-bg: #ffffff;
+    --mtb-border: #e2e6ed;
+    box-shadow: 0 -4px 18px rgba(15,23,42,0.06);
+  }
+  .mobile-tab-bar button {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 6px 4px;
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    transition: color 0.15s, transform 0.1s;
+    min-height: 44px;
+  }
+  .mobile-tab-bar button:active {
+    transform: scale(0.94);
+  }
+  .mobile-tab-bar button.active {
+    color: #4f8ef7;
+  }
+  .mobile-tab-bar.light-mode button {
+    color: #94a3b8;
+  }
+  .mobile-tab-bar.light-mode button.active {
+    color: #d97706;
+  }
+}
+
+/* ── 10. Modal portals — full-screen onder 640px (best-effort) ──
+   Modals zitten via createPortal(..., document.body). De overlay
+   is een direct child van <body> met inset:0. De modal-box is een
+   direct child daarvan. Globale rule maakt modal-box full-width
+   met padding ipv center-popup. */
+@media (max-width: 640px) {
+  body > div[style*="position: fixed"][style*="inset: 0"] > div {
+    max-width: 100% !important;
+    width: calc(100% - 24px) !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+    margin: 12px !important;
+  }
+}
