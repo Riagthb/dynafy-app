@@ -26,6 +26,22 @@ import { Upload, Home, List, TrendingUp, TrendingDown, Lightbulb, Settings,
   Calendar, Clock, Eye, EyeOff, Filter, ChevronLeft,
   Shield, Users, UserX, Crown, Ban, RotateCcw, Mail, LogOut, Briefcase, Copy, Link2, UserPlus, UserCheck, Menu } from "lucide-react";
 
+// ─── HOOKS ────────────────────────────────────────────────────
+// useIsMobile: reactief op viewport <=640px. Gebruikt matchMedia
+// listener zodat resize (desktop devtools, rotatie) live update.
+function useIsMobile(maxWidth = 640) {
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia(`(max-width: ${maxWidth}px)`).matches
+  );
+  useEffect(() => {
+    const mql = window.matchMedia(`(max-width: ${maxWidth}px)`);
+    const handler = e => setIsMobile(e.matches);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, [maxWidth]);
+  return isMobile;
+}
+
 // ─── TRANSLATIONS ─────────────────────────────────────────────
 const T = {
   en: {
@@ -3082,6 +3098,7 @@ function MarkAsTransferModal({ tx, transactions, setTransactions, isDark, onClos
 
 // ─── TRANSACTIONS VIEW ─────────────────────────────────────────
 function Transactions({ transactions, setTransactions, t, accounts, setAccounts, isDark, onImportDone, lang = "nl", selectedAccount, setSelectedAccount }) {
+  const isMobile = useIsMobile();
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState("");
   const [catDropOpen, setCatDropOpen] = useState(false);
@@ -3288,8 +3305,77 @@ function Transactions({ transactions, setTransactions, t, accounts, setAccounts,
         </div>
       </div>
 
-      {/* Table */}
+      {/* Table OR mobile card-list */}
       <div style={{ ...card(isDark), padding: 0, overflow: "hidden" }}>
+        {isMobile ? (
+          /* ── MOBILE CARD LAYOUT (<=640px) ──────────────────────
+             Card per transactie: top-row date+amount, midden
+             counterparty, bottom category-badge + account.
+             Hergebruik alle bestaande state/handlers van Transactions. */
+          filtered.length === 0 ? (
+            <div style={{ padding: 40, textAlign: "center", color: isDark ? "#334155" : "#94a3b8", fontSize: 13 }}>{t.transactions.noTransactions}</div>
+          ) : filtered.map((tx, i) => (
+            <div key={tx.id} style={{
+              padding: "12px 14px",
+              borderBottom: i < filtered.length - 1 ? (isDark ? "1px solid rgba(255,255,255,0.04)" : "1px solid #f1f5f9") : "none",
+            }}>
+              {/* Top-row: date links, amount rechts */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4, gap: 8 }}>
+                <span style={{ fontSize: 11, color: "#64748b", fontFamily: "'DM Mono', monospace", whiteSpace: "nowrap" }}>{tx.date}</span>
+                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 15, fontWeight: 700, color: tx.is_transfer ? "#94a3b8" : (tx.amount < 0 ? "#f43f5e" : "#22c55e"), whiteSpace: "nowrap" }}>
+                  {tx.amount < 0 ? "−" : "+"}{fmt(Math.abs(tx.amount))}
+                </span>
+              </div>
+              {/* Counterparty / description */}
+              <div style={{ fontSize: 14, fontWeight: 600, color: isDark ? "#f1f5f9" : "#0f172a", marginBottom: 8, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {tx.counterparty || tx.description}
+                {tx.paymentType && <span style={{ marginLeft: 6, padding: "1px 6px", borderRadius: 4, background: isDark ? "rgba(255,255,255,0.06)" : "#f1f5f9", fontSize: 10, fontWeight: 600, color: "#94a3b8" }}>{tx.paymentType}</span>}
+              </div>
+              {/* Bottom-row: category-badge + account */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                {inlineCatInput === tx.id ? (
+                  <div style={{ display: "flex", gap: 4, alignItems: "center", flex: 1 }}>
+                    <input autoFocus value={inlineCatVal} onChange={e => setInlineCatVal(e.target.value)}
+                      placeholder="Naam categorie..."
+                      onKeyDown={e => { if (e.key === "Enter") addInlineCat(tx.id); if (e.key === "Escape") { setInlineCatInput(null); setInlineCatVal(""); } }}
+                      style={{ flex: 1, padding: "4px 8px", background: isDark ? "rgba(255,255,255,0.06)" : "#f8fafc", border: "2px solid #4f8ef7", borderRadius: 7, color: isDark ? "#f1f5f9" : "#0f172a", fontSize: 12, outline: "none", minWidth: 0 }}/>
+                    <button onClick={() => addInlineCat(tx.id)} style={{ width: 28, height: 28, borderRadius: 6, background: "#22c55e", border: "none", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Check size={12}/></button>
+                    <button onClick={() => { setInlineCatInput(null); setInlineCatVal(""); }} style={{ width: 28, height: 28, borderRadius: 6, background: "transparent", border: `1px solid ${isDark ? "rgba(255,255,255,0.12)" : "#e2e6ed"}`, color: "#94a3b8", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><X size={12}/></button>
+                  </div>
+                ) : editCat === tx.id ? (
+                  <select autoFocus defaultValue={tx.category}
+                    onChange={e => { if (e.target.value === "__new__") { setInlineCatInput(tx.id); setInlineCatVal(""); setEditCat(null); } else updateCategory(tx.id, e.target.value); }}
+                    onBlur={e => { if (e.target.value !== "__new__") setEditCat(null); }}
+                    style={{ padding: "6px 10px", background: isDark ? DK.L2 : "#f8fafc", border: `1px solid ${CATEGORY_COLORS[tx.category] || "#334155"}`, borderRadius: 8, color: isDark ? "#f1f5f9" : "#0f172a", fontSize: 12, cursor: "pointer", outline: "none" }}>
+                    {Object.keys(CATEGORY_COLORS).map(k => <option key={k} value={k}>{t.categories[k] || k}</option>)}
+                    <option disabled>──────────</option>
+                    <option value="__new__">+ Nieuwe categorie...</option>
+                  </select>
+                ) : tx.is_transfer ? (
+                  <div onClick={() => setTransferTx(tx)}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 8, background: "rgba(148,163,184,0.15)", cursor: "pointer", fontSize: 11, color: "#94a3b8", fontWeight: 600, border: "1px solid rgba(148,163,184,0.25)" }}>
+                    <Repeat size={10} /> Overboeking
+                  </div>
+                ) : (
+                  <>
+                    <div onClick={() => setEditCat(tx.id)} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 8, background: `${CATEGORY_COLORS[tx.category] || "#334155"}20`, cursor: "pointer", fontSize: 11, color: CATEGORY_COLORS[tx.category] || "#64748b", fontWeight: 600 }}>
+                      <div style={{ width: 6, height: 6, borderRadius: 2, background: CATEGORY_COLORS[tx.category] || "#64748b", flexShrink: 0 }} />
+                      {t.categories[tx.category] || tx.category}
+                    </div>
+                    <button onClick={() => setTransferTx(tx)} title="Markeer als overboeking"
+                      style={{ width: 26, height: 26, borderRadius: 6, background: "transparent", border: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "#e2e6ed"}`, color: "#94a3b8", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, padding: 0 }}>
+                      <Repeat size={11}/>
+                    </button>
+                  </>
+                )}
+                <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4, color: "#64748b", fontSize: 11, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "50%" }}>
+                  <Building2 size={11} style={{ flexShrink: 0 }} />
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{tx.account}</span>
+                </div>
+              </div>
+            </div>
+          ))
+        ) : (
         <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
           <colgroup>
             <col style={{ width: "100px" }}/>
@@ -3378,6 +3464,7 @@ function Transactions({ transactions, setTransactions, t, accounts, setAccounts,
             ))}
           </tbody>
         </table>
+        )}
       </div>
     </div>
   );
