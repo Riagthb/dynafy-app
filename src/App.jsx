@@ -10225,18 +10225,44 @@ function InvoiceForm({ isDark, user, invoice, clients, onClose, onSaved, zzpProf
   const sectionTitle = { fontSize:14, fontWeight:800, color:C.text, marginBottom:12, letterSpacing:'-0.01em' };
   const lineLbl = { ...lbl, marginBottom:5 };
 
+  // Buttons-blok hergebruikt door beide layouts (mobile sectie-cards + desktop flat)
+  const actionButtons = !isEditMode ? (
+    <div style={{ display:'flex', gap:10, flexWrap:'wrap', marginTop:4 }}>
+      <button onClick={onClose} style={{ flex:1, minWidth:110, padding:13, borderRadius:12, border:`1px solid ${C.border}`, background:'transparent', color:C.muted, fontSize:14, fontWeight:600, cursor:'pointer' }}>Annuleren</button>
+      <button onClick={() => handleCreate('concept')} disabled={saving} style={{ flex:1, minWidth:150, padding:13, borderRadius:12, border:`1px solid ${C.border}`, background:'transparent', color:C.text, fontSize:14, fontWeight:600, cursor:saving?'wait':'pointer', opacity:saving?0.7:1 }}>
+        {saving ? '...' : 'Concept opslaan'}
+      </button>
+      <button onClick={() => handleCreate('definitief')} disabled={saving} style={{ flex:2, minWidth:200, padding:13, borderRadius:12, border:'none', background:'linear-gradient(135deg,#a855f7,#7c3aed)', color:'#fff', fontSize:14, fontWeight:700, cursor:saving?'wait':'pointer', opacity:saving?0.7:1 }}>
+        {saving ? 'Opslaan...' : '✓ Factuur definitief maken'}
+      </button>
+    </div>
+  ) : (
+    <div style={{ display:'flex', gap:10, flexWrap:'wrap', marginTop:4 }}>
+      <button onClick={() => handleUpdate(null)} disabled={saving} style={{ flex:1, minWidth:140, padding:12, borderRadius:12, border:`1px solid ${C.border}`, background:'transparent', color:C.text, fontSize:14, fontWeight:600, cursor:saving?'wait':'pointer' }}>
+        {saving ? '...' : 'Opslaan'}
+      </button>
+      <button onClick={() => handleUpdate('definitief')} disabled={saving} style={{ flex:2, minWidth:200, padding:12, borderRadius:12, border:'none', background:'linear-gradient(135deg,#a855f7,#7c3aed)', color:'#fff', fontSize:14, fontWeight:700, cursor:saving?'wait':'pointer', opacity:saving?0.7:1 }}>
+        {saving ? 'Opslaan...' : '✓ Factuur definitief maken'}
+      </button>
+    </div>
+  );
+
   return createPortal(
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', backdropFilter:'blur(4px)', zIndex:9999, overflowY:'auto', padding:'20px 16px' }}>
-      <div style={{ background:C.card, borderRadius:20, width:'100%', maxWidth:760, margin:'0 auto', border:`1px solid ${C.border}` }}>
-        {/* Header */}
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'18px 22px', borderBottom:`1px solid ${C.border}` }}>
+      <div style={{ background:C.card, borderRadius:20, width:'100%', maxWidth:isMobile?760:800, margin:'0 auto', border:`1px solid ${C.border}` }}>
+        {/* Header — shared */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:isMobile?'18px 22px':'20px 24px', borderBottom:`1px solid ${C.border}` }}>
           <div style={{ minWidth:0 }}>
-            <div style={{ fontSize:17, fontWeight:800, color:C.text, overflow:'hidden', textOverflow:'ellipsis' }}>{headerTitle}</div>
+            <div style={{ fontSize:isMobile?17:18, fontWeight:800, color:C.text, overflow:'hidden', textOverflow:'ellipsis' }}>{headerTitle}</div>
             {isEditMode && isNew && <div style={{ fontSize:12, color:'#f59e0b', marginTop:2 }}>Concept aangemaakt — bewerk en maak definitief</div>}
           </div>
           <button onClick={onClose} style={{ width:32, height:32, borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:C.muted, flexShrink:0, marginLeft:12 }}><X size={16}/></button>
         </div>
 
+        {isMobile ? (
+        // ════════════════════════════════════════════════════════════════
+        // MOBILE LAYOUT — Rompslomp-stijl sectie-cards (Ranny 2026-05-22)
+        // ════════════════════════════════════════════════════════════════
         <div style={{ padding:'18px 18px 14px', display:'flex', flexDirection:'column', gap:14 }}>
 
           {/* ── Sectie 1: Klant ──────────────────────────────────── */}
@@ -10256,12 +10282,12 @@ function InvoiceForm({ isDark, user, invoice, clients, onClose, onSaved, zzpProf
                   <span style={{ fontSize:13, fontWeight:700, color:C.text }}>Nieuwe klant aanmaken</span>
                   <button onClick={() => setShowNewClient(false)} style={{ fontSize:12, color:'#4f8ef7', background:'none', border:'none', cursor:'pointer', fontWeight:600 }}>← Bestaande klant kiezen</button>
                 </div>
-                <div style={{ display:'grid', gridTemplateColumns:isMobile?'1fr':'1fr 1fr', gap:10 }}>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr', gap:10 }}>
                   <div><label style={lineLbl}>Bedrijfsnaam *</label><input style={inp} value={newClient.company_name} onChange={e => setNC('company_name', e.target.value)} /></div>
                   <div><label style={lineLbl}>E-mail</label><input style={inp} value={newClient.email} onChange={e => setNC('email', e.target.value)} placeholder="naam@bedrijf.nl" /></div>
                   <div><label style={lineLbl}>Voornaam</label><input style={inp} value={newClient.first_name} onChange={e => setNC('first_name', e.target.value)} /></div>
                   <div><label style={lineLbl}>Achternaam</label><input style={inp} value={newClient.last_name} onChange={e => setNC('last_name', e.target.value)} /></div>
-                  <div style={{ gridColumn:isMobile?'auto':'1 / -1' }}><label style={lineLbl}>Adres</label><input style={inp} value={newClient.address} onChange={e => setNC('address', e.target.value)} /></div>
+                  <div><label style={lineLbl}>Adres</label><input style={inp} value={newClient.address} onChange={e => setNC('address', e.target.value)} /></div>
                   <div><label style={lineLbl}>Postcode</label><input style={inp} value={newClient.postal_code} onChange={e => setNC('postal_code', e.target.value.toUpperCase())} /></div>
                   <div><label style={lineLbl}>Stad</label><input style={inp} value={newClient.city} onChange={e => setNC('city', e.target.value)} /></div>
                   <div><label style={lineLbl}>KvK (optioneel)</label><input style={inp} value={newClient.kvk} onChange={e => setNC('kvk', e.target.value)} /></div>
@@ -10279,16 +10305,11 @@ function InvoiceForm({ isDark, user, invoice, clients, onClose, onSaved, zzpProf
                 const lineTotal = (parseFloat(l.quantity)||0) * (parseFloat(l.unit_price)||0);
                 return (
                   <div key={i} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:12 }}>
-                    {/* Top: omschrijving vol breed — kern-feedback Ranny 2026-05-22 */}
                     <div style={{ marginBottom:10 }}>
                       <label style={lineLbl}>Omschrijving</label>
                       <input style={inp} placeholder="Bijv. Webdesign april 2026" value={l.description} onChange={e => setLine(i,'description',e.target.value)} />
                     </div>
-                    {/* Middle: aantal | prijs | btw
-                        Mobile (Ranny feedback 2026-05-22 18:18): modal zit via
-                        createPortal in document.body, dus mobile.css grid→block
-                        regel pakt het niet. Expliciet stacken via isMobile. */}
-                    <div style={{ display:'grid', gridTemplateColumns:isMobile?'1fr':'90px 1fr 110px', gap:isMobile?12:10 }}>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr', gap:12 }}>
                       <div>
                         <label style={lineLbl}>Aantal</label>
                         <input style={{ ...inp, textAlign:'right' }} type="number" min="0.01" step="0.5" value={l.quantity} onChange={e => setLine(i,'quantity',e.target.value)} />
@@ -10304,7 +10325,6 @@ function InvoiceForm({ isDark, user, invoice, clients, onClose, onSaved, zzpProf
                         </select>
                       </div>
                     </div>
-                    {/* Bottom: regel-totaal + delete */}
                     <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:12, paddingTop:10, borderTop:`1px dashed ${C.border}` }}>
                       <div style={{ fontSize:12, color:C.muted, fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em' }}>Regel-totaal</div>
                       <div style={{ display:'flex', alignItems:'center', gap:10 }}>
@@ -10317,7 +10337,6 @@ function InvoiceForm({ isDark, user, invoice, clients, onClose, onSaved, zzpProf
               })}
               <button onClick={addLine} style={{ padding:'12px 16px', borderRadius:12, border:`1.5px dashed ${C.border}`, background:'transparent', color:'#4f8ef7', fontSize:13, fontWeight:700, cursor:'pointer' }}>+ Regel toevoegen</button>
             </div>
-            {/* Totals summary onderaan sectie */}
             <div style={{ marginTop:14, paddingTop:14, borderTop:`1px solid ${C.border}`, display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4 }}>
               <div style={{ fontSize:13, color:C.muted }}>Subtotaal excl. BTW: <b style={{ color:C.text }}>{fmtEur(totals.exclBtw)}</b></div>
               {Object.entries(totals.btwGroups).map(([pct,amt]) => <div key={pct} style={{ fontSize:13, color:C.muted }}>BTW {pct}%: <b style={{ color:C.text }}>{fmtEur(amt)}</b></div>)}
@@ -10328,7 +10347,7 @@ function InvoiceForm({ isDark, user, invoice, clients, onClose, onSaved, zzpProf
           {/* ── Sectie 3: Datum ─────────────────────────────────── */}
           <div style={sectionStyle}>
             <div style={sectionTitle}>Datum</div>
-            <div style={{ display:'grid', gridTemplateColumns:isMobile?'1fr':'1fr 1fr', gap:isMobile?12:14 }}>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr', gap:12 }}>
               <div><label style={lineLbl}>Factuurdatum</label><input type="date" style={inp} value={invoiceDate} onChange={e => setInvoiceDate(e.target.value)} /></div>
               <div>
                 <label style={lineLbl}>Vervaldatum</label>
@@ -10358,29 +10377,109 @@ function InvoiceForm({ isDark, user, invoice, clients, onClose, onSaved, zzpProf
           </div>
 
           {err && <div style={{ padding:'10px 14px', borderRadius:10, background:'rgba(244,63,94,0.1)', border:'1px solid rgba(244,63,94,0.3)', color:'#f43f5e', fontSize:13 }}>{err}</div>}
-
-          {/* ── Action-buttons ──────────────────────────────────── */}
-          {!isEditMode ? (
-            <div style={{ display:'flex', gap:10, flexWrap:'wrap', marginTop:4 }}>
-              <button onClick={onClose} style={{ flex:1, minWidth:110, padding:13, borderRadius:12, border:`1px solid ${C.border}`, background:'transparent', color:C.muted, fontSize:14, fontWeight:600, cursor:'pointer' }}>Annuleren</button>
-              <button onClick={() => handleCreate('concept')} disabled={saving} style={{ flex:1, minWidth:150, padding:13, borderRadius:12, border:`1px solid ${C.border}`, background:'transparent', color:C.text, fontSize:14, fontWeight:600, cursor:saving?'wait':'pointer', opacity:saving?0.7:1 }}>
-                {saving ? '...' : 'Concept opslaan'}
-              </button>
-              <button onClick={() => handleCreate('definitief')} disabled={saving} style={{ flex:2, minWidth:200, padding:13, borderRadius:12, border:'none', background:'linear-gradient(135deg,#a855f7,#7c3aed)', color:'#fff', fontSize:14, fontWeight:700, cursor:saving?'wait':'pointer', opacity:saving?0.7:1 }}>
-                {saving ? 'Opslaan...' : '✓ Factuur definitief maken'}
-              </button>
-            </div>
-          ) : (
-            <div style={{ display:'flex', gap:10, flexWrap:'wrap', marginTop:4 }}>
-              <button onClick={() => handleUpdate(null)} disabled={saving} style={{ flex:1, minWidth:140, padding:12, borderRadius:12, border:`1px solid ${C.border}`, background:'transparent', color:C.text, fontSize:14, fontWeight:600, cursor:saving?'wait':'pointer' }}>
-                {saving ? '...' : 'Opslaan'}
-              </button>
-              <button onClick={() => handleUpdate('definitief')} disabled={saving} style={{ flex:2, minWidth:200, padding:12, borderRadius:12, border:'none', background:'linear-gradient(135deg,#a855f7,#7c3aed)', color:'#fff', fontSize:14, fontWeight:700, cursor:saving?'wait':'pointer', opacity:saving?0.7:1 }}>
-                {saving ? 'Opslaan...' : '✓ Factuur definitief maken'}
-              </button>
-            </div>
-          )}
+          {actionButtons}
         </div>
+        ) : (
+        // ════════════════════════════════════════════════════════════════
+        // DESKTOP LAYOUT — originele flat-layout (pre-Fase-2). Behoud op
+        // verzoek Ranny 2026-05-24: sectie-cards/per-regel-cards alleen
+        // voor mobiel. Desktop = tabel met 6-koloms regels-grid.
+        // ════════════════════════════════════════════════════════════════
+        <div style={{ padding:24, display:'flex', flexDirection:'column', gap:20 }}>
+          {/* Klant */}
+          <div>
+            <label style={lbl}>Klant *</label>
+            {!showNewClient ? (
+              <div style={{ display:'flex', gap:8 }}>
+                <select value={clientId} onChange={e => setClientId(e.target.value)} style={{ ...inp, flex:1 }} disabled={isEditMode}>
+                  <option value="">— Selecteer klant —</option>
+                  {clients.map(c => <option key={c.id} value={c.id}>{c.company_name || [c.first_name,c.last_name].filter(Boolean).join(' ')}</option>)}
+                </select>
+                {!isEditMode && <button onClick={() => { setShowNewClient(true); setClientId(''); }} style={{ padding:'9px 16px', borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', color:'#4f8ef7', fontSize:13, fontWeight:600, cursor:'pointer', whiteSpace:'nowrap' }}>+ Nieuwe klant</button>}
+              </div>
+            ) : (
+              <div style={{ background:isDark?'rgba(255,255,255,0.03)':'#f8fafc', border:`1px solid ${C.border}`, borderRadius:12, padding:16 }}>
+                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:12 }}>
+                  <span style={{ fontSize:13, fontWeight:700, color:C.text }}>Nieuwe klant aanmaken</span>
+                  <button onClick={() => setShowNewClient(false)} style={{ fontSize:12, color:C.muted, background:'none', border:'none', cursor:'pointer' }}>← Bestaande klant kiezen</button>
+                </div>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                  <input style={inp} placeholder="Bedrijfsnaam *" value={newClient.company_name} onChange={e => setNC('company_name', e.target.value)} />
+                  <input style={inp} placeholder="E-mail" value={newClient.email} onChange={e => setNC('email', e.target.value)} />
+                  <input style={inp} placeholder="Voornaam" value={newClient.first_name} onChange={e => setNC('first_name', e.target.value)} />
+                  <input style={inp} placeholder="Achternaam" value={newClient.last_name} onChange={e => setNC('last_name', e.target.value)} />
+                  <input style={inp} placeholder="Adres" value={newClient.address} onChange={e => setNC('address', e.target.value)} />
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+                    <input style={inp} placeholder="Postcode" value={newClient.postal_code} onChange={e => setNC('postal_code', e.target.value.toUpperCase())} />
+                    <input style={inp} placeholder="Stad" value={newClient.city} onChange={e => setNC('city', e.target.value)} />
+                  </div>
+                  <input style={inp} placeholder="KvK (optioneel)" value={newClient.kvk} onChange={e => setNC('kvk', e.target.value)} />
+                  <input style={inp} placeholder="BTW-nummer (optioneel)" value={newClient.btw_number} onChange={e => setNC('btw_number', e.target.value)} />
+                </div>
+              </div>
+            )}
+          </div>
+          {/* Datums */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+            <div><label style={lbl}>Factuurdatum</label><input type="date" style={inp} value={invoiceDate} onChange={e => setInvoiceDate(e.target.value)} /></div>
+            <div>
+              <label style={lbl}>Vervaldatum</label>
+              <input type="date" style={inp} value={dueDate} onChange={e => setDueDate(e.target.value)} />
+              <div style={{ fontSize:11, color:C.muted, marginTop:4 }}>
+                Standaard {paymentDays} dagen ·{' '}
+                <button onClick={() => { if(onNavigate) { onClose(); onNavigate('mijn-bedrijf'); } }} style={{ fontSize:11, color:'#4f8ef7', background:'none', border:'none', cursor:'pointer', padding:0, fontFamily:'inherit', textDecoration:'underline' }}>wijzigen</button>
+              </div>
+            </div>
+          </div>
+          {/* Regels */}
+          <div>
+            <label style={lbl}>Factuurregels</label>
+            <div style={{ border:`1px solid ${C.border}`, borderRadius:12, overflow:'hidden' }}>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 70px 110px 80px 90px 28px', gap:8, padding:'8px 12px', borderBottom:`1px solid ${C.border}`, background:isDark?'rgba(255,255,255,0.02)':'#f8fafc' }}>
+                {['Omschrijving','Aantal','Prijs excl.','BTW%','Totaal',''].map(h => <div key={h} style={{ fontSize:10, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.05em' }}>{h}</div>)}
+              </div>
+              {lines.map((l, i) => {
+                const lineTotal = (parseFloat(l.quantity)||0) * (parseFloat(l.unit_price)||0);
+                return (
+                  <div key={i} style={{ display:'grid', gridTemplateColumns:'1fr 70px 110px 80px 90px 28px', gap:8, padding:'8px 12px', borderBottom:i<lines.length-1?`1px solid ${C.border}`:'none', alignItems:'center' }}>
+                    <input style={{ ...inp, padding:'7px 10px' }} placeholder="Omschrijving" value={l.description} onChange={e => setLine(i,'description',e.target.value)} />
+                    <input style={{ ...inp, padding:'7px 8px', textAlign:'right' }} type="number" min="0.01" step="0.5" value={l.quantity} onChange={e => setLine(i,'quantity',e.target.value)} />
+                    <input style={{ ...inp, padding:'7px 8px', textAlign:'right' }} type="number" min="0" step="0.01" placeholder="0,00" value={l.unit_price} onChange={e => setLine(i,'unit_price',e.target.value)} />
+                    <select style={{ ...inp, padding:'7px 6px' }} value={l.btw_percentage} onChange={e => setLine(i,'btw_percentage',Number(e.target.value))}>
+                      <option value={0}>0%</option><option value={9}>9%</option><option value={21}>21%</option>
+                    </select>
+                    <div style={{ fontSize:13, fontWeight:700, color:C.text, textAlign:'right' }}>{fmtEur(lineTotal)}</div>
+                    <button onClick={() => removeLine(i)} disabled={lines.length===1} style={{ width:24, height:24, borderRadius:6, border:'none', background:'transparent', cursor:lines.length===1?'default':'pointer', color:'#f43f5e', display:'flex', alignItems:'center', justifyContent:'center', opacity:lines.length===1?0.25:1 }}><X size={13}/></button>
+                  </div>
+                );
+              })}
+              <div style={{ padding:'8px 12px', borderTop:`1px solid ${C.border}` }}>
+                <button onClick={addLine} style={{ fontSize:13, color:'#4f8ef7', background:'none', border:'none', cursor:'pointer', fontWeight:600, padding:0 }}>+ Regel toevoegen</button>
+              </div>
+            </div>
+            <div style={{ marginTop:10, display:'flex', flexDirection:'column', alignItems:'flex-end', gap:3 }}>
+              <div style={{ fontSize:13, color:C.muted }}>Subtotaal excl. BTW: <b style={{ color:C.text }}>{fmtEur(totals.exclBtw)}</b></div>
+              {Object.entries(totals.btwGroups).map(([pct,amt]) => <div key={pct} style={{ fontSize:13, color:C.muted }}>BTW {pct}%: <b style={{ color:C.text }}>{fmtEur(amt)}</b></div>)}
+              <div style={{ fontSize:17, fontWeight:800, color:C.text, borderTop:`2px solid ${C.border}`, paddingTop:8, marginTop:4 }}>Totaal: {fmtEur(totals.inclBtw)}</div>
+            </div>
+          </div>
+          {/* Notes */}
+          <div>
+            <label style={lbl}>Opmerkingen (optioneel)</label>
+            <textarea style={{ ...inp, minHeight:72, resize:'vertical' }} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Bijv. betalingsreferentie, projectnummer..." />
+          </div>
+          {/* Titel (optioneel) — auto-filled from line descriptions */}
+          <div>
+            <label style={lbl}>Titel / onderwerp (optioneel)</label>
+            <input style={inp}
+              placeholder={lines.filter(l => l.description.trim()).map(l => l.description.trim()).join(', ') || 'Bijv. Webdesign april'}
+              value={title} onChange={e => setTitle(e.target.value)} />
+            <div style={{ fontSize:11, color:C.muted, marginTop:4 }}>Als leeg: omschrijvingen van factuurregels worden gebruikt.</div>
+          </div>
+          {err && <div style={{ padding:'10px 14px', borderRadius:10, background:'rgba(244,63,94,0.1)', border:'1px solid rgba(244,63,94,0.3)', color:'#f43f5e', fontSize:13 }}>{err}</div>}
+          {actionButtons}
+        </div>
+        )}
       </div>
     </div>,
     document.body
