@@ -10110,6 +10110,10 @@ function MailPopup({ isDark, invoice, zzpProfile, onClose }) {
 
 // ─── INVOICE FORM ──────────────────────────────────────────────
 function InvoiceForm({ isDark, user, invoice, clients, onClose, onSaved, zzpProfile, onNavigate }) {
+  // Modal zit via createPortal in document.body — buiten .page-view scope, dus
+  // mobile.css [grid-template-columns]→block rule pakt het modal NIET. Daarom
+  // hier expliciet via useIsMobile() conditional renderen.
+  const isMobile = useIsMobile();
   // savedInvoice = null means CREATE mode, set after first save
   const [savedInvoice, setSavedInvoice] = useState(invoice || null);
   const isNew = !invoice; // was it opened as "new" (not editing existing)
@@ -10252,12 +10256,12 @@ function InvoiceForm({ isDark, user, invoice, clients, onClose, onSaved, zzpProf
                   <span style={{ fontSize:13, fontWeight:700, color:C.text }}>Nieuwe klant aanmaken</span>
                   <button onClick={() => setShowNewClient(false)} style={{ fontSize:12, color:'#4f8ef7', background:'none', border:'none', cursor:'pointer', fontWeight:600 }}>← Bestaande klant kiezen</button>
                 </div>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                <div style={{ display:'grid', gridTemplateColumns:isMobile?'1fr':'1fr 1fr', gap:10 }}>
                   <div><label style={lineLbl}>Bedrijfsnaam *</label><input style={inp} value={newClient.company_name} onChange={e => setNC('company_name', e.target.value)} /></div>
                   <div><label style={lineLbl}>E-mail</label><input style={inp} value={newClient.email} onChange={e => setNC('email', e.target.value)} placeholder="naam@bedrijf.nl" /></div>
                   <div><label style={lineLbl}>Voornaam</label><input style={inp} value={newClient.first_name} onChange={e => setNC('first_name', e.target.value)} /></div>
                   <div><label style={lineLbl}>Achternaam</label><input style={inp} value={newClient.last_name} onChange={e => setNC('last_name', e.target.value)} /></div>
-                  <div style={{ gridColumn:'1 / -1' }}><label style={lineLbl}>Adres</label><input style={inp} value={newClient.address} onChange={e => setNC('address', e.target.value)} /></div>
+                  <div style={{ gridColumn:isMobile?'auto':'1 / -1' }}><label style={lineLbl}>Adres</label><input style={inp} value={newClient.address} onChange={e => setNC('address', e.target.value)} /></div>
                   <div><label style={lineLbl}>Postcode</label><input style={inp} value={newClient.postal_code} onChange={e => setNC('postal_code', e.target.value.toUpperCase())} /></div>
                   <div><label style={lineLbl}>Stad</label><input style={inp} value={newClient.city} onChange={e => setNC('city', e.target.value)} /></div>
                   <div><label style={lineLbl}>KvK (optioneel)</label><input style={inp} value={newClient.kvk} onChange={e => setNC('kvk', e.target.value)} /></div>
@@ -10280,8 +10284,11 @@ function InvoiceForm({ isDark, user, invoice, clients, onClose, onSaved, zzpProf
                       <label style={lineLbl}>Omschrijving</label>
                       <input style={inp} placeholder="Bijv. Webdesign april 2026" value={l.description} onChange={e => setLine(i,'description',e.target.value)} />
                     </div>
-                    {/* Middle: aantal | prijs | btw — desktop 3-col, mobile stack via mobile.css */}
-                    <div style={{ display:'grid', gridTemplateColumns:'90px 1fr 110px', gap:10 }}>
+                    {/* Middle: aantal | prijs | btw
+                        Mobile (Ranny feedback 2026-05-22 18:18): modal zit via
+                        createPortal in document.body, dus mobile.css grid→block
+                        regel pakt het niet. Expliciet stacken via isMobile. */}
+                    <div style={{ display:'grid', gridTemplateColumns:isMobile?'1fr':'90px 1fr 110px', gap:isMobile?12:10 }}>
                       <div>
                         <label style={lineLbl}>Aantal</label>
                         <input style={{ ...inp, textAlign:'right' }} type="number" min="0.01" step="0.5" value={l.quantity} onChange={e => setLine(i,'quantity',e.target.value)} />
@@ -10321,7 +10328,7 @@ function InvoiceForm({ isDark, user, invoice, clients, onClose, onSaved, zzpProf
           {/* ── Sectie 3: Datum ─────────────────────────────────── */}
           <div style={sectionStyle}>
             <div style={sectionTitle}>Datum</div>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
+            <div style={{ display:'grid', gridTemplateColumns:isMobile?'1fr':'1fr 1fr', gap:isMobile?12:14 }}>
               <div><label style={lineLbl}>Factuurdatum</label><input type="date" style={inp} value={invoiceDate} onChange={e => setInvoiceDate(e.target.value)} /></div>
               <div>
                 <label style={lineLbl}>Vervaldatum</label>
