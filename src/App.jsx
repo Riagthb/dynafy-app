@@ -10394,6 +10394,7 @@ function ClientEditModal({ isDark, client, onClose, onSaved }) {
 
 // ─── FACTUREN VIEW (Native Dynafy) ─────────────────────────────
 function FacturenView({ isDark, user, zzpProfile, onNavigate, activeCompanyId, userPlan = 'normal', onUpgrade }) {
+  const isMobile = useIsMobile();
   const [invoices, setInvoices] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -10645,16 +10646,19 @@ function FacturenView({ isDark, user, zzpProfile, onNavigate, activeCompanyId, u
           ))}
         </div>
 
-        {/* Invoice table */}
+        {/* Invoice list — table op desktop, card-stack op mobile */}
         <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:18, overflow:'hidden', position:'relative' }}>
-          {/* Table header */}
-          <div style={{ display:'grid', gridTemplateColumns:COLS, padding:'12px 16px', borderBottom:`1px solid ${C.border}`, background:isDark?'rgba(255,255,255,0.02)':'rgba(0,0,0,0.02)', alignItems:'center' }}>
-            {/* Select all checkbox */}
-            <div>
-              <input type="checkbox" checked={filtered.length>0 && selected.size===filtered.length} onChange={toggleAll} style={{ cursor:'pointer', width:14, height:14 }} />
+          {/* Table header — alleen op desktop. Op mobile maakt mobile.css regel 11
+              alle inline grids → display:block, waardoor de 7 kolom-labels
+              verticaal stacken (bug visueel bevestigd 2026-05-22). */}
+          {!isMobile && (
+            <div style={{ display:'grid', gridTemplateColumns:COLS, padding:'12px 16px', borderBottom:`1px solid ${C.border}`, background:isDark?'rgba(255,255,255,0.02)':'rgba(0,0,0,0.02)', alignItems:'center' }}>
+              <div>
+                <input type="checkbox" checked={filtered.length>0 && selected.size===filtered.length} onChange={toggleAll} style={{ cursor:'pointer', width:14, height:14 }} />
+              </div>
+              {['Nummer','Klant','Titel / Omschrijving','Datum','Bedrag','Status','Acties'].map(h => <div key={h} style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.06em' }}>{h}</div>)}
             </div>
-            {['Nummer','Klant','Titel / Omschrijving','Datum','Bedrag','Status','Acties'].map(h => <div key={h} style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.06em' }}>{h}</div>)}
-          </div>
+          )}
 
           {loading ? <div style={{ padding:40, textAlign:'center', color:C.muted }}>Laden...</div>
           : filtered.length===0 ? (
@@ -10663,6 +10667,50 @@ function FacturenView({ isDark, user, zzpProfile, onNavigate, activeCompanyId, u
               <div style={{ color:C.muted, fontSize:14, marginBottom:16 }}>Geen facturen voor {selectedYear}</div>
               <button onClick={handleNewInvoice} style={{ padding:'10px 24px', borderRadius:12, border:'none', background:'linear-gradient(135deg,#4f8ef7,#6366f1)', color:'#fff', fontSize:14, fontWeight:700, cursor:'pointer' }}>Factuur aanmaken</button>
             </div>
+          ) : isMobile ? (
+            /* ── MOBILE CARD LAYOUT (<=640px) ──────────────────────
+               Per factuur 1 card met klant-naam prominent, nummer +
+               datum klein bovenaan, bedrag + status duidelijk, acties
+               als grote knoppen onderaan. Geïnspireerd op Rompslomp UX
+               (feedback Ranny 2026-05-22). */
+            filtered.map((inv, i) => {
+              const totals = invoiceTotals(inv);
+              const clientName = inv.client ? (inv.client.company_name || [inv.client.first_name,inv.client.last_name].filter(Boolean).join(' ') || '—') : '—';
+              const displayTitle = inv.title || inv.lines?.[0]?.description || '';
+              const isSel = selected.has(inv.id);
+              return (
+                <div key={inv.id}
+                  onClick={(e) => { if (e.target.closest('button') || e.target.closest('input[type="checkbox"]')) return; setEditingInvoice(inv); setShowForm(true); }}
+                  style={{ padding:'14px 16px', borderBottom:i<filtered.length-1?`1px solid ${C.border}`:'none', background:isSel?(isDark?'rgba(79,142,247,0.08)':'rgba(79,142,247,0.04)'):'transparent', cursor:'pointer' }}>
+                  {/* Top-row: checkbox + nummer + datum  |  status badge */}
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6, gap:8 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:10, minWidth:0 }}>
+                      <input type="checkbox" checked={isSel} onChange={() => toggleSelect(inv.id)} style={{ cursor:'pointer', width:16, height:16, flexShrink:0 }} />
+                      <span style={{ fontSize:13, fontWeight:700, color:'#4f8ef7', fontFamily:'monospace', whiteSpace:'nowrap' }}>{inv.invoice_number}</span>
+                      <span style={{ fontSize:12, color:C.muted, whiteSpace:'nowrap' }}>· {new Date(inv.invoice_date).toLocaleDateString('nl-NL')}</span>
+                    </div>
+                    <span style={{ padding:'4px 10px', borderRadius:20, fontSize:11, fontWeight:700, background:STATUS_BG[inv.status], color:STATUS_COLOR[inv.status], whiteSpace:'nowrap', flexShrink:0 }}>{STATUS_LABEL[inv.status]}</span>
+                  </div>
+                  {/* Klant */}
+                  <div style={{ fontSize:15, fontWeight:700, color:C.text, marginBottom:displayTitle?2:8, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{clientName}</div>
+                  {/* Titel */}
+                  {displayTitle && <div style={{ fontSize:13, color:C.muted, marginBottom:10, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{displayTitle}</div>}
+                  {/* Bedrag + acties */}
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:8 }}>
+                    <div style={{ minWidth:0 }}>
+                      <div style={{ fontSize:16, fontWeight:800, color:C.text, letterSpacing:'-0.2px' }}>{fmtEur(totals.inclBtw)}</div>
+                      <div style={{ fontSize:11, color:C.muted }}>{fmtEur(totals.exclBtw)} excl. btw</div>
+                    </div>
+                    <div style={{ display:'flex', gap:6, flexShrink:0 }}>
+                      <button onClick={() => setMailInvoice(inv)} title="Verzenden" style={{ width:36, height:36, borderRadius:9, border:`1px solid ${C.border}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#22c55e' }}><Mail size={14}/></button>
+                      <button onClick={() => printInvoicePDF(inv, zzpProfile)} title="PDF" style={{ width:36, height:36, borderRadius:9, border:`1px solid ${C.border}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:C.muted }}><Download size={14}/></button>
+                      {STATUS_NEXT[inv.status] && <button onClick={() => updateStatus(inv, STATUS_NEXT[inv.status])} title={`→ ${STATUS_LABEL[STATUS_NEXT[inv.status]]}`} style={{ width:36, height:36, borderRadius:9, border:`1px solid ${C.border}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#22c55e' }}><Check size={14}/></button>}
+                      <button onClick={() => deleteInvoice(inv)} title="Verwijderen" style={{ width:36, height:36, borderRadius:9, border:'1px solid rgba(244,63,94,0.3)', background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#f43f5e' }}><Trash2 size={14}/></button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
           ) : filtered.map((inv, i) => {
             const totals = invoiceTotals(inv);
             const clientName = inv.client ? (inv.client.company_name || [inv.client.first_name,inv.client.last_name].filter(Boolean).join(' ') || '—') : '—';
