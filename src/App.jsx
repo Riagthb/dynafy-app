@@ -24,7 +24,23 @@ import { Upload, Home, List, TrendingUp, TrendingDown, Lightbulb, Settings,
   CreditCard, DollarSign, Activity, Sliders, Search, Tag, ChevronUp,
   Repeat, Bell, BellOff, Download, FileText, FileSpreadsheet,
   Calendar, Clock, Eye, EyeOff, Filter, ChevronLeft,
-  Shield, Users, UserX, Crown, Ban, RotateCcw, Mail, LogOut, Briefcase, Copy, Link2, UserPlus, UserCheck } from "lucide-react";
+  Shield, Users, UserX, Crown, Ban, RotateCcw, Mail, LogOut, Briefcase, Copy, Link2, UserPlus, UserCheck, Menu } from "lucide-react";
+
+// ─── HOOKS ────────────────────────────────────────────────────
+// useIsMobile: reactief op viewport <=640px. Gebruikt matchMedia
+// listener zodat resize (desktop devtools, rotatie) live update.
+function useIsMobile(maxWidth = 640) {
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia(`(max-width: ${maxWidth}px)`).matches
+  );
+  useEffect(() => {
+    const mql = window.matchMedia(`(max-width: ${maxWidth}px)`);
+    const handler = e => setIsMobile(e.matches);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, [maxWidth]);
+  return isMobile;
+}
 
 // ─── TRANSLATIONS ─────────────────────────────────────────────
 const T = {
@@ -3082,6 +3098,7 @@ function MarkAsTransferModal({ tx, transactions, setTransactions, isDark, onClos
 
 // ─── TRANSACTIONS VIEW ─────────────────────────────────────────
 function Transactions({ transactions, setTransactions, t, accounts, setAccounts, isDark, onImportDone, lang = "nl", selectedAccount, setSelectedAccount }) {
+  const isMobile = useIsMobile();
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState("");
   const [catDropOpen, setCatDropOpen] = useState(false);
@@ -3288,8 +3305,77 @@ function Transactions({ transactions, setTransactions, t, accounts, setAccounts,
         </div>
       </div>
 
-      {/* Table */}
+      {/* Table OR mobile card-list */}
       <div style={{ ...card(isDark), padding: 0, overflow: "hidden" }}>
+        {isMobile ? (
+          /* ── MOBILE CARD LAYOUT (<=640px) ──────────────────────
+             Card per transactie: top-row date+amount, midden
+             counterparty, bottom category-badge + account.
+             Hergebruik alle bestaande state/handlers van Transactions. */
+          filtered.length === 0 ? (
+            <div style={{ padding: 40, textAlign: "center", color: isDark ? "#334155" : "#94a3b8", fontSize: 13 }}>{t.transactions.noTransactions}</div>
+          ) : filtered.map((tx, i) => (
+            <div key={tx.id} style={{
+              padding: "12px 14px",
+              borderBottom: i < filtered.length - 1 ? (isDark ? "1px solid rgba(255,255,255,0.04)" : "1px solid #f1f5f9") : "none",
+            }}>
+              {/* Top-row: date links, amount rechts */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4, gap: 8 }}>
+                <span style={{ fontSize: 11, color: "#64748b", fontFamily: "'DM Mono', monospace", whiteSpace: "nowrap" }}>{tx.date}</span>
+                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 15, fontWeight: 700, color: tx.is_transfer ? "#94a3b8" : (tx.amount < 0 ? "#f43f5e" : "#22c55e"), whiteSpace: "nowrap" }}>
+                  {tx.amount < 0 ? "−" : "+"}{fmt(Math.abs(tx.amount))}
+                </span>
+              </div>
+              {/* Counterparty / description */}
+              <div style={{ fontSize: 14, fontWeight: 600, color: isDark ? "#f1f5f9" : "#0f172a", marginBottom: 8, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {tx.counterparty || tx.description}
+                {tx.paymentType && <span style={{ marginLeft: 6, padding: "1px 6px", borderRadius: 4, background: isDark ? "rgba(255,255,255,0.06)" : "#f1f5f9", fontSize: 10, fontWeight: 600, color: "#94a3b8" }}>{tx.paymentType}</span>}
+              </div>
+              {/* Bottom-row: category-badge + account */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                {inlineCatInput === tx.id ? (
+                  <div style={{ display: "flex", gap: 4, alignItems: "center", flex: 1 }}>
+                    <input autoFocus value={inlineCatVal} onChange={e => setInlineCatVal(e.target.value)}
+                      placeholder="Naam categorie..."
+                      onKeyDown={e => { if (e.key === "Enter") addInlineCat(tx.id); if (e.key === "Escape") { setInlineCatInput(null); setInlineCatVal(""); } }}
+                      style={{ flex: 1, padding: "4px 8px", background: isDark ? "rgba(255,255,255,0.06)" : "#f8fafc", border: "2px solid #4f8ef7", borderRadius: 7, color: isDark ? "#f1f5f9" : "#0f172a", fontSize: 12, outline: "none", minWidth: 0 }}/>
+                    <button onClick={() => addInlineCat(tx.id)} style={{ width: 28, height: 28, borderRadius: 6, background: "#22c55e", border: "none", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Check size={12}/></button>
+                    <button onClick={() => { setInlineCatInput(null); setInlineCatVal(""); }} style={{ width: 28, height: 28, borderRadius: 6, background: "transparent", border: `1px solid ${isDark ? "rgba(255,255,255,0.12)" : "#e2e6ed"}`, color: "#94a3b8", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><X size={12}/></button>
+                  </div>
+                ) : editCat === tx.id ? (
+                  <select autoFocus defaultValue={tx.category}
+                    onChange={e => { if (e.target.value === "__new__") { setInlineCatInput(tx.id); setInlineCatVal(""); setEditCat(null); } else updateCategory(tx.id, e.target.value); }}
+                    onBlur={e => { if (e.target.value !== "__new__") setEditCat(null); }}
+                    style={{ padding: "6px 10px", background: isDark ? DK.L2 : "#f8fafc", border: `1px solid ${CATEGORY_COLORS[tx.category] || "#334155"}`, borderRadius: 8, color: isDark ? "#f1f5f9" : "#0f172a", fontSize: 12, cursor: "pointer", outline: "none" }}>
+                    {Object.keys(CATEGORY_COLORS).map(k => <option key={k} value={k}>{t.categories[k] || k}</option>)}
+                    <option disabled>──────────</option>
+                    <option value="__new__">+ Nieuwe categorie...</option>
+                  </select>
+                ) : tx.is_transfer ? (
+                  <div onClick={() => setTransferTx(tx)}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 8, background: "rgba(148,163,184,0.15)", cursor: "pointer", fontSize: 11, color: "#94a3b8", fontWeight: 600, border: "1px solid rgba(148,163,184,0.25)" }}>
+                    <Repeat size={10} /> Overboeking
+                  </div>
+                ) : (
+                  <>
+                    <div onClick={() => setEditCat(tx.id)} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 8, background: `${CATEGORY_COLORS[tx.category] || "#334155"}20`, cursor: "pointer", fontSize: 11, color: CATEGORY_COLORS[tx.category] || "#64748b", fontWeight: 600 }}>
+                      <div style={{ width: 6, height: 6, borderRadius: 2, background: CATEGORY_COLORS[tx.category] || "#64748b", flexShrink: 0 }} />
+                      {t.categories[tx.category] || tx.category}
+                    </div>
+                    <button onClick={() => setTransferTx(tx)} title="Markeer als overboeking"
+                      style={{ width: 26, height: 26, borderRadius: 6, background: "transparent", border: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "#e2e6ed"}`, color: "#94a3b8", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, padding: 0 }}>
+                      <Repeat size={11}/>
+                    </button>
+                  </>
+                )}
+                <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4, color: "#64748b", fontSize: 11, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "50%" }}>
+                  <Building2 size={11} style={{ flexShrink: 0 }} />
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{tx.account}</span>
+                </div>
+              </div>
+            </div>
+          ))
+        ) : (
         <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
           <colgroup>
             <col style={{ width: "100px" }}/>
@@ -3378,6 +3464,7 @@ function Transactions({ transactions, setTransactions, t, accounts, setAccounts,
             ))}
           </tbody>
         </table>
+        )}
       </div>
     </div>
   );
@@ -10023,6 +10110,10 @@ function MailPopup({ isDark, invoice, zzpProfile, onClose }) {
 
 // ─── INVOICE FORM ──────────────────────────────────────────────
 function InvoiceForm({ isDark, user, invoice, clients, onClose, onSaved, zzpProfile, onNavigate }) {
+  // Modal zit via createPortal in document.body — buiten .page-view scope, dus
+  // mobile.css [grid-template-columns]→block rule pakt het modal NIET. Daarom
+  // hier expliciet via useIsMobile() conditional renderen.
+  const isMobile = useIsMobile();
   // savedInvoice = null means CREATE mode, set after first save
   const [savedInvoice, setSavedInvoice] = useState(invoice || null);
   const isNew = !invoice; // was it opened as "new" (not editing existing)
@@ -10128,17 +10219,172 @@ function InvoiceForm({ isDark, user, invoice, clients, onClose, onSaved, zzpProf
   const isEditMode = !!savedInvoice; // concept already created
   const headerTitle = isEditMode ? `Factuur ${savedInvoice.invoice_number} bewerken` : 'Nieuwe factuur';
 
+  // ── Section card helper (Rompslomp-stijl: elke groep in eigen card met titel)
+  // Close-over op isDark/C zodat we niet 5x dezelfde styling hoeven schrijven.
+  const sectionStyle = { background:isDark?'rgba(255,255,255,0.025)':'#fafbfc', border:`1px solid ${C.border}`, borderRadius:14, padding:16 };
+  const sectionTitle = { fontSize:14, fontWeight:800, color:C.text, marginBottom:12, letterSpacing:'-0.01em' };
+  const lineLbl = { ...lbl, marginBottom:5 };
+
+  // Buttons-blok hergebruikt door beide layouts (mobile sectie-cards + desktop flat)
+  const actionButtons = !isEditMode ? (
+    <div style={{ display:'flex', gap:10, flexWrap:'wrap', marginTop:4 }}>
+      <button onClick={onClose} style={{ flex:1, minWidth:110, padding:13, borderRadius:12, border:`1px solid ${C.border}`, background:'transparent', color:C.muted, fontSize:14, fontWeight:600, cursor:'pointer' }}>Annuleren</button>
+      <button onClick={() => handleCreate('concept')} disabled={saving} style={{ flex:1, minWidth:150, padding:13, borderRadius:12, border:`1px solid ${C.border}`, background:'transparent', color:C.text, fontSize:14, fontWeight:600, cursor:saving?'wait':'pointer', opacity:saving?0.7:1 }}>
+        {saving ? '...' : 'Concept opslaan'}
+      </button>
+      <button onClick={() => handleCreate('definitief')} disabled={saving} style={{ flex:2, minWidth:200, padding:13, borderRadius:12, border:'none', background:'linear-gradient(135deg,#a855f7,#7c3aed)', color:'#fff', fontSize:14, fontWeight:700, cursor:saving?'wait':'pointer', opacity:saving?0.7:1 }}>
+        {saving ? 'Opslaan...' : '✓ Factuur definitief maken'}
+      </button>
+    </div>
+  ) : (
+    <div style={{ display:'flex', gap:10, flexWrap:'wrap', marginTop:4 }}>
+      <button onClick={() => handleUpdate(null)} disabled={saving} style={{ flex:1, minWidth:140, padding:12, borderRadius:12, border:`1px solid ${C.border}`, background:'transparent', color:C.text, fontSize:14, fontWeight:600, cursor:saving?'wait':'pointer' }}>
+        {saving ? '...' : 'Opslaan'}
+      </button>
+      <button onClick={() => handleUpdate('definitief')} disabled={saving} style={{ flex:2, minWidth:200, padding:12, borderRadius:12, border:'none', background:'linear-gradient(135deg,#a855f7,#7c3aed)', color:'#fff', fontSize:14, fontWeight:700, cursor:saving?'wait':'pointer', opacity:saving?0.7:1 }}>
+        {saving ? 'Opslaan...' : '✓ Factuur definitief maken'}
+      </button>
+    </div>
+  );
+
   return createPortal(
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', backdropFilter:'blur(4px)', zIndex:9999, overflowY:'auto', padding:'20px 16px' }}>
-      <div style={{ background:C.card, borderRadius:20, width:'100%', maxWidth:800, margin:'0 auto', border:`1px solid ${C.border}` }}>
-        {/* Header */}
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 24px', borderBottom:`1px solid ${C.border}` }}>
-          <div>
-            <div style={{ fontSize:18, fontWeight:800, color:C.text }}>{headerTitle}</div>
+      <div style={{ background:C.card, borderRadius:20, width:'100%', maxWidth:isMobile?760:800, margin:'0 auto', border:`1px solid ${C.border}` }}>
+        {/* Header — shared */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:isMobile?'18px 22px':'20px 24px', borderBottom:`1px solid ${C.border}` }}>
+          <div style={{ minWidth:0 }}>
+            <div style={{ fontSize:isMobile?17:18, fontWeight:800, color:C.text, overflow:'hidden', textOverflow:'ellipsis' }}>{headerTitle}</div>
             {isEditMode && isNew && <div style={{ fontSize:12, color:'#f59e0b', marginTop:2 }}>Concept aangemaakt — bewerk en maak definitief</div>}
           </div>
-          <button onClick={onClose} style={{ width:32, height:32, borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:C.muted }}><X size={16}/></button>
+          <button onClick={onClose} style={{ width:32, height:32, borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:C.muted, flexShrink:0, marginLeft:12 }}><X size={16}/></button>
         </div>
+
+        {isMobile ? (
+        // ════════════════════════════════════════════════════════════════
+        // MOBILE LAYOUT — Rompslomp-stijl sectie-cards (Ranny 2026-05-22)
+        // ════════════════════════════════════════════════════════════════
+        <div style={{ padding:'18px 18px 14px', display:'flex', flexDirection:'column', gap:14 }}>
+
+          {/* ── Sectie 1: Klant ──────────────────────────────────── */}
+          <div style={sectionStyle}>
+            <div style={sectionTitle}>Klant <span style={{ color:'#f43f5e', fontWeight:700 }}>*</span></div>
+            {!showNewClient ? (
+              <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                <select value={clientId} onChange={e => setClientId(e.target.value)} style={{ ...inp, flex:'1 1 220px', minWidth:0 }} disabled={isEditMode}>
+                  <option value="">— Selecteer een bestaande klant —</option>
+                  {clients.map(c => <option key={c.id} value={c.id}>{c.company_name || [c.first_name,c.last_name].filter(Boolean).join(' ')}</option>)}
+                </select>
+                {!isEditMode && <button onClick={() => { setShowNewClient(true); setClientId(''); }} style={{ padding:'10px 18px', borderRadius:10, border:'none', background:'#22c55e', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap', display:'flex', alignItems:'center', gap:6 }}>+ Nieuwe klant</button>}
+              </div>
+            ) : (
+              <div>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
+                  <span style={{ fontSize:13, fontWeight:700, color:C.text }}>Nieuwe klant aanmaken</span>
+                  <button onClick={() => setShowNewClient(false)} style={{ fontSize:12, color:'#4f8ef7', background:'none', border:'none', cursor:'pointer', fontWeight:600 }}>← Bestaande klant kiezen</button>
+                </div>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr', gap:10 }}>
+                  <div><label style={lineLbl}>Bedrijfsnaam *</label><input style={inp} value={newClient.company_name} onChange={e => setNC('company_name', e.target.value)} /></div>
+                  <div><label style={lineLbl}>E-mail</label><input style={inp} value={newClient.email} onChange={e => setNC('email', e.target.value)} placeholder="naam@bedrijf.nl" /></div>
+                  <div><label style={lineLbl}>Voornaam</label><input style={inp} value={newClient.first_name} onChange={e => setNC('first_name', e.target.value)} /></div>
+                  <div><label style={lineLbl}>Achternaam</label><input style={inp} value={newClient.last_name} onChange={e => setNC('last_name', e.target.value)} /></div>
+                  <div><label style={lineLbl}>Adres</label><input style={inp} value={newClient.address} onChange={e => setNC('address', e.target.value)} /></div>
+                  <div><label style={lineLbl}>Postcode</label><input style={inp} value={newClient.postal_code} onChange={e => setNC('postal_code', e.target.value.toUpperCase())} /></div>
+                  <div><label style={lineLbl}>Stad</label><input style={inp} value={newClient.city} onChange={e => setNC('city', e.target.value)} /></div>
+                  <div><label style={lineLbl}>KvK (optioneel)</label><input style={inp} value={newClient.kvk} onChange={e => setNC('kvk', e.target.value)} /></div>
+                  <div><label style={lineLbl}>BTW-nummer (optioneel)</label><input style={inp} value={newClient.btw_number} onChange={e => setNC('btw_number', e.target.value)} /></div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Sectie 2: Factuurregels ─────────────────────────── */}
+          <div style={sectionStyle}>
+            <div style={sectionTitle}>Factuurregels</div>
+            <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+              {lines.map((l, i) => {
+                const lineTotal = (parseFloat(l.quantity)||0) * (parseFloat(l.unit_price)||0);
+                return (
+                  <div key={i} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:12 }}>
+                    <div style={{ marginBottom:10 }}>
+                      <label style={lineLbl}>Omschrijving</label>
+                      <input style={inp} placeholder="Bijv. Webdesign april 2026" value={l.description} onChange={e => setLine(i,'description',e.target.value)} />
+                    </div>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr', gap:12 }}>
+                      <div>
+                        <label style={lineLbl}>Aantal</label>
+                        <input style={{ ...inp, textAlign:'right' }} type="number" min="0.01" step="0.5" value={l.quantity} onChange={e => setLine(i,'quantity',e.target.value)} />
+                      </div>
+                      <div>
+                        <label style={lineLbl}>Prijs excl. btw</label>
+                        <input style={{ ...inp, textAlign:'right' }} type="number" min="0" step="0.01" placeholder="0,00" value={l.unit_price} onChange={e => setLine(i,'unit_price',e.target.value)} />
+                      </div>
+                      <div>
+                        <label style={lineLbl}>BTW</label>
+                        <select style={inp} value={l.btw_percentage} onChange={e => setLine(i,'btw_percentage',Number(e.target.value))}>
+                          <option value={0}>0%</option><option value={9}>9%</option><option value={21}>21%</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:12, paddingTop:10, borderTop:`1px dashed ${C.border}` }}>
+                      <div style={{ fontSize:12, color:C.muted, fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em' }}>Regel-totaal</div>
+                      <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                        <div style={{ fontSize:16, fontWeight:800, color:C.text, letterSpacing:'-0.2px' }}>{fmtEur(lineTotal)}</div>
+                        <button onClick={() => removeLine(i)} disabled={lines.length===1} title="Regel verwijderen" style={{ width:34, height:34, borderRadius:8, border:`1px solid ${lines.length===1?C.border:'rgba(244,63,94,0.3)'}`, background:'transparent', cursor:lines.length===1?'default':'pointer', color:lines.length===1?C.muted:'#f43f5e', display:'flex', alignItems:'center', justifyContent:'center', opacity:lines.length===1?0.4:1 }}><Trash2 size={14}/></button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              <button onClick={addLine} style={{ padding:'12px 16px', borderRadius:12, border:`1.5px dashed ${C.border}`, background:'transparent', color:'#4f8ef7', fontSize:13, fontWeight:700, cursor:'pointer' }}>+ Regel toevoegen</button>
+            </div>
+            <div style={{ marginTop:14, paddingTop:14, borderTop:`1px solid ${C.border}`, display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4 }}>
+              <div style={{ fontSize:13, color:C.muted }}>Subtotaal excl. BTW: <b style={{ color:C.text }}>{fmtEur(totals.exclBtw)}</b></div>
+              {Object.entries(totals.btwGroups).map(([pct,amt]) => <div key={pct} style={{ fontSize:13, color:C.muted }}>BTW {pct}%: <b style={{ color:C.text }}>{fmtEur(amt)}</b></div>)}
+              <div style={{ fontSize:18, fontWeight:800, color:C.text, marginTop:6, letterSpacing:'-0.3px' }}>Totaal: {fmtEur(totals.inclBtw)}</div>
+            </div>
+          </div>
+
+          {/* ── Sectie 3: Datum ─────────────────────────────────── */}
+          <div style={sectionStyle}>
+            <div style={sectionTitle}>Datum</div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr', gap:12 }}>
+              <div><label style={lineLbl}>Factuurdatum</label><input type="date" style={inp} value={invoiceDate} onChange={e => setInvoiceDate(e.target.value)} /></div>
+              <div>
+                <label style={lineLbl}>Vervaldatum</label>
+                <input type="date" style={inp} value={dueDate} onChange={e => setDueDate(e.target.value)} />
+              </div>
+            </div>
+            <div style={{ fontSize:12, color:C.muted, marginTop:8 }}>
+              Standaard {paymentDays} dagen ·{' '}
+              <button onClick={() => { if(onNavigate) { onClose(); onNavigate('mijn-bedrijf'); } }} style={{ fontSize:12, color:'#4f8ef7', background:'none', border:'none', cursor:'pointer', padding:0, fontFamily:'inherit', textDecoration:'underline', fontWeight:600 }}>wijzigen</button>
+            </div>
+          </div>
+
+          {/* ── Sectie 4: Titel & opmerkingen ───────────────────── */}
+          <div style={sectionStyle}>
+            <div style={sectionTitle}>Titel & opmerkingen</div>
+            <div style={{ marginBottom:12 }}>
+              <label style={lineLbl}>Titel / onderwerp (optioneel)</label>
+              <input style={inp}
+                placeholder={lines.filter(l => l.description.trim()).map(l => l.description.trim()).join(', ') || 'Bijv. Webdesign april'}
+                value={title} onChange={e => setTitle(e.target.value)} />
+              <div style={{ fontSize:11, color:C.muted, marginTop:4 }}>Als leeg: omschrijvingen van factuurregels worden gebruikt.</div>
+            </div>
+            <div>
+              <label style={lineLbl}>Opmerkingen (optioneel)</label>
+              <textarea style={{ ...inp, minHeight:72, resize:'vertical' }} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Bijv. betalingsreferentie, projectnummer..." />
+            </div>
+          </div>
+
+          {err && <div style={{ padding:'10px 14px', borderRadius:10, background:'rgba(244,63,94,0.1)', border:'1px solid rgba(244,63,94,0.3)', color:'#f43f5e', fontSize:13 }}>{err}</div>}
+          {actionButtons}
+        </div>
+        ) : (
+        // ════════════════════════════════════════════════════════════════
+        // DESKTOP LAYOUT — originele flat-layout (pre-Fase-2). Behoud op
+        // verzoek Ranny 2026-05-24: sectie-cards/per-regel-cards alleen
+        // voor mobiel. Desktop = tabel met 6-koloms regels-grid.
+        // ════════════════════════════════════════════════════════════════
         <div style={{ padding:24, display:'flex', flexDirection:'column', gap:20 }}>
           {/* Klant */}
           <div>
@@ -10231,31 +10477,9 @@ function InvoiceForm({ isDark, user, invoice, clients, onClose, onSaved, zzpProf
             <div style={{ fontSize:11, color:C.muted, marginTop:4 }}>Als leeg: omschrijvingen van factuurregels worden gebruikt.</div>
           </div>
           {err && <div style={{ padding:'10px 14px', borderRadius:10, background:'rgba(244,63,94,0.1)', border:'1px solid rgba(244,63,94,0.3)', color:'#f43f5e', fontSize:13 }}>{err}</div>}
-
-          {/* Buttons: different per phase */}
-          {!isEditMode ? (
-            // Phase 1: create new
-            <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
-              <button onClick={onClose} style={{ flex:1, minWidth:110, padding:13, borderRadius:12, border:`1px solid ${C.border}`, background:'transparent', color:C.muted, fontSize:14, fontWeight:600, cursor:'pointer' }}>Annuleren</button>
-              <button onClick={() => handleCreate('concept')} disabled={saving} style={{ flex:1, minWidth:150, padding:13, borderRadius:12, border:`1px solid ${C.border}`, background:'transparent', color:C.text, fontSize:14, fontWeight:600, cursor:saving?'wait':'pointer', opacity:saving?0.7:1 }}>
-                {saving ? '...' : 'Concept opslaan'}
-              </button>
-              <button onClick={() => handleCreate('definitief')} disabled={saving} style={{ flex:2, minWidth:200, padding:13, borderRadius:12, border:'none', background:'linear-gradient(135deg,#a855f7,#7c3aed)', color:'#fff', fontSize:14, fontWeight:700, cursor:saving?'wait':'pointer', opacity:saving?0.7:1 }}>
-                {saving ? 'Opslaan...' : '✓ Factuur definitief maken'}
-              </button>
-            </div>
-          ) : (
-            // Phase 2: edit mode (either fresh concept or editing existing)
-            <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
-              <button onClick={() => handleUpdate(null)} disabled={saving} style={{ flex:1, minWidth:140, padding:12, borderRadius:12, border:`1px solid ${C.border}`, background:'transparent', color:C.text, fontSize:14, fontWeight:600, cursor:saving?'wait':'pointer' }}>
-                {saving ? '...' : 'Opslaan'}
-              </button>
-              <button onClick={() => handleUpdate('definitief')} disabled={saving} style={{ flex:2, minWidth:200, padding:12, borderRadius:12, border:'none', background:'linear-gradient(135deg,#a855f7,#7c3aed)', color:'#fff', fontSize:14, fontWeight:700, cursor:saving?'wait':'pointer', opacity:saving?0.7:1 }}>
-                {saving ? 'Opslaan...' : '✓ Factuur definitief maken'}
-              </button>
-            </div>
-          )}
+          {actionButtons}
         </div>
+        )}
       </div>
     </div>,
     document.body
@@ -10307,6 +10531,7 @@ function ClientEditModal({ isDark, client, onClose, onSaved }) {
 
 // ─── FACTUREN VIEW (Native Dynafy) ─────────────────────────────
 function FacturenView({ isDark, user, zzpProfile, onNavigate, activeCompanyId, userPlan = 'normal', onUpgrade }) {
+  const isMobile = useIsMobile();
   const [invoices, setInvoices] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -10558,16 +10783,19 @@ function FacturenView({ isDark, user, zzpProfile, onNavigate, activeCompanyId, u
           ))}
         </div>
 
-        {/* Invoice table */}
+        {/* Invoice list — table op desktop, card-stack op mobile */}
         <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:18, overflow:'hidden', position:'relative' }}>
-          {/* Table header */}
-          <div style={{ display:'grid', gridTemplateColumns:COLS, padding:'12px 16px', borderBottom:`1px solid ${C.border}`, background:isDark?'rgba(255,255,255,0.02)':'rgba(0,0,0,0.02)', alignItems:'center' }}>
-            {/* Select all checkbox */}
-            <div>
-              <input type="checkbox" checked={filtered.length>0 && selected.size===filtered.length} onChange={toggleAll} style={{ cursor:'pointer', width:14, height:14 }} />
+          {/* Table header — alleen op desktop. Op mobile maakt mobile.css regel 11
+              alle inline grids → display:block, waardoor de 7 kolom-labels
+              verticaal stacken (bug visueel bevestigd 2026-05-22). */}
+          {!isMobile && (
+            <div style={{ display:'grid', gridTemplateColumns:COLS, padding:'12px 16px', borderBottom:`1px solid ${C.border}`, background:isDark?'rgba(255,255,255,0.02)':'rgba(0,0,0,0.02)', alignItems:'center' }}>
+              <div>
+                <input type="checkbox" checked={filtered.length>0 && selected.size===filtered.length} onChange={toggleAll} style={{ cursor:'pointer', width:14, height:14 }} />
+              </div>
+              {['Nummer','Klant','Titel / Omschrijving','Datum','Bedrag','Status','Acties'].map(h => <div key={h} style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.06em' }}>{h}</div>)}
             </div>
-            {['Nummer','Klant','Titel / Omschrijving','Datum','Bedrag','Status','Acties'].map(h => <div key={h} style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.06em' }}>{h}</div>)}
-          </div>
+          )}
 
           {loading ? <div style={{ padding:40, textAlign:'center', color:C.muted }}>Laden...</div>
           : filtered.length===0 ? (
@@ -10576,6 +10804,50 @@ function FacturenView({ isDark, user, zzpProfile, onNavigate, activeCompanyId, u
               <div style={{ color:C.muted, fontSize:14, marginBottom:16 }}>Geen facturen voor {selectedYear}</div>
               <button onClick={handleNewInvoice} style={{ padding:'10px 24px', borderRadius:12, border:'none', background:'linear-gradient(135deg,#4f8ef7,#6366f1)', color:'#fff', fontSize:14, fontWeight:700, cursor:'pointer' }}>Factuur aanmaken</button>
             </div>
+          ) : isMobile ? (
+            /* ── MOBILE CARD LAYOUT (<=640px) ──────────────────────
+               Per factuur 1 card met klant-naam prominent, nummer +
+               datum klein bovenaan, bedrag + status duidelijk, acties
+               als grote knoppen onderaan. Geïnspireerd op Rompslomp UX
+               (feedback Ranny 2026-05-22). */
+            filtered.map((inv, i) => {
+              const totals = invoiceTotals(inv);
+              const clientName = inv.client ? (inv.client.company_name || [inv.client.first_name,inv.client.last_name].filter(Boolean).join(' ') || '—') : '—';
+              const displayTitle = inv.title || inv.lines?.[0]?.description || '';
+              const isSel = selected.has(inv.id);
+              return (
+                <div key={inv.id}
+                  onClick={(e) => { if (e.target.closest('button') || e.target.closest('input[type="checkbox"]')) return; setEditingInvoice(inv); setShowForm(true); }}
+                  style={{ padding:'14px 16px', borderBottom:i<filtered.length-1?`1px solid ${C.border}`:'none', background:isSel?(isDark?'rgba(79,142,247,0.08)':'rgba(79,142,247,0.04)'):'transparent', cursor:'pointer' }}>
+                  {/* Top-row: checkbox + nummer + datum  |  status badge */}
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6, gap:8 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:10, minWidth:0 }}>
+                      <input type="checkbox" checked={isSel} onChange={() => toggleSelect(inv.id)} style={{ cursor:'pointer', width:16, height:16, flexShrink:0 }} />
+                      <span style={{ fontSize:13, fontWeight:700, color:'#4f8ef7', fontFamily:'monospace', whiteSpace:'nowrap' }}>{inv.invoice_number}</span>
+                      <span style={{ fontSize:12, color:C.muted, whiteSpace:'nowrap' }}>· {new Date(inv.invoice_date).toLocaleDateString('nl-NL')}</span>
+                    </div>
+                    <span style={{ padding:'4px 10px', borderRadius:20, fontSize:11, fontWeight:700, background:STATUS_BG[inv.status], color:STATUS_COLOR[inv.status], whiteSpace:'nowrap', flexShrink:0 }}>{STATUS_LABEL[inv.status]}</span>
+                  </div>
+                  {/* Klant */}
+                  <div style={{ fontSize:15, fontWeight:700, color:C.text, marginBottom:displayTitle?2:8, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{clientName}</div>
+                  {/* Titel */}
+                  {displayTitle && <div style={{ fontSize:13, color:C.muted, marginBottom:10, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{displayTitle}</div>}
+                  {/* Bedrag + acties */}
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:8 }}>
+                    <div style={{ minWidth:0 }}>
+                      <div style={{ fontSize:16, fontWeight:800, color:C.text, letterSpacing:'-0.2px' }}>{fmtEur(totals.inclBtw)}</div>
+                      <div style={{ fontSize:11, color:C.muted }}>{fmtEur(totals.exclBtw)} excl. btw</div>
+                    </div>
+                    <div style={{ display:'flex', gap:6, flexShrink:0 }}>
+                      <button onClick={() => setMailInvoice(inv)} title="Verzenden" style={{ width:36, height:36, borderRadius:9, border:`1px solid ${C.border}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#22c55e' }}><Mail size={14}/></button>
+                      <button onClick={() => printInvoicePDF(inv, zzpProfile)} title="PDF" style={{ width:36, height:36, borderRadius:9, border:`1px solid ${C.border}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:C.muted }}><Download size={14}/></button>
+                      {STATUS_NEXT[inv.status] && <button onClick={() => updateStatus(inv, STATUS_NEXT[inv.status])} title={`→ ${STATUS_LABEL[STATUS_NEXT[inv.status]]}`} style={{ width:36, height:36, borderRadius:9, border:`1px solid ${C.border}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#22c55e' }}><Check size={14}/></button>}
+                      <button onClick={() => deleteInvoice(inv)} title="Verwijderen" style={{ width:36, height:36, borderRadius:9, border:'1px solid rgba(244,63,94,0.3)', background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#f43f5e' }}><Trash2 size={14}/></button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
           ) : filtered.map((inv, i) => {
             const totals = invoiceTotals(inv);
             const clientName = inv.client ? (inv.client.company_name || [inv.client.first_name,inv.client.last_name].filter(Boolean).join(' ') || '—') : '—';
@@ -17965,6 +18237,35 @@ export default function App() {
             </button>
           </div>
         </div>,
+        document.body
+      )}
+
+      {/* MOBILE BOTTOM-TAB-BAR — alleen <=768px (zie mobile.css)
+          Items: dashboard, rekeningen, transactions, investments, meer.
+          "Meer" opent de sidebar-drawer voor lange-tail navigatie. */}
+      {createPortal(
+        <nav className={`mobile-tab-bar${!isDark ? ' light-mode' : ''}`} aria-label="Hoofdnavigatie">
+          <button onClick={() => setView('dashboard')} className={view === 'dashboard' ? 'active' : ''} aria-label="Dashboard">
+            <Home size={20} />
+            <span>Home</span>
+          </button>
+          <button onClick={() => setView('rekeningen')} className={view === 'rekeningen' ? 'active' : ''} aria-label="Rekeningen">
+            <CreditCard size={20} />
+            <span>Rekeningen</span>
+          </button>
+          <button onClick={() => setView('transactions')} className={view === 'transactions' ? 'active' : ''} aria-label="Transacties">
+            <List size={20} />
+            <span>Transacties</span>
+          </button>
+          <button onClick={() => setView('investments')} className={view === 'investments' ? 'active' : ''} aria-label="Investments">
+            <TrendingUp size={20} />
+            <span>Invest</span>
+          </button>
+          <button onClick={() => setSidebarOpen(true)} aria-label="Meer">
+            <Menu size={20} />
+            <span>Meer</span>
+          </button>
+        </nav>,
         document.body
       )}
     </div>
