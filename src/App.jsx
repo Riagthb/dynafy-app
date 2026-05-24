@@ -10130,6 +10130,10 @@ function InvoiceForm({ isDark, user, invoice, clients, onClose, onSaved, zzpProf
     savedInvoice?.lines?.length ? [...savedInvoice.lines].sort((a,b) => a.sort_order - b.sort_order)
       : [{ description:'', quantity:1, unit_price:'', btw_percentage:21 }]
   );
+  // Na 'definitief maken' tonen we eerst een confirmatie-popup met de vraag
+  // of de factuur direct gemaild moet worden. State = het zojuist-opgeslagen
+  // invoice object (incl. client + lines join) of null als geen popup.
+  const [mailPrompt, setMailPrompt] = useState(null);
 
   const C = { card:isDark?'#0b1628':'#fff', border:isDark?'rgba(255,255,255,0.08)':'#e2e8f0', text:isDark?'#f1f5f9':'#0f172a', muted:isDark?'#64748b':'#94a3b8', input:isDark?'rgba(255,255,255,0.06)':'#f8fafc' };
   const inp = { width:'100%', padding:'9px 12px', borderRadius:8, border:`1px solid ${C.border}`, background:C.input, color:C.text, fontSize:14, outline:'none', boxSizing:'border-box', fontFamily:'inherit' };
@@ -10179,6 +10183,14 @@ function InvoiceForm({ isDark, user, invoice, clients, onClose, onSaved, zzpProf
       const linesData = collectLinesData();
       await supabase.from('invoice_lines').insert(linesData.map(l => ({ ...l, invoice_id:inv.id })));
       logEvent(user.id, 'invoice_created', { invoice_id: inv.id, invoice_number: invoiceNumber, status: targetStatus });
+      // Refetch full invoice met lines+client joins (insert returned heeft nog
+      // geen lines want die zijn apart geïnsert). Nodig voor MailPopup-prop.
+      if (targetStatus === 'definitief') {
+        const { data: full } = await supabase.from('invoices').select('*, client:clients(*), lines:invoice_lines(*)').eq('id', inv.id).single();
+        setSaving(false);
+        setMailPrompt(full || inv);
+        return;
+      }
       await onSaved();
     } catch(e) {
       // Friendly error if DB trigger blocks due to missing company profile
@@ -10207,13 +10219,28 @@ function InvoiceForm({ isDark, user, invoice, clients, onClose, onSaved, zzpProf
       if (updErr) throw updErr;
       await supabase.from('invoice_lines').delete().eq('invoice_id', invId);
       await supabase.from('invoice_lines').insert(collectLinesData().map(l => ({ ...l, invoice_id:invId })));
-      if (newStatus) await onSaved();
-      else {
-        const { data: full } = await supabase.from('invoices').select('*, client:clients(*), lines:invoice_lines(*)').eq('id', invId).single();
-        setSavedInvoice(full || savedInvoice);
+      // Refetch sowieso — bij definitief voor de mail-prompt, anders voor in-form state
+      const { data: full } = await supabase.from('invoices').select('*, client:clients(*), lines:invoice_lines(*)').eq('id', invId).single();
+      if (newStatus === 'definitief') {
+        setSaving(false);
+        setMailPrompt(full || savedInvoice);
+        return;
       }
+      if (newStatus) await onSaved();
+      else setSavedInvoice(full || savedInvoice);
     } catch(e) { setErr(e.message || 'Fout bij opslaan'); }
     setSaving(false);
+  };
+
+  // Confirm-popup handlers: ja → parent opent MailPopup, nee → gewoon sluiten
+  const handleMailYes = async () => {
+    const inv = mailPrompt;
+    setMailPrompt(null);
+    await onSaved(true, inv);
+  };
+  const handleMailNo = async () => {
+    setMailPrompt(null);
+    await onSaved(false);
   };
 
   const isEditMode = !!savedInvoice; // concept already created
@@ -10481,6 +10508,48 @@ function InvoiceForm({ isDark, user, invoice, clients, onClose, onSaved, zzpProf
         </div>
         )}
       </div>
+
+      {/* ── Mail-prompt na 'definitief maken' (Ranny 2026-05-24) ──
+          Aparte overlay bovenop het modal; klant_email tonen indien
+          beschikbaar zodat de gebruiker meteen ziet of er een
+          adres bekend is. */}
+      {mailPrompt && (
+        <div onClick={e => { if (e.target === e.currentTarget) handleMailNo(); }}
+          style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)', backdropFilter:'blur(6px)', zIndex:10001, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+          <div style={{ background:C.card, borderRadius:18, maxWidth:440, width:'100%', border:`1px solid ${C.border}`, overflow:'hidden' }}>
+            {/* Success-strip bovenaan */}
+            <div style={{ background:'linear-gradient(135deg, rgba(34,197,94,0.18), rgba(34,197,94,0.06))', padding:'18px 22px 14px', borderBottom:`1px solid ${C.border}` }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
+                <div style={{ width:32, height:32, borderRadius:9, background:'rgba(34,197,94,0.22)', display:'flex', alignItems:'center', justifyContent:'center', border:'1px solid rgba(34,197,94,0.35)' }}>
+                  <Check size={16} color="#22c55e"/>
+                </div>
+                <div style={{ fontSize:15, fontWeight:800, color:C.text }}>Factuur {mailPrompt.invoice_number} is definitief</div>
+              </div>
+              <div style={{ fontSize:12, color:C.muted, marginLeft:42 }}>Opgeslagen en klaar om te versturen.</div>
+            </div>
+            {/* Body: vraag + klant-info */}
+            <div style={{ padding:'18px 22px 20px' }}>
+              <div style={{ fontSize:14, fontWeight:700, color:C.text, marginBottom:6 }}>Wil je hem direct mailen?</div>
+              {(() => {
+                const cli = mailPrompt.client || {};
+                const cname = cli.company_name || [cli.first_name, cli.last_name].filter(Boolean).join(' ') || 'klant';
+                return (
+                  <div style={{ fontSize:13, color:C.muted, marginBottom:16 }}>
+                    Verstuur naar <b style={{ color:C.text }}>{cname}</b>
+                    {cli.email ? <> · <span style={{ color:'#4f8ef7' }}>{cli.email}</span></> : <span style={{ color:'#f59e0b' }}> · geen e-mail bekend (kun je in de mail-popup nog invullen)</span>}
+                  </div>
+                );
+              })()}
+              <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
+                <button onClick={handleMailNo} style={{ flex:'1 1 110px', padding:12, borderRadius:11, border:`1px solid ${C.border}`, background:'transparent', color:C.muted, fontSize:14, fontWeight:600, cursor:'pointer' }}>Nee, later</button>
+                <button onClick={handleMailYes} style={{ flex:'2 1 180px', padding:12, borderRadius:11, border:'none', background:'linear-gradient(135deg,#22c55e,#16a34a)', color:'#fff', fontSize:14, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+                  <Mail size={15}/> Ja, mail nu
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>,
     document.body
   );
@@ -10925,7 +10994,7 @@ function FacturenView({ isDark, user, zzpProfile, onNavigate, activeCompanyId, u
         </div>
       )}
 
-      {showForm && <InvoiceForm isDark={isDark} user={user} zzpProfile={zzpProfile} invoice={editingInvoice} clients={clients} onClose={() => { setShowForm(false); setEditingInvoice(null); }} onSaved={async () => { setShowForm(false); setEditingInvoice(null); await load(); }} onNavigate={onNavigate} />}
+      {showForm && <InvoiceForm isDark={isDark} user={user} zzpProfile={zzpProfile} invoice={editingInvoice} clients={clients} onClose={() => { setShowForm(false); setEditingInvoice(null); }} onSaved={async (mailAfterSave, savedInv) => { setShowForm(false); setEditingInvoice(null); await load(); if (mailAfterSave && savedInv) setMailInvoice(savedInv); }} onNavigate={onNavigate} />}
       {mailInvoice && <MailPopup isDark={isDark} invoice={mailInvoice} zzpProfile={zzpProfile} onClose={() => setMailInvoice(null)} />}
       {editingClient && <ClientEditModal isDark={isDark} client={editingClient} onClose={() => setEditingClient(null)} onSaved={async (updated) => {
         const { error } = await supabase.from('clients').update(updated).eq('id', updated.id);
