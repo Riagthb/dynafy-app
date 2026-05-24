@@ -9923,19 +9923,23 @@ async function generateInvoicePDFBase64(invoice, zzpProfile) {
 }
 
 // ─── MAIL POPUP ────────────────────────────────────────────────
-function MailPopup({ isDark, invoice, zzpProfile, onClose }) {
+function MailPopup({ isDark, invoice, zzpProfile, userEmail, onClose }) {
   const client = invoice.client || {};
   const clientName = client.company_name || [client.first_name, client.last_name].filter(Boolean).join(' ') || '';
   const invoiceTitle = invoice.title || invoice.lines?.[0]?.description || '';
   const totals = invoiceTotals(invoice);
   const fmtEur = (n) => '€\u00a0' + Number(n || 0).toLocaleString('nl-NL', { minimumFractionDigits:2, maximumFractionDigits:2 });
 
+  // CC + Reply-To = eigen account-email. zzp_profiles tabel heeft GEEN
+  // email-kolom (in Mijn-Bedrijf UI wordt auth.users.email getoond als
+  // read-only "Wijzig via instellingen → account"). Daarom prop `userEmail`
+  // ontvangen vanaf parent ipv onbestaand zzpProfile.email. Fallback op
+  // zzpProfile.email mocht er ooit een aparte bedrijfsmail bijkomen.
+  const senderEmail = userEmail || zzpProfile?.email || '';
+
   const [to, setTo]         = useState(client.email || '');
-  // CC = jouw eigen bedrijfsmail — krijg een kopie van elke verstuurde
-  // factuur in je eigen inbox (verzoek Ranny 2026-05-24). Leeg laten kan
-  // alsnog door het veld te wissen voor verzenden.
-  const [cc, setCc]         = useState(zzpProfile?.email || '');
-  const [replyTo, setReplyTo] = useState(zzpProfile?.email || '');
+  const [cc, setCc]         = useState(senderEmail);
+  const [replyTo, setReplyTo] = useState(senderEmail);
   const [subject, setSubject] = useState(`Factuur ${invoice.invoice_number}${invoiceTitle ? ': ' + invoiceTitle : ''}`);
   const [body, setBody]     = useState(
     `Beste ${clientName || 'heer/mevrouw'},\n\nHierbij de factuur met factuurnummer ${invoice.invoice_number}${invoiceTitle ? ': ' + invoiceTitle : ''}.\n\nMet vriendelijke groet,\n${zzpProfile?.name || zzpProfile?.company_name || ''}`
