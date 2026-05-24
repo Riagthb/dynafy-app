@@ -10994,7 +10994,7 @@ function FacturenView({ isDark, user, zzpProfile, onNavigate, activeCompanyId, u
         </div>
       )}
 
-      {showForm && <InvoiceForm isDark={isDark} user={user} zzpProfile={zzpProfile} invoice={editingInvoice} clients={clients} onClose={() => { setShowForm(false); setEditingInvoice(null); }} onSaved={async () => { setShowForm(false); setEditingInvoice(null); await load(); }} onNavigate={onNavigate} />}
+      {showForm && <InvoiceForm isDark={isDark} user={user} zzpProfile={zzpProfile} invoice={editingInvoice} clients={clients} onClose={() => { setShowForm(false); setEditingInvoice(null); }} onSaved={async (mailAfterSave, savedInv) => { setShowForm(false); setEditingInvoice(null); await load(); if (mailAfterSave && savedInv) setMailInvoice(savedInv); }} onNavigate={onNavigate} />}
       {mailInvoice && <MailPopup isDark={isDark} invoice={mailInvoice} zzpProfile={zzpProfile} onClose={() => setMailInvoice(null)} />}
       {editingClient && <ClientEditModal isDark={isDark} client={editingClient} onClose={() => setEditingClient(null)} onSaved={async (updated) => {
         const { error } = await supabase.from('clients').update(updated).eq('id', updated.id);
