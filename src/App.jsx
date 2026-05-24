@@ -9931,7 +9931,10 @@ function MailPopup({ isDark, invoice, zzpProfile, onClose }) {
   const fmtEur = (n) => '€\u00a0' + Number(n || 0).toLocaleString('nl-NL', { minimumFractionDigits:2, maximumFractionDigits:2 });
 
   const [to, setTo]         = useState(client.email || '');
-  const [cc, setCc]         = useState('');
+  // CC = jouw eigen bedrijfsmail — krijg een kopie van elke verstuurde
+  // factuur in je eigen inbox (verzoek Ranny 2026-05-24). Leeg laten kan
+  // alsnog door het veld te wissen voor verzenden.
+  const [cc, setCc]         = useState(zzpProfile?.email || '');
   const [replyTo, setReplyTo] = useState(zzpProfile?.email || '');
   const [subject, setSubject] = useState(`Factuur ${invoice.invoice_number}${invoiceTitle ? ': ' + invoiceTitle : ''}`);
   const [body, setBody]     = useState(
