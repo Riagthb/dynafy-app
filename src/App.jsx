@@ -9923,16 +9923,23 @@ async function generateInvoicePDFBase64(invoice, zzpProfile) {
 }
 
 // ─── MAIL POPUP ────────────────────────────────────────────────
-function MailPopup({ isDark, invoice, zzpProfile, onClose }) {
+function MailPopup({ isDark, invoice, zzpProfile, userEmail, onClose }) {
   const client = invoice.client || {};
   const clientName = client.company_name || [client.first_name, client.last_name].filter(Boolean).join(' ') || '';
   const invoiceTitle = invoice.title || invoice.lines?.[0]?.description || '';
   const totals = invoiceTotals(invoice);
   const fmtEur = (n) => '€\u00a0' + Number(n || 0).toLocaleString('nl-NL', { minimumFractionDigits:2, maximumFractionDigits:2 });
 
+  // CC + Reply-To = eigen account-email. zzp_profiles tabel heeft GEEN
+  // email-kolom (in Mijn-Bedrijf UI wordt auth.users.email getoond als
+  // read-only "Wijzig via instellingen → account"). Daarom prop `userEmail`
+  // ontvangen vanaf parent ipv onbestaand zzpProfile.email. Fallback op
+  // zzpProfile.email mocht er ooit een aparte bedrijfsmail bijkomen.
+  const senderEmail = userEmail || zzpProfile?.email || '';
+
   const [to, setTo]         = useState(client.email || '');
-  const [cc, setCc]         = useState('');
-  const [replyTo, setReplyTo] = useState(zzpProfile?.email || '');
+  const [cc, setCc]         = useState(senderEmail);
+  const [replyTo, setReplyTo] = useState(senderEmail);
   const [subject, setSubject] = useState(`Factuur ${invoice.invoice_number}${invoiceTitle ? ': ' + invoiceTitle : ''}`);
   const [body, setBody]     = useState(
     `Beste ${clientName || 'heer/mevrouw'},\n\nHierbij de factuur met factuurnummer ${invoice.invoice_number}${invoiceTitle ? ': ' + invoiceTitle : ''}.\n\nMet vriendelijke groet,\n${zzpProfile?.name || zzpProfile?.company_name || ''}`
@@ -10995,7 +11002,7 @@ function FacturenView({ isDark, user, zzpProfile, onNavigate, activeCompanyId, u
       )}
 
       {showForm && <InvoiceForm isDark={isDark} user={user} zzpProfile={zzpProfile} invoice={editingInvoice} clients={clients} onClose={() => { setShowForm(false); setEditingInvoice(null); }} onSaved={async (mailAfterSave, savedInv) => { setShowForm(false); setEditingInvoice(null); await load(); if (mailAfterSave && savedInv) setMailInvoice(savedInv); }} onNavigate={onNavigate} />}
-      {mailInvoice && <MailPopup isDark={isDark} invoice={mailInvoice} zzpProfile={zzpProfile} onClose={() => setMailInvoice(null)} />}
+      {mailInvoice && <MailPopup isDark={isDark} invoice={mailInvoice} zzpProfile={zzpProfile} userEmail={user?.email} onClose={() => setMailInvoice(null)} />}
       {editingClient && <ClientEditModal isDark={isDark} client={editingClient} onClose={() => setEditingClient(null)} onSaved={async (updated) => {
         const { error } = await supabase.from('clients').update(updated).eq('id', updated.id);
         if (error) {
