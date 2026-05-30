@@ -11566,9 +11566,15 @@ function BerichtenChat({ isDark, user, otherUserId, otherName, clientUserId }) {
   }, [user?.id, clientUserId]);
 
   // Auto-scroll naar onder bij nieuwe berichten / eerste load.
-  // Dubbele requestAnimationFrame wacht tot de browser daadwerkelijk
-  // het nieuwe layout heeft berekend — zonder dit kan scrollHeight nog
-  // de oude (kleinere) waarde teruggeven en blijft de chat bovenaan.
+  // Probleem (Ranny 2026-05-27): parent-wrapper van BerichtenChat heeft
+  // alleen minHeight, geen bounded height/maxHeight. Daardoor heeft de
+  // scrollContainerRef-div geen overflow — alle berichten worden uitgerold
+  // en de PAGINA (window) scrollt, niet de chat-container. scrollTop op
+  // de container deed dus niets. Oplossing: scrollIntoView op het
+  // bottom-element — die vindt automatisch de juiste scroll-context
+  // (window of dichtstbijzijnde scrollable parent) ongeacht layout.
+  // Dubbele requestAnimationFrame wacht tot de browser de nieuwe layout
+  // heeft berekend zodat het bottom-element op zijn finale positie staat.
   useEffect(() => {
     if (msgs.length === 0) return;
     const wasFirstLoad = isFirstLoadRef.current;
@@ -11577,13 +11583,10 @@ function BerichtenChat({ isDark, user, otherUserId, otherName, clientUserId }) {
     let raf1, raf2;
     raf1 = requestAnimationFrame(() => {
       raf2 = requestAnimationFrame(() => {
-        const el = scrollContainerRef.current;
-        if (!el) return;
-        if (wasFirstLoad) {
-          el.scrollTop = el.scrollHeight; // instant bij eerste load / chat-switch
-        } else {
-          el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-        }
+        bottomRef.current?.scrollIntoView({
+          block: 'end',
+          behavior: wasFirstLoad ? 'auto' : 'smooth',
+        });
       });
     });
     return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
