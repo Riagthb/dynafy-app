@@ -11,6 +11,8 @@ import {
   clearBankCallbackFromUrl,
 } from './bankConnect.js';
 import BankConnectModal from './BankConnectModal.jsx';
+import { useIsMobile, useCountUp } from './lib/hooks.js';
+import { filterByAccount, invoiceTotals } from './lib/utils.js';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import {
@@ -26,21 +28,7 @@ import { Upload, Home, List, TrendingUp, TrendingDown, Lightbulb, Settings,
   Calendar, Clock, Eye, EyeOff, Filter, ChevronLeft,
   Shield, Users, UserX, Crown, Ban, RotateCcw, Mail, LogOut, Briefcase, Copy, Link2, UserPlus, UserCheck, Menu } from "lucide-react";
 
-// ─── HOOKS ────────────────────────────────────────────────────
-// useIsMobile: reactief op viewport <=640px. Gebruikt matchMedia
-// listener zodat resize (desktop devtools, rotatie) live update.
-function useIsMobile(maxWidth = 640) {
-  const [isMobile, setIsMobile] = useState(() =>
-    typeof window !== 'undefined' && window.matchMedia(`(max-width: ${maxWidth}px)`).matches
-  );
-  useEffect(() => {
-    const mql = window.matchMedia(`(max-width: ${maxWidth}px)`);
-    const handler = e => setIsMobile(e.matches);
-    mql.addEventListener('change', handler);
-    return () => mql.removeEventListener('change', handler);
-  }, [maxWidth]);
-  return isMobile;
-}
+// HOOKS verhuisd naar ./lib/hooks.js (Fase-1 refactor 2026-05-27).
 
 // ─── TRANSLATIONS ─────────────────────────────────────────────
 const T = {
@@ -917,30 +905,7 @@ function TransactionDrawer({ title, subtitle, transactions, allTransactions, isD
   );
 }
 
-// ─── COUNT-UP HOOK ──────────────────────────────────────────────
-function useCountUp(target, duration = 900) {
-  const [current, setCurrent] = useState(0);
-  const startRef = useRef(0);
-  const rafRef   = useRef(null);
-  useEffect(() => {
-    if (target == null || isNaN(target)) return;
-    const from = startRef.current;
-    const diff = target - from;
-    if (Math.abs(diff) < 0.001) { setCurrent(target); return; }
-    const t0 = performance.now();
-    const step = (now) => {
-      const p = Math.min((now - t0) / duration, 1);
-      const eased = 1 - Math.pow(1 - p, 3);          // ease-out cubic
-      setCurrent(from + diff * eased);
-      if (p < 1) rafRef.current = requestAnimationFrame(step);
-      else { startRef.current = target; setCurrent(target); }
-    };
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    rafRef.current = requestAnimationFrame(step);
-    return () => rafRef.current && cancelAnimationFrame(rafRef.current);
-  }, [target, duration]);
-  return current;
-}
+// useCountUp verhuisd naar ./lib/hooks.js (Fase-1 refactor 2026-05-27).
 
 // ─── DYNAFY LOGO — Wave 4A ─────────────────────────────────────
 function DynafyLogo({ size = 32 }) {
@@ -5974,16 +5939,7 @@ function Insights({ transactions, t, isDark, recurringItems = [], lang = "nl", a
 }
 
 // ─── SHARED: ACCOUNT FILTER BAR + HELPER ──────────────────────
-function filterByAccount(transactions, accounts, selectedAccount) {
-  if (!selectedAccount) return transactions;
-  const acc = accounts.find(a => a.id === selectedAccount);
-  if (!acc) return transactions;
-  return transactions.filter(tx =>
-    tx.account === acc.name ||
-    tx.account_id === selectedAccount ||
-    tx.accountId === selectedAccount
-  );
-}
+// filterByAccount verhuisd naar ./lib/utils.js (Fase-1 refactor 2026-05-27).
 
 function AccountFilterBar({ accounts = [], selectedAccount, setSelectedAccount, isDark }) {
   if (!accounts.length) return null;
@@ -9735,20 +9691,7 @@ function Onboarding({ onComplete }) {
   );
 }
 
-// ─── INVOICE TOTALS HELPER ─────────────────────────────────────
-function invoiceTotals(invoice) {
-  const lines = invoice.lines || [];
-  const btwGroups = {};
-  let exclBtw = 0;
-  lines.forEach(l => {
-    const lineExcl = parseFloat(l.quantity || 0) * parseFloat(l.unit_price || 0);
-    exclBtw += lineExcl;
-    const pct = String(parseFloat(l.btw_percentage || 0));
-    btwGroups[pct] = (btwGroups[pct] || 0) + lineExcl * parseFloat(l.btw_percentage || 0) / 100;
-  });
-  const btw = Object.values(btwGroups).reduce((s, v) => s + v, 0);
-  return { exclBtw, btw, inclBtw: exclBtw + btw, btwGroups };
-}
+// invoiceTotals verhuisd naar ./lib/utils.js (Fase-1 refactor 2026-05-27).
 
 function printInvoicePDF(invoice, zzpProfile) {
   const escHtml = (s) => String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
