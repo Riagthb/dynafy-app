@@ -12,9 +12,12 @@ import {
 } from './bankConnect.js';
 import BankConnectModal from './BankConnectModal.jsx';
 import { useIsMobile, useCountUp } from './lib/hooks.js';
-import { filterByAccount, invoiceTotals } from './lib/utils.js';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import { filterByAccount, invoiceTotals, isCountableIncome, isCountableExpense, detectRecurring } from './lib/utils.js';
+import { printInvoicePDF, generateInvoicePDFBase64 } from './lib/invoicePdf.js';
+import { R, SP, DK, card } from './lib/theme.js';
+import { DynafyLogo } from './components/ui/DynafyLogo.jsx';
+import { Skeleton, SkeletonCard, SkeletonRow } from './components/ui/Skeleton.jsx';
+import { EmptyState } from './components/ui/EmptyState.jsx';
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, LineChart, Line, CartesianGrid, Legend, AreaChart, Area
@@ -471,8 +474,7 @@ const parseCSVTransactions = (text, accountName = "Imported") => {
 // Display-listen (af/bij overzicht, drawer detail) tonen transfers wel maar
 // met afwijkende styling (grijs + Repeat-icon ipv groen/rood). Truthy-check
 // op !tx.is_transfer vangt zowel false als undefined (mock-data).
-const isCountableIncome  = (tx) => tx.amount > 0 && !tx.is_transfer;
-const isCountableExpense = (tx) => tx.amount < 0 && !tx.is_transfer;
+// isCountableIncome / isCountableExpense verhuisd naar ./lib/utils.js (Fase-1).
 
 const guessCategory = (desc, amount, counterparty = "") => {
   if (amount > 0) return "income";
@@ -504,10 +506,7 @@ const S = {
 };
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────
-// Border-radius scale
-const R = { sm: 8, md: 12, lg: 16, xl: 20, xxl: 24 };
-// Spacing scale
-const SP = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 32 };
+// R + SP verhuisd naar ./lib/theme.js (Fase-1 refactor 2026-05-27).
 
 // Fire-and-forget activity logger. Silent on failure — never block the UX.
 async function logEvent(userId, eventType, metadata = null) {
@@ -533,28 +532,7 @@ const EVENT_META = {
   moneybird_disconnected: { label: 'Moneybird ontkoppeld',   color: '#f43f5e' },
 };
 const EVENT_META_FALLBACK = { label: null, color: '#64748b' };
-// Dark mode elevation layers
-const DK = {
-  L0:  "#050b15",   // page — deepest layer
-  L1:  "#0b1628",   // card surface — floats above page
-  L2:  "#0f1e36",   // elevated card / nested panel
-  L3:  "#142746",   // modal / highest elevation
-  b0:  "rgba(255,255,255,0.06)",  // border on page
-  b1:  "rgba(255,255,255,0.08)",  // border on L1 cards
-  b2:  "rgba(255,255,255,0.10)",  // border on L2 elevated
-};
-
-// Theme-aware card style
-const card = (isDark) => ({
-  background: isDark ? DK.L1 : "#ffffff",
-  border: `1px solid ${isDark ? DK.b1 : "#e8ecf1"}`,
-  borderRadius: R.lg,
-  padding: `${SP.xl}px ${SP.xxl - 8}px`,
-  boxShadow: isDark
-    ? `0 1px 0 rgba(255,255,255,0.05) inset, 0 4px 24px rgba(0,0,0,0.4)`
-    : "0 1px 3px rgba(15,23,42,0.04), 0 4px 16px rgba(15,23,42,0.07)",
-  transition: "transform 0.18s ease, box-shadow 0.18s ease",
-});
+// DK + card verhuisd naar ./lib/theme.js (Fase-1 refactor 2026-05-27).
 
 
 /* ─── PILL BUTTON STYLE ──────────────────────────────────────── */
@@ -907,156 +885,8 @@ function TransactionDrawer({ title, subtitle, transactions, allTransactions, isD
 
 // useCountUp verhuisd naar ./lib/hooks.js (Fase-1 refactor 2026-05-27).
 
-// ─── DYNAFY LOGO — Wave 4A ─────────────────────────────────────
-function DynafyLogo({ size = 32 }) {
-  // Stable unique ID per instance to avoid SVG gradient conflicts
-  const uid = useRef(Math.random().toString(36).slice(2, 7)).current;
-  return (
-    <svg width={size} height={size} viewBox="0 0 44 44" fill="none" style={{ flexShrink: 0 }}>
-      <rect width="44" height="44" rx={Math.round(size * 0.27)} fill="#070c1a"/>
-      <defs>
-        <linearGradient id={`wl-${uid}`} x1="5" y1="0" x2="39" y2="0" gradientUnits="userSpaceOnUse">
-          <stop offset="0%"   stopColor="#4f8ef7"/>
-          <stop offset="60%"  stopColor="#a855f7"/>
-          <stop offset="100%" stopColor="#ec4899"/>
-        </linearGradient>
-        <linearGradient id={`wf-${uid}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"   stopColor="#a855f7" stopOpacity="0.35"/>
-          <stop offset="100%" stopColor="#a855f7" stopOpacity="0"/>
-        </linearGradient>
-      </defs>
-      {/* Area fill */}
-      <path d="M5,30 C10,30 10,18 16,18 C22,18 22,26 27,24 C32,22 34,15 39,14 L39,36 L5,36 Z"
-        fill={`url(#wf-${uid})`}/>
-      {/* Wave line */}
-      <path d="M5,30 C10,30 10,18 16,18 C22,18 22,26 27,24 C32,22 34,15 39,14"
-        fill="none" stroke={`url(#wl-${uid})`} strokeWidth="2.5" strokeLinecap="round"/>
-      {/* Peak dot */}
-      <circle cx="39" cy="14" r="3"   fill="#a855f7"/>
-      <circle cx="39" cy="14" r="5.5" fill="#a855f7" opacity="0.15"/>
-    </svg>
-  );
-}
-
-// ─── EMPTY STATE ───────────────────────────────────────────────
-const EMPTY_ILLUSTRATIONS = {
-  transactions: (isDark) => (
-    <svg width="88" height="88" viewBox="0 0 88 88" fill="none">
-      <rect x="14" y="8" width="44" height="56" rx="7" fill={isDark ? "#0f1e36" : "#e8ecf4"} stroke={isDark ? "#1e3454" : "#c8d4e8"} strokeWidth="1.5"/>
-      <rect x="22" y="22" width="28" height="3" rx="1.5" fill={isDark ? "#1e3454" : "#b8c8de"}/>
-      <rect x="22" y="31" width="20" height="3" rx="1.5" fill={isDark ? "#1e3454" : "#b8c8de"}/>
-      <rect x="22" y="40" width="24" height="3" rx="1.5" fill={isDark ? "#1e3454" : "#b8c8de"}/>
-      <circle cx="62" cy="62" r="18" fill="url(#txGrad)"/>
-      <path d="M62 70v-16M55 61l7-7 7 7" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-      <defs>
-        <linearGradient id="txGrad" x1="44" y1="44" x2="80" y2="80" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#4f8ef7"/><stop offset="1" stopColor="#6366f1"/>
-        </linearGradient>
-      </defs>
-    </svg>
-  ),
-  goals: (isDark) => (
-    <svg width="88" height="88" viewBox="0 0 88 88" fill="none">
-      <circle cx="44" cy="44" r="34" fill={isDark ? "#0f1e36" : "#e8ecf4"} stroke={isDark ? "#1e3454" : "#c8d4e8"} strokeWidth="1.5"/>
-      <circle cx="44" cy="44" r="24" fill="none" stroke={isDark ? "#1e3454" : "#c8d4e8"} strokeWidth="1.5"/>
-      <circle cx="44" cy="44" r="13" fill="none" stroke="url(#goalGrad)" strokeWidth="2"/>
-      <circle cx="44" cy="44" r="5" fill="url(#goalGrad)"/>
-      <path d="M68 20L46 42" stroke="url(#arrowGrad)" strokeWidth="3" strokeLinecap="round"/>
-      <path d="M68 20L60 21.5M68 20L66.5 28" stroke="url(#arrowGrad)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-      <defs>
-        <linearGradient id="goalGrad" x1="31" y1="31" x2="57" y2="57" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#22c55e"/><stop offset="1" stopColor="#16a34a"/>
-        </linearGradient>
-        <linearGradient id="arrowGrad" x1="68" y1="20" x2="46" y2="42" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#f59e0b"/><stop offset="1" stopColor="#d97706"/>
-        </linearGradient>
-      </defs>
-    </svg>
-  ),
-  investments: (isDark) => (
-    <svg width="88" height="88" viewBox="0 0 88 88" fill="none">
-      <rect x="10" y="72" width="68" height="2.5" rx="1.25" fill={isDark ? "#1e3454" : "#c8d4e8"}/>
-      <rect x="16" y="52" width="14" height="20" rx="4" fill={isDark ? "#1e3454" : "#d8e2f0"}/>
-      <rect x="37" y="38" width="14" height="34" rx="4" fill={isDark ? "#1e3454" : "#d8e2f0"}/>
-      <rect x="58" y="24" width="14" height="48" rx="4" fill="url(#invBarGrad)"/>
-      <path d="M23 56L44 42L65 28" stroke="url(#invTrendGrad)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-      <circle cx="65" cy="26" r="7" fill="url(#invTrendGrad)"/>
-      <path d="M65 29.5v-7M62 25.5l3-3 3 3" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-      <defs>
-        <linearGradient id="invBarGrad" x1="58" y1="24" x2="72" y2="72" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#4f8ef7"/><stop offset="1" stopColor="#6366f1"/>
-        </linearGradient>
-        <linearGradient id="invTrendGrad" x1="23" y1="56" x2="72" y2="19" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#22c55e"/><stop offset="1" stopColor="#4f8ef7"/>
-        </linearGradient>
-      </defs>
-    </svg>
-  ),
-  default: (isDark) => (
-    <svg width="88" height="88" viewBox="0 0 88 88" fill="none">
-      <circle cx="44" cy="44" r="36" fill={isDark ? "#0f1e36" : "#e8ecf4"} stroke={isDark ? "#1e3454" : "#c8d4e8"} strokeWidth="1.5"/>
-      <path d="M44 30v16M44 54v4" stroke="url(#defGrad)" strokeWidth="3.5" strokeLinecap="round"/>
-      <defs>
-        <linearGradient id="defGrad" x1="44" y1="28" x2="44" y2="60" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#4f8ef7"/><stop offset="1" stopColor="#6366f1"/>
-        </linearGradient>
-      </defs>
-    </svg>
-  ),
-};
-
-function EmptyState({ type = "default", title, subtitle, action, actionLabel, isDark }) {
-  const illus = EMPTY_ILLUSTRATIONS[type] || EMPTY_ILLUSTRATIONS.default;
-  return (
-    <div className="fade-up" style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "56px 24px 48px", gap: 0 }}>
-      <div style={{ marginBottom: 20, opacity: 0.85, animation: "popIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both" }}>
-        {illus(isDark)}
-      </div>
-      <div style={{ fontSize: 16, fontWeight: 700, color: isDark ? "#e2e8f0" : "#0f172a", marginBottom: 8 }}>{title}</div>
-      <div style={{ fontSize: 13, color: isDark ? "#475569" : "#64748b", maxWidth: 300, lineHeight: 1.65, marginBottom: action ? 24 : 0 }}>{subtitle}</div>
-      {action && (
-        <button onClick={action} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 22px", borderRadius: 99, background: "linear-gradient(135deg,#4f8ef7,#6366f1)", border: "none", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 16px rgba(79,142,247,0.35)" }}>
-          <Plus size={14}/> {actionLabel}
-        </button>
-      )}
-    </div>
-  );
-}
-
-// ─── SKELETON ──────────────────────────────────────────────────
-function Skeleton({ width = "100%", height = 14, radius = 6, style: s = {} }) {
-  return <div className="skeleton" style={{ width, height, borderRadius: radius, flexShrink: 0, ...s }} />;
-}
-
-function SkeletonCard({ isDark }) {
-  return (
-    <div style={{ ...card(isDark), flex: 1, minWidth: 180, display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
-          <Skeleton width={80} height={10} radius={4}/>
-          <Skeleton width="70%" height={28} radius={6}/>
-          <Skeleton width={60} height={10} radius={4}/>
-        </div>
-        <Skeleton width={40} height={40} radius={12} style={{ flexShrink: 0 }}/>
-      </div>
-    </div>
-  );
-}
-
-function SkeletonRow({ isDark }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: 10, gap: 10 }}>
-      <div style={{ display: "flex", gap: 10, alignItems: "center", flex: 1 }}>
-        <Skeleton width={30} height={30} radius={8} style={{ flexShrink: 0 }}/>
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
-          <Skeleton width="55%" height={11} radius={4}/>
-          <Skeleton width="35%" height={9} radius={4}/>
-        </div>
-      </div>
-      <Skeleton width={70} height={13} radius={4} style={{ flexShrink: 0 }}/>
-    </div>
-  );
-}
+// DynafyLogo, EmptyState, Skeleton/SkeletonCard/SkeletonRow verhuisd naar
+// ./components/ui/ (Fase-1 refactor 2026-05-27).
 
 // ─── STAT CARD ─────────────────────────────────────────────────
 function StatCard({ label, value, rawValue, formatter, sub, color = "#4f8ef7", icon: Icon, trend, isDark = true, onClick }) {
@@ -7333,109 +7163,7 @@ function Calibrate({ transactions, setTransactions, t, isDark, lang, accounts = 
   );
 }
 
-// ─── AUTO-DETECT RECURRING ────────────────────────────────────
-function detectRecurring(transactions) {
-  const results = [];
-  const usedTxIds = new Set(); // track which txs are already in a group
-
-  // Determine the 2 most recent COMPLETE calendar months in the dataset.
-  // The current (latest) month may be incomplete, so we skip it and look at
-  // the previous full month + the one before that as the recency window.
-  const latestDate = transactions.reduce((best, tx) => tx.date > best ? tx.date : best, "");
-  const latestMonth = latestDate.slice(0, 7); // e.g. "2026-03" — may be incomplete
-  const [ly, lm] = latestMonth.split("-").map(Number);
-  const m1 = lm - 1 > 0 ? lm - 1 : 12;
-  const y1 = lm - 1 > 0 ? ly : ly - 1;
-  const prevMonth = `${y1}-${String(m1).padStart(2, "0")}`; // e.g. "2026-02" (last complete month)
-
-  // ── Pass 1: Group by counterparty (most reliable) ──────────────
-  const byCounterparty = {};
-  transactions.filter(tx => isCountableExpense(tx) && tx.category !== "income").forEach(tx => {
-    if (!tx.counterparty || tx.counterparty.length < 3) return;
-    const key = tx.counterparty.trim().toLowerCase();
-    if (!byCounterparty[key]) byCounterparty[key] = [];
-    byCounterparty[key].push(tx);
-  });
-
-  Object.entries(byCounterparty).forEach(([key, txs]) => {
-    const allAmounts = txs.map(tx => Math.abs(tx.amount)).sort((a, b) => a - b);
-    // Use median as reference to filter out one-off payments (e.g. betalingsregelingen)
-    const mid = Math.floor(allAmounts.length / 2);
-    const median = allAmounts.length % 2 !== 0
-      ? allAmounts[mid]
-      : (allAmounts[mid - 1] + allAmounts[mid]) / 2;
-    if (median > 5000) return;
-    // Keep only transactions within 30% of the median (core recurring group)
-    const coreTxs = txs.filter(tx => Math.abs(Math.abs(tx.amount) - median) / median < 0.30);
-    const months = new Set(coreTxs.map(tx => tx.date.slice(0, 7)));
-    if (months.size < 2) return;
-    const coreAmounts = coreTxs.map(tx => Math.abs(tx.amount));
-    const avgAmount = coreAmounts.reduce((s, a) => s + a, 0) / coreAmounts.length;
-
-    coreTxs.forEach(tx => usedTxIds.add(tx.id));
-    results.push({
-      key: `cp:${key}`,
-      label: coreTxs.find(tx => tx.description?.toLowerCase().includes("huur"))?.description.trim()
-        || coreTxs[0].description.trim(),
-      counterparty: coreTxs[0].counterparty,
-      avgAmount: parseFloat(avgAmount.toFixed(2)),
-      count: coreTxs.length,
-      months: [...months].sort(),
-      lastDate: coreTxs.map(tx => tx.date).sort().pop(),
-      category: coreTxs[0].category,
-      txIds: coreTxs.map(tx => tx.id),
-    });
-  });
-
-  // ── Pass 2: Group remaining txs by description ─────────────────
-  const byDescription = {};
-  transactions.filter(tx => isCountableExpense(tx) && tx.category !== "income" && !usedTxIds.has(tx.id)).forEach(tx => {
-    const key = tx.description.trim().toLowerCase();
-    if (!byDescription[key]) byDescription[key] = [];
-    byDescription[key].push(tx);
-  });
-
-  Object.entries(byDescription).forEach(([key, txs]) => {
-    const allAmounts = txs.map(tx => Math.abs(tx.amount)).sort((a, b) => a - b);
-    const mid = Math.floor(allAmounts.length / 2);
-    const median = allAmounts.length % 2 !== 0
-      ? allAmounts[mid]
-      : (allAmounts[mid - 1] + allAmounts[mid]) / 2;
-    if (median > 5000) return;
-    const coreTxs = txs.filter(tx => Math.abs(Math.abs(tx.amount) - median) / median < 0.30);
-    const months = new Set(coreTxs.map(tx => tx.date.slice(0, 7)));
-    if (months.size < 2) return;
-    const coreAmounts = coreTxs.map(tx => Math.abs(tx.amount));
-    const avgAmount = coreAmounts.reduce((s, a) => s + a, 0) / coreAmounts.length;
-
-    const cpMap = {};
-    coreTxs.forEach(tx => { if (tx.counterparty) cpMap[tx.counterparty] = (cpMap[tx.counterparty]||0)+1; });
-    const topCp = Object.entries(cpMap).sort((a,b)=>b[1]-a[1])[0]?.[0] || null;
-
-    results.push({
-      key: `desc:${key}`,
-      label: coreTxs[0].description.trim(),
-      counterparty: topCp,
-      avgAmount: parseFloat(avgAmount.toFixed(2)),
-      count: coreTxs.length,
-      months: [...months].sort(),
-      lastDate: coreTxs.map(tx => tx.date).sort().pop(),
-      category: coreTxs[0].category,
-      txIds: coreTxs.map(tx => tx.id),
-    });
-  });
-
-  // ── Recency filter ────────────────────────────────────────────────────────
-  // The current month is skipped (may be incomplete). An item must have been
-  // paid in the last COMPLETE month (prevMonth) or later to be considered
-  // an active recurring expense. If February had no payment, it's not shown —
-  // even if January did. The exception is if it already appeared in the
-  // current (incomplete) month.
-  return results
-    .filter(r => r.lastDate.slice(0, 7) >= prevMonth)
-    .sort((a, b) => b.avgAmount - a.avgAmount);
-}
-
+// detectRecurring verhuisd naar ./lib/utils.js (Fase-1 refactor 2026-05-27).
 // ─── VASTE LASTEN VIEW ─────────────────────────────────────────
 function VasteLasten({ transactions, recurringItems, setRecurringItems, isDark, t, lang, accounts = [], selectedAccount, setSelectedAccount }) {
   const [showAddModal, setShowAddModal] = useState(false);
@@ -9693,177 +9421,7 @@ function Onboarding({ onComplete }) {
 
 // invoiceTotals verhuisd naar ./lib/utils.js (Fase-1 refactor 2026-05-27).
 
-function printInvoicePDF(invoice, zzpProfile) {
-  const escHtml = (s) => String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-  const p = zzpProfile || {};
-  const totals = invoiceTotals(invoice);
-  const client = invoice.client || {};
-  const clientName = escHtml(client.company_name || [client.first_name, client.last_name].filter(Boolean).join(' ') || '—');
-  const clientAddr = [client.address, [client.postal_code, client.city].filter(Boolean).join(' ')].filter(Boolean).map(escHtml).join('<br>');
-  const fmtN = (n) => Number(n || 0).toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-  const linesHtml = (invoice.lines || []).sort((a,b) => a.sort_order - b.sort_order).map(l => {
-    const excl = parseFloat(l.quantity||0) * parseFloat(l.unit_price||0);
-    return `<tr>
-      <td>${escHtml(l.description)}</td>
-      <td style="text-align:right">${parseFloat(l.quantity||0).toLocaleString('nl-NL')}</td>
-      <td style="text-align:right">€ ${fmtN(l.unit_price)}</td>
-      <td style="text-align:right">${l.btw_percentage}%</td>
-      <td style="text-align:right">€ ${fmtN(excl)}</td>
-    </tr>`;
-  }).join('');
-
-  const btwRows = Object.entries(totals.btwGroups).map(([pct, amt]) =>
-    `<tr><td colspan="4" style="text-align:right;color:#64748b">BTW ${pct}%</td><td style="text-align:right;color:#64748b">€ ${fmtN(amt)}</td></tr>`
-  ).join('');
-
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Factuur ${invoice.invoice_number}</title>
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;padding:48px}
-    .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:48px}
-    .company-name{font-size:22px;font-weight:800;margin-bottom:8px}
-    .meta{color:#64748b;line-height:1.7;font-size:12px}
-    .invoice-title{font-size:36px;font-weight:800;color:#1a1a1a;text-align:right;margin-bottom:12px}
-    .bill-to{margin-bottom:36px}
-    .label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin-bottom:4px}
-    table{width:100%;border-collapse:collapse;margin-top:24px}
-    th{text-align:left;font-size:10px;text-transform:uppercase;color:#64748b;padding:8px 6px;border-bottom:2px solid #e2e8f0}
-    td{padding:10px 6px;border-bottom:1px solid #f1f5f9;vertical-align:top}
-    .totals-table{margin-left:auto;width:280px;margin-top:8px}
-    .totals-table td{border:none;padding:3px 6px}
-    .grand-total td{font-size:16px;font-weight:800;border-top:2px solid #1a1a1a;padding-top:10px!important}
-    .footer{margin-top:48px;padding-top:20px;border-top:1px solid #e2e8f0;color:#64748b;font-size:11px;line-height:1.6}
-    @media print{body{padding:0}}
-  </style></head><body>
-  <div class="header">
-    <div>
-      <div class="company-name">${p.company_name || 'Bedrijfsnaam'}</div>
-      <div class="meta">
-        ${p.address || ''}${p.address ? '<br>' : ''}
-        ${[p.postal_code, p.city].filter(Boolean).join(' ')}${p.city ? '<br>' : ''}
-        ${p.kvk ? 'KvK: ' + p.kvk + '<br>' : ''}
-        ${p.btw_number ? 'BTW: ' + p.btw_number + '<br>' : ''}
-        ${p.iban ? 'IBAN: ' + p.iban : ''}
-      </div>
-    </div>
-    <div>
-      <div class="invoice-title">FACTUUR</div>
-      <div class="meta" style="text-align:right;line-height:1.9">
-        <b>Nummer:</b> ${invoice.invoice_number}<br>
-        <b>Datum:</b> ${new Date(invoice.invoice_date).toLocaleDateString('nl-NL')}<br>
-        ${invoice.due_date ? '<b>Vervaldatum:</b> ' + new Date(invoice.due_date).toLocaleDateString('nl-NL') : ''}
-      </div>
-    </div>
-  </div>
-  <div class="bill-to">
-    <div class="label">Factuur aan</div>
-    <div style="font-weight:700;font-size:14px">${clientName}</div>
-    <div class="meta">${clientAddr}${client.email ? '<br>' + client.email : ''}${client.kvk ? '<br>KvK: ' + client.kvk : ''}${client.btw_number ? '<br>BTW: ' + client.btw_number : ''}</div>
-  </div>
-  <table>
-    <thead><tr><th>Omschrijving</th><th style="text-align:right">Aantal</th><th style="text-align:right">Prijs</th><th style="text-align:right">BTW</th><th style="text-align:right">Bedrag</th></tr></thead>
-    <tbody>${linesHtml}</tbody>
-  </table>
-  <table class="totals-table">
-    <tr><td colspan="4" style="text-align:right;color:#64748b">Subtotaal excl. BTW</td><td style="text-align:right;color:#64748b">€ ${fmtN(totals.exclBtw)}</td></tr>
-    ${btwRows}
-    <tr class="grand-total"><td colspan="4" style="text-align:right">Totaal incl. BTW</td><td style="text-align:right">€ ${fmtN(totals.inclBtw)}</td></tr>
-  </table>
-  ${invoice.notes ? `<div style="margin-top:32px;padding:16px;background:#f8fafc;border-radius:8px"><div class="label">Opmerkingen</div><div style="margin-top:4px">${invoice.notes}</div></div>` : ''}
-  <div class="footer">
-    Gelieve € ${fmtN(totals.inclBtw)} over te maken op <b>${p.iban || '—'}</b> o.v.v. factuurnummer <b>${invoice.invoice_number}</b>.
-  </div>
-  <script>window.onload=()=>window.print()</script>
-  </body></html>`;
-
-  const w = window.open('', '_blank', 'width=860,height=1100');
-  if (w) { w.document.write(html); w.document.close(); }
-}
-
-// ─── GENERATE INVOICE PDF BASE64 ───────────────────────────────
-async function generateInvoicePDFBase64(invoice, zzpProfile) {
-  // Render the invoice HTML off-screen, capture with html2canvas, convert to PDF
-  const escHtml = (s) => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  const p = zzpProfile || {};
-  const totals = invoiceTotals(invoice);
-  const client = invoice.client || {};
-  const clientName = escHtml(client.company_name || [client.first_name, client.last_name].filter(Boolean).join(' ') || '—');
-  const clientAddr = [client.address, [client.postal_code, client.city].filter(Boolean).join(' ')].filter(Boolean).map(escHtml).join('<br>');
-  const fmtN = (n) => Number(n || 0).toLocaleString('nl-NL', { minimumFractionDigits:2, maximumFractionDigits:2 });
-  const linesHtml = (invoice.lines || []).sort((a,b) => a.sort_order - b.sort_order).map(l => {
-    const excl = parseFloat(l.quantity||0) * parseFloat(l.unit_price||0);
-    return `<tr><td>${escHtml(l.description)}</td><td style="text-align:right">${parseFloat(l.quantity||0).toLocaleString('nl-NL')}</td><td style="text-align:right">€ ${fmtN(l.unit_price)}</td><td style="text-align:right">${l.btw_percentage}%</td><td style="text-align:right">€ ${fmtN(excl)}</td></tr>`;
-  }).join('');
-  const btwRows = Object.entries(totals.btwGroups).map(([pct, amt]) =>
-    `<tr><td colspan="4" style="text-align:right;color:#64748b">BTW ${pct}%</td><td style="text-align:right;color:#64748b">€ ${fmtN(amt)}</td></tr>`
-  ).join('');
-
-  const htmlContent = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;padding:48px;width:794px}
-    .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:48px}
-    .company-name{font-size:22px;font-weight:800;margin-bottom:8px}
-    .meta{color:#64748b;line-height:1.7;font-size:12px}
-    .invoice-title{font-size:36px;font-weight:800;color:#1a1a1a;text-align:right;margin-bottom:12px}
-    .bill-to{margin-bottom:36px}
-    .label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin-bottom:4px}
-    table{width:100%;border-collapse:collapse;margin-top:24px}
-    th{text-align:left;font-size:10px;text-transform:uppercase;color:#64748b;padding:8px 6px;border-bottom:2px solid #e2e8f0}
-    td{padding:10px 6px;border-bottom:1px solid #f1f5f9;vertical-align:top}
-    .totals-table{margin-left:auto;width:280px;margin-top:8px}
-    .totals-table td{border:none;padding:3px 6px}
-    .grand-total td{font-size:16px;font-weight:800;border-top:2px solid #1a1a1a;padding-top:10px!important}
-    .footer{margin-top:48px;padding-top:20px;border-top:1px solid #e2e8f0;color:#64748b;font-size:11px;line-height:1.6}
-  </style></head><body>
-  <div class="header">
-    <div>
-      <div class="company-name">${p.company_name || 'Bedrijfsnaam'}</div>
-      <div class="meta">${p.address || ''}${p.address ? '<br>' : ''}${[p.postal_code, p.city].filter(Boolean).join(' ')}${p.city ? '<br>' : ''}${p.kvk ? 'KvK: ' + p.kvk + '<br>' : ''}${p.btw_number ? 'BTW: ' + p.btw_number + '<br>' : ''}${p.iban ? 'IBAN: ' + p.iban : ''}</div>
-    </div>
-    <div>
-      <div class="invoice-title">FACTUUR</div>
-      <div class="meta" style="text-align:right;line-height:1.9"><b>Nummer:</b> ${invoice.invoice_number}<br><b>Datum:</b> ${new Date(invoice.invoice_date).toLocaleDateString('nl-NL')}<br>${invoice.due_date ? '<b>Vervaldatum:</b> ' + new Date(invoice.due_date).toLocaleDateString('nl-NL') : ''}</div>
-    </div>
-  </div>
-  <div class="bill-to">
-    <div class="label">Factuur aan</div>
-    <div style="font-weight:700;font-size:14px">${clientName}</div>
-    <div class="meta">${clientAddr}${client.email ? '<br>' + client.email : ''}${client.kvk ? '<br>KvK: ' + client.kvk : ''}${client.btw_number ? '<br>BTW: ' + client.btw_number : ''}</div>
-  </div>
-  <table><thead><tr><th>Omschrijving</th><th style="text-align:right">Aantal</th><th style="text-align:right">Prijs</th><th style="text-align:right">BTW</th><th style="text-align:right">Bedrag</th></tr></thead><tbody>${linesHtml}</tbody></table>
-  <table class="totals-table">
-    <tr><td colspan="4" style="text-align:right;color:#64748b">Subtotaal excl. BTW</td><td style="text-align:right;color:#64748b">€ ${fmtN(totals.exclBtw)}</td></tr>
-    ${btwRows}
-    <tr class="grand-total"><td colspan="4" style="text-align:right">Totaal incl. BTW</td><td style="text-align:right">€ ${fmtN(totals.inclBtw)}</td></tr>
-  </table>
-  ${invoice.notes ? `<div style="margin-top:32px;padding:16px;background:#f8fafc;border-radius:8px"><div class="label">Opmerkingen</div><div style="margin-top:4px">${invoice.notes}</div></div>` : ''}
-  <div class="footer">Gelieve € ${fmtN(totals.inclBtw)} over te maken op <b>${p.iban || '—'}</b> o.v.v. factuurnummer <b>${invoice.invoice_number}</b>.</div>
-  </body></html>`;
-
-  // Render off-screen
-  const container = document.createElement('div');
-  container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:#fff';
-  container.innerHTML = htmlContent;
-  document.body.appendChild(container);
-  try {
-    const canvas = await html2canvas(container, { scale:2, useCORS:true, logging:false, backgroundColor:'#fff' });
-    const imgData = canvas.toDataURL('image/jpeg', 0.95);
-    const pdf = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
-    const pageW = pdf.internal.pageSize.getWidth();
-    const pageH = pdf.internal.pageSize.getHeight();
-    const imgH = (canvas.height * pageW) / canvas.width;
-    let posY = 0;
-    while (posY < imgH) {
-      if (posY > 0) pdf.addPage();
-      pdf.addImage(imgData, 'JPEG', 0, -posY, pageW, imgH);
-      posY += pageH;
-    }
-    return pdf.output('datauristring').split(',')[1]; // base64 only
-  } finally {
-    document.body.removeChild(container);
-  }
-}
+// printInvoicePDF + generateInvoicePDFBase64 verhuisd naar ./lib/invoicePdf.js (Fase-1).
 
 // ─── MAIL POPUP ────────────────────────────────────────────────
 function MailPopup({ isDark, invoice, zzpProfile, userEmail, onClose }) {
