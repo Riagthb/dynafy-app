@@ -11566,27 +11566,52 @@ function BerichtenChat({ isDark, user, otherUserId, otherName, clientUserId }) {
   }, [user?.id, clientUserId]);
 
   // Auto-scroll naar onder bij nieuwe berichten / eerste load.
-  // Dubbele requestAnimationFrame wacht tot de browser daadwerkelijk
-  // het nieuwe layout heeft berekend — zonder dit kan scrollHeight nog
-  // de oude (kleinere) waarde teruggeven en blijft de chat bovenaan.
+  // Iteratie 2 (Ranny 2026-05-27): scrollIntoView op bottomRef werkte niet
+  // op desktop in BoekhouderPortal-berichten (regel 12509). De eigenlijke
+  // scroll-context kan op verschillende renders een ander element zijn —
+  // soms de chat-container, soms een panel hoger, soms window. Daarom nu:
+  // traverse omhoog vanaf bottomRef tot we de eerste daadwerkelijk
+  // scrollable ancestor vinden (overflowY auto/scroll + scrollHeight >
+  // clientHeight) en scroll die direct. Plus extra fallback via window.
   useEffect(() => {
     if (msgs.length === 0) return;
     const wasFirstLoad = isFirstLoadRef.current;
     if (wasFirstLoad) isFirstLoadRef.current = false;
 
-    let raf1, raf2;
+    const findScrollParent = (el) => {
+      let cur = el?.parentElement;
+      while (cur && cur !== document.body) {
+        const s = window.getComputedStyle(cur);
+        if ((s.overflowY === 'auto' || s.overflowY === 'scroll') && cur.scrollHeight > cur.clientHeight) {
+          return cur;
+        }
+        cur = cur.parentElement;
+      }
+      return null;
+    };
+
+    const scrollToBottom = () => {
+      const target = findScrollParent(bottomRef.current);
+      const behavior = wasFirstLoad ? 'auto' : 'smooth';
+      if (target) {
+        target.scrollTo({ top: target.scrollHeight, behavior });
+      } else {
+        // Geen scrollable ancestor gevonden → de pagina zelf scrollt
+        bottomRef.current?.scrollIntoView({ block: 'end', behavior });
+      }
+    };
+
+    // Dubbele rAF wacht op layout-berekening. Extra setTimeout-fallback voor
+    // edge-cases (late font loads, image renders, async style applies) die
+    // scrollHeight pas na de rAF correct teruggeven.
+    let raf1, raf2, t;
     raf1 = requestAnimationFrame(() => {
       raf2 = requestAnimationFrame(() => {
-        const el = scrollContainerRef.current;
-        if (!el) return;
-        if (wasFirstLoad) {
-          el.scrollTop = el.scrollHeight; // instant bij eerste load / chat-switch
-        } else {
-          el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-        }
+        scrollToBottom();
+        t = setTimeout(scrollToBottom, 120);
       });
     });
-    return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
+    return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); clearTimeout(t); };
   }, [msgs]);
 
   const send = async (withNotification = false) => {
