@@ -12541,7 +12541,7 @@ function BTWAangifteView({ isDark, user, activeCompanyId, userPlan }) {
 }
 
 // ─── KOSTEN FORM ───────────────────────────────────────────────
-function KostenForm({ isDark, user, cost, onClose, onSaved }) {
+function KostenForm({ isDark, user, cost, onClose, onSaved, activeCompanyId }) {
   const isEdit = !!cost;
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
@@ -12574,9 +12574,15 @@ function KostenForm({ isDark, user, cost, onClose, onSaved }) {
     setSaving(true);
     try {
       const payload = { ...form, amount_excl_btw: parseFloat(form.amount_excl_btw), btw_percentage: parseFloat(form.btw_percentage) };
+      // company_profile_id scoping (Ranny 2026-05-27): zelfde bug als InvoiceForm.
+      // Zonder deze koppeling verscheen elke nieuwe kostenpost onder 'main'
+      // ongeacht welk profiel actief was. 'main'/undefined → null in DB,
+      // secundaire profielen krijgen hun echte id. Update-flow laat het veld
+      // met rust — verplaatst geen bestaande kostenpost tussen profielen.
+      const companyIdForInsert = (activeCompanyId && activeCompanyId !== 'main') ? activeCompanyId : null;
       const { error: costErr } = isEdit
         ? await supabase.from('costs').update(payload).eq('id', cost.id)
-        : await supabase.from('costs').insert({ ...payload, user_id: user.id, booked_by: user.id });
+        : await supabase.from('costs').insert({ ...payload, user_id: user.id, booked_by: user.id, company_profile_id: companyIdForInsert });
       if (costErr) throw costErr;
       if (!isEdit) logEvent(user.id, 'kosten_added', { description: form.description, amount: payload.amount_excl_btw });
       await onSaved();
