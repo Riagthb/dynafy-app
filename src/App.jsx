@@ -9617,7 +9617,7 @@ function MailPopup({ isDark, invoice, zzpProfile, userEmail, onClose }) {
 }
 
 // ─── INVOICE FORM ──────────────────────────────────────────────
-function InvoiceForm({ isDark, user, invoice, clients, onClose, onSaved, zzpProfile, onNavigate }) {
+function InvoiceForm({ isDark, user, invoice, clients, onClose, onSaved, zzpProfile, onNavigate, activeCompanyId }) {
   // Modal zit via createPortal in document.body — buiten .page-view scope, dus
   // mobile.css [grid-template-columns]→block rule pakt het modal NIET. Daarom
   // hier expliciet via useIsMobile() conditional renderen.
@@ -9686,7 +9686,12 @@ function InvoiceForm({ isDark, user, invoice, clients, onClose, onSaved, zzpProf
       const year = new Date().getFullYear();
       const { count } = await supabase.from('invoices').select('*', { count:'exact', head:true }).eq('user_id', user.id).gte('invoice_date', `${year}-01-01`);
       const invoiceNumber = `${year}-${String((count||0)+1).padStart(4,'0')}`;
-      const { data: inv, error: invErr } = await supabase.from('invoices').insert({ user_id:user.id, client_id:finalClientId, invoice_number:invoiceNumber, invoice_date:invoiceDate, due_date:dueDate||null, status:targetStatus, notes, title:title||null }).select('*, client:clients(*), lines:invoice_lines(*)').single();
+      // company_profile_id: 'main' (of ontbrekend) → null in DB, secondaire
+      // profielen krijgen hun echte id. Filter in FacturenView behandelt null
+      // als 'main'. Zonder deze koppeling verscheen elke nieuwe factuur onder
+      // het eerste profiel ongeacht welk profiel actief was (bug Ranny 2026-05-27).
+      const companyIdForInsert = (activeCompanyId && activeCompanyId !== 'main') ? activeCompanyId : null;
+      const { data: inv, error: invErr } = await supabase.from('invoices').insert({ user_id:user.id, client_id:finalClientId, invoice_number:invoiceNumber, invoice_date:invoiceDate, due_date:dueDate||null, status:targetStatus, notes, title:title||null, company_profile_id:companyIdForInsert }).select('*, client:clients(*), lines:invoice_lines(*)').single();
       if (invErr) throw invErr;
       const linesData = collectLinesData();
       await supabase.from('invoice_lines').insert(linesData.map(l => ({ ...l, invoice_id:inv.id })));
