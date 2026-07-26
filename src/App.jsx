@@ -9684,13 +9684,20 @@ function InvoiceForm({ isDark, user, invoice, clients, onClose, onSaved, zzpProf
     try {
       const finalClientId = await resolveClient();
       const year = new Date().getFullYear();
-      const { count } = await supabase.from('invoices').select('*', { count:'exact', head:true }).eq('user_id', user.id).gte('invoice_date', `${year}-01-01`);
-      const invoiceNumber = `${year}-${String((count||0)+1).padStart(4,'0')}`;
       // company_profile_id: 'main' (of ontbrekend) → null in DB, secondaire
       // profielen krijgen hun echte id. Filter in FacturenView behandelt null
       // als 'main'. Zonder deze koppeling verscheen elke nieuwe factuur onder
       // het eerste profiel ongeacht welk profiel actief was (bug Ranny 2026-05-27).
       const companyIdForInsert = (activeCompanyId && activeCompanyId !== 'main') ? activeCompanyId : null;
+      // Factuurnummer per bedrijfsprofiel — elk profiel = eigen legal entity
+      // met doorlopende jaarlijkse nummering. Profiel B moet niet meetellen
+      // in profiel A's reeks (bug Ranny 2026-05-27).
+      let numberQuery = supabase.from('invoices').select('*', { count:'exact', head:true }).eq('user_id', user.id).gte('invoice_date', `${year}-01-01`);
+      numberQuery = companyIdForInsert === null
+        ? numberQuery.is('company_profile_id', null)
+        : numberQuery.eq('company_profile_id', companyIdForInsert);
+      const { count } = await numberQuery;
+      const invoiceNumber = `${year}-${String((count||0)+1).padStart(4,'0')}`;
       const { data: inv, error: invErr } = await supabase.from('invoices').insert({ user_id:user.id, client_id:finalClientId, invoice_number:invoiceNumber, invoice_date:invoiceDate, due_date:dueDate||null, status:targetStatus, notes, title:title||null, company_profile_id:companyIdForInsert }).select('*, client:clients(*), lines:invoice_lines(*)').single();
       if (invErr) throw invErr;
       const linesData = collectLinesData();
@@ -10507,7 +10514,7 @@ function FacturenView({ isDark, user, zzpProfile, onNavigate, activeCompanyId, u
         </div>
       )}
 
-      {showForm && <InvoiceForm isDark={isDark} user={user} zzpProfile={zzpProfile} invoice={editingInvoice} clients={clients} onClose={() => { setShowForm(false); setEditingInvoice(null); }} onSaved={async (mailAfterSave, savedInv) => { setShowForm(false); setEditingInvoice(null); await load(); if (mailAfterSave && savedInv) setMailInvoice(savedInv); }} onNavigate={onNavigate} />}
+      {showForm && <InvoiceForm isDark={isDark} user={user} zzpProfile={zzpProfile} invoice={editingInvoice} clients={clients} activeCompanyId={activeCompanyId} onClose={() => { setShowForm(false); setEditingInvoice(null); }} onSaved={async (mailAfterSave, savedInv) => { setShowForm(false); setEditingInvoice(null); await load(); if (mailAfterSave && savedInv) setMailInvoice(savedInv); }} onNavigate={onNavigate} />}
       {mailInvoice && <MailPopup isDark={isDark} invoice={mailInvoice} zzpProfile={zzpProfile} userEmail={user?.email} onClose={() => setMailInvoice(null)} />}
       {editingClient && <ClientEditModal isDark={isDark} client={editingClient} onClose={() => setEditingClient(null)} onSaved={async (updated) => {
         const { error } = await supabase.from('clients').update(updated).eq('id', updated.id);
