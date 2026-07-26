@@ -9617,7 +9617,7 @@ function MailPopup({ isDark, invoice, zzpProfile, userEmail, onClose }) {
 }
 
 // ─── INVOICE FORM ──────────────────────────────────────────────
-function InvoiceForm({ isDark, user, invoice, clients, onClose, onSaved, zzpProfile, onNavigate }) {
+function InvoiceForm({ isDark, user, invoice, clients, onClose, onSaved, zzpProfile, onNavigate, activeCompanyId }) {
   // Modal zit via createPortal in document.body — buiten .page-view scope, dus
   // mobile.css [grid-template-columns]→block rule pakt het modal NIET. Daarom
   // hier expliciet via useIsMobile() conditional renderen.
@@ -9684,9 +9684,21 @@ function InvoiceForm({ isDark, user, invoice, clients, onClose, onSaved, zzpProf
     try {
       const finalClientId = await resolveClient();
       const year = new Date().getFullYear();
-      const { count } = await supabase.from('invoices').select('*', { count:'exact', head:true }).eq('user_id', user.id).gte('invoice_date', `${year}-01-01`);
+      // company_profile_id: 'main' (of ontbrekend) → null in DB, secondaire
+      // profielen krijgen hun echte id. Filter in FacturenView behandelt null
+      // als 'main'. Zonder deze koppeling verscheen elke nieuwe factuur onder
+      // het eerste profiel ongeacht welk profiel actief was (bug Ranny 2026-05-27).
+      const companyIdForInsert = (activeCompanyId && activeCompanyId !== 'main') ? activeCompanyId : null;
+      // Factuurnummer per bedrijfsprofiel — elk profiel = eigen legal entity
+      // met doorlopende jaarlijkse nummering. Profiel B moet niet meetellen
+      // in profiel A's reeks (bug Ranny 2026-05-27).
+      let numberQuery = supabase.from('invoices').select('*', { count:'exact', head:true }).eq('user_id', user.id).gte('invoice_date', `${year}-01-01`);
+      numberQuery = companyIdForInsert === null
+        ? numberQuery.is('company_profile_id', null)
+        : numberQuery.eq('company_profile_id', companyIdForInsert);
+      const { count } = await numberQuery;
       const invoiceNumber = `${year}-${String((count||0)+1).padStart(4,'0')}`;
-      const { data: inv, error: invErr } = await supabase.from('invoices').insert({ user_id:user.id, client_id:finalClientId, invoice_number:invoiceNumber, invoice_date:invoiceDate, due_date:dueDate||null, status:targetStatus, notes, title:title||null }).select('*, client:clients(*), lines:invoice_lines(*)').single();
+      const { data: inv, error: invErr } = await supabase.from('invoices').insert({ user_id:user.id, client_id:finalClientId, invoice_number:invoiceNumber, invoice_date:invoiceDate, due_date:dueDate||null, status:targetStatus, notes, title:title||null, company_profile_id:companyIdForInsert }).select('*, client:clients(*), lines:invoice_lines(*)').single();
       if (invErr) throw invErr;
       const linesData = collectLinesData();
       await supabase.from('invoice_lines').insert(linesData.map(l => ({ ...l, invoice_id:inv.id })));
@@ -10502,7 +10514,7 @@ function FacturenView({ isDark, user, zzpProfile, onNavigate, activeCompanyId, u
         </div>
       )}
 
-      {showForm && <InvoiceForm isDark={isDark} user={user} zzpProfile={zzpProfile} invoice={editingInvoice} clients={clients} onClose={() => { setShowForm(false); setEditingInvoice(null); }} onSaved={async (mailAfterSave, savedInv) => { setShowForm(false); setEditingInvoice(null); await load(); if (mailAfterSave && savedInv) setMailInvoice(savedInv); }} onNavigate={onNavigate} />}
+      {showForm && <InvoiceForm isDark={isDark} user={user} zzpProfile={zzpProfile} invoice={editingInvoice} clients={clients} activeCompanyId={activeCompanyId} onClose={() => { setShowForm(false); setEditingInvoice(null); }} onSaved={async (mailAfterSave, savedInv) => { setShowForm(false); setEditingInvoice(null); await load(); if (mailAfterSave && savedInv) setMailInvoice(savedInv); }} onNavigate={onNavigate} />}
       {mailInvoice && <MailPopup isDark={isDark} invoice={mailInvoice} zzpProfile={zzpProfile} userEmail={user?.email} onClose={() => setMailInvoice(null)} />}
       {editingClient && <ClientEditModal isDark={isDark} client={editingClient} onClose={() => setEditingClient(null)} onSaved={async (updated) => {
         const { error } = await supabase.from('clients').update(updated).eq('id', updated.id);
@@ -12529,7 +12541,7 @@ function BTWAangifteView({ isDark, user, activeCompanyId, userPlan }) {
 }
 
 // ─── KOSTEN FORM ───────────────────────────────────────────────
-function KostenForm({ isDark, user, cost, onClose, onSaved }) {
+function KostenForm({ isDark, user, cost, onClose, onSaved, activeCompanyId }) {
   const isEdit = !!cost;
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
@@ -12562,9 +12574,15 @@ function KostenForm({ isDark, user, cost, onClose, onSaved }) {
     setSaving(true);
     try {
       const payload = { ...form, amount_excl_btw: parseFloat(form.amount_excl_btw), btw_percentage: parseFloat(form.btw_percentage) };
+      // company_profile_id scoping (Ranny 2026-05-27): zelfde bug als InvoiceForm.
+      // Zonder deze koppeling verscheen elke nieuwe kostenpost onder 'main'
+      // ongeacht welk profiel actief was. 'main'/undefined → null in DB,
+      // secundaire profielen krijgen hun echte id. Update-flow laat het veld
+      // met rust — verplaatst geen bestaande kostenpost tussen profielen.
+      const companyIdForInsert = (activeCompanyId && activeCompanyId !== 'main') ? activeCompanyId : null;
       const { error: costErr } = isEdit
         ? await supabase.from('costs').update(payload).eq('id', cost.id)
-        : await supabase.from('costs').insert({ ...payload, user_id: user.id, booked_by: user.id });
+        : await supabase.from('costs').insert({ ...payload, user_id: user.id, booked_by: user.id, company_profile_id: companyIdForInsert });
       if (costErr) throw costErr;
       if (!isEdit) logEvent(user.id, 'kosten_added', { description: form.description, amount: payload.amount_excl_btw });
       await onSaved();
@@ -12760,7 +12778,7 @@ function KostenView({ isDark, user, activeCompanyId, hasActiveCompany = false, o
         })}
       </div>
 
-      {showForm && <KostenForm isDark={isDark} user={user} cost={editingCost} onClose={() => { setShowForm(false); setEditingCost(null); }} onSaved={async () => { setShowForm(false); setEditingCost(null); await load(); }} />}
+      {showForm && <KostenForm isDark={isDark} user={user} cost={editingCost} activeCompanyId={activeCompanyId} onClose={() => { setShowForm(false); setEditingCost(null); }} onSaved={async () => { setShowForm(false); setEditingCost(null); await load(); }} />}
     </div>
   );
 }
