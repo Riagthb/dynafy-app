@@ -12778,7 +12778,7 @@ function KostenView({ isDark, user, activeCompanyId, hasActiveCompany = false, o
         })}
       </div>
 
-      {showForm && <KostenForm isDark={isDark} user={user} cost={editingCost} onClose={() => { setShowForm(false); setEditingCost(null); }} onSaved={async () => { setShowForm(false); setEditingCost(null); await load(); }} />}
+      {showForm && <KostenForm isDark={isDark} user={user} cost={editingCost} activeCompanyId={activeCompanyId} onClose={() => { setShowForm(false); setEditingCost(null); }} onSaved={async () => { setShowForm(false); setEditingCost(null); await load(); }} />}
     </div>
   );
 }
