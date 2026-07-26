@@ -14909,7 +14909,7 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted, onImpersonate
       {/* Users table */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 18, overflow: 'hidden' }}>
         {/* Table header */}
-        <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr 160px 140px 100px 130px 110px 110px 110px', padding: '12px 20px', borderBottom: `1px solid ${C.border}`, background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', alignItems:'center' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '40px minmax(260px,1.6fr) 130px 120px 90px 110px 95px 95px 110px', padding: '12px 20px', borderBottom: `1px solid ${C.border}`, background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', alignItems:'center' }}>
           {/* Select all checkbox */}
           <div onClick={() => {
             if (selected.size === filtered.length) setSelected(new Set());
@@ -14932,7 +14932,7 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted, onImpersonate
           const plan = profile.plan || 'normal';
           return (
           <div key={profile.id} style={{
-            display: 'grid', gridTemplateColumns: '40px 1fr 160px 140px 100px 130px 110px 110px 110px',
+            display: 'grid', gridTemplateColumns: '40px minmax(260px,1.6fr) 130px 120px 90px 110px 95px 95px 110px',
             padding: '13px 20px', alignItems: 'center',
             borderBottom: i < filtered.length - 1 ? `1px solid ${C.border}` : 'none',
             opacity: profile.disabled ? 0.55 : 1,
@@ -14953,12 +14953,12 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted, onImpersonate
               <div style={{ width: 34, height: 34, borderRadius: 10, flexShrink: 0, background: `hsl(${(profile.email?.charCodeAt(0) || 0) * 37 % 360},55%,${isDark ? '25%' : '88%'})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: `hsl(${(profile.email?.charCodeAt(0) || 0) * 37 % 360},55%,${isDark ? '70%' : '35%'})` }}>
                 {(profile.name || profile.email || '?')[0].toUpperCase()}
               </div>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.text, wordBreak: 'break-word', lineHeight: 1.3 }}>
                   {profile.name || '—'}
                   {profile.id === user?.id && <span style={{ marginLeft: 6, fontSize: 10, padding: '2px 6px', borderRadius: 4, background: 'rgba(99,102,241,0.15)', color: '#6366f1', fontWeight: 700 }}>JIJ</span>}
                 </div>
-                <div style={{ fontSize: 11, color: C.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{profile.email}</div>
+                <div style={{ fontSize: 12, color: C.muted, wordBreak: 'break-all', lineHeight: 1.35, marginTop: 2 }}>{profile.email}</div>
               </div>
             </div>
 
