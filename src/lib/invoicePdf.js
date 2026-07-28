@@ -48,8 +48,10 @@ export function printInvoicePDF(invoice, zzpProfile) {
     .totals-table{margin-left:auto;width:280px;margin-top:8px}
     .totals-table td{border:none;padding:3px 6px}
     .grand-total td{font-size:16px;font-weight:800;border-top:2px solid #1a1a1a;padding-top:10px!important}
-    .footer{margin-top:48px;padding-top:20px;border-top:1px solid #e2e8f0;color:#64748b;font-size:11px;line-height:1.6}
-    @media print{body{padding:0}}
+    .footer{margin-top:48px;padding-top:20px;border-top:1px solid #e2e8f0;color:#1a1a1a;font-size:13px;line-height:1.7}
+    /* @page margin:0 = geen browser default header/footer (datum + factuurnummer bovenaan).
+       body padding blijft 48px dus content houdt visuele marge. */
+    @page{margin:0;size:A4}
   </style></head><body>
   <div class="header">
     <div>
@@ -128,7 +130,7 @@ export async function generateInvoicePDFBase64(invoice, zzpProfile) {
     .totals-table{margin-left:auto;width:280px;margin-top:8px}
     .totals-table td{border:none;padding:3px 6px}
     .grand-total td{font-size:16px;font-weight:800;border-top:2px solid #1a1a1a;padding-top:10px!important}
-    .footer{margin-top:48px;padding-top:20px;border-top:1px solid #e2e8f0;color:#64748b;font-size:11px;line-height:1.6}
+    .footer{margin-top:48px;padding-top:20px;border-top:1px solid #e2e8f0;color:#1a1a1a;font-size:13px;line-height:1.7}
   </style></head><body>
   <div class="header">
     <div>
