@@ -16388,6 +16388,10 @@ export default function App() {
           address:      profileCheck.address       || '',
           city:         profileCheck.city          || '',
           postal_code:  profileCheck.postal_code   || '',
+          payment_term_days:      profileCheck.payment_term_days ?? 14,
+          invoice_number_format:  profileCheck.invoice_number_format || 'YYYY-NNNN',
+          invoice_number_prefix:  profileCheck.invoice_number_prefix || '',
+          invoice_number_next:    profileCheck.invoice_number_next ?? 1,
         });
 
         // Load client links for service accounts (administrateur / boekhouder)
@@ -16434,7 +16438,7 @@ export default function App() {
 
     // Always also fetch from Supabase so other browsers/devices stay in sync
     supabase.from('profiles')
-      .select('company_name,kvk,btw_number,iban,address,city,postal_code,payment_term_days,moneybird_enabled,extra_company_profiles')
+      .select('company_name,kvk,btw_number,iban,address,city,postal_code,payment_term_days,moneybird_enabled,extra_company_profiles,invoice_number_format,invoice_number_prefix,invoice_number_next')
       .eq('id', user.id).single()
       .then(({ data }) => {
         if (!data?.company_name?.trim()) return; // nothing stored in DB
