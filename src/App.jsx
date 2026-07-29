@@ -13636,7 +13636,7 @@ function MijnBedrijfView({ isDark, user, profile, onSave, onNavigate, userPlan, 
     input: isDark ? "rgba(255,255,255,0.06)" : "#f8fafc",
   };
 
-  const EMPTY_PROFILE = { company_name:'', kvk:'', btw_number:'', iban:'', address:'', city:'', postal_code:'', payment_term_days:14, moneybird_enabled:false };
+  const EMPTY_PROFILE = { company_name:'', kvk:'', btw_number:'', iban:'', address:'', city:'', postal_code:'', payment_term_days:14, moneybird_enabled:false, invoice_number_format:'YYYY-NNNN', invoice_number_prefix:'', invoice_number_next:1 };
 
   // ── Multi-profile state ────────────────────────────────────────
   const storageKey = `dynafy_company_profiles_${user?.id}`;
