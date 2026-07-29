@@ -89,7 +89,7 @@ export function printInvoicePDF(invoice, zzpProfile) {
   </table>
   ${invoice.notes ? `<div style="margin-top:32px;padding:16px;background:#f8fafc;border-radius:8px"><div class="label">Opmerkingen</div><div style="margin-top:4px">${invoice.notes}</div></div>` : ''}
   <div class="footer">
-    Gelieve € ${fmtN(totals.inclBtw)} over te maken op <b>${p.iban || '—'}</b> o.v.v. factuurnummer <b>${invoice.invoice_number}</b>.
+    Gelieve € ${fmtN(totals.inclBtw)} over te maken op <b>${p.iban || '—'}</b>${p.company_name ? ' t.n.v. <b>' + escHtml(p.company_name) + '</b>' : ''} o.v.v. factuurnummer <b>${invoice.invoice_number}</b>.
   </div>
   <script>window.onload=()=>window.print()</script>
   </body></html>`;
@@ -154,7 +154,7 @@ export async function generateInvoicePDFBase64(invoice, zzpProfile) {
     <tr class="grand-total"><td colspan="4" style="text-align:right">Totaal incl. BTW</td><td style="text-align:right">€ ${fmtN(totals.inclBtw)}</td></tr>
   </table>
   ${invoice.notes ? `<div style="margin-top:32px;padding:16px;background:#f8fafc;border-radius:8px"><div class="label">Opmerkingen</div><div style="margin-top:4px">${invoice.notes}</div></div>` : ''}
-  <div class="footer">Gelieve € ${fmtN(totals.inclBtw)} over te maken op <b>${p.iban || '—'}</b> o.v.v. factuurnummer <b>${invoice.invoice_number}</b>.</div>
+  <div class="footer">Gelieve € ${fmtN(totals.inclBtw)} over te maken op <b>${p.iban || '—'}</b>${p.company_name ? ' t.n.v. <b>' + escHtml(p.company_name) + '</b>' : ''} o.v.v. factuurnummer <b>${invoice.invoice_number}</b>.</div>
   </body></html>`;
 
   // Render off-screen

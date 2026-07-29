@@ -12,7 +12,7 @@ import {
 } from './bankConnect.js';
 import BankConnectModal from './BankConnectModal.jsx';
 import { useIsMobile, useCountUp } from './lib/hooks.js';
-import { filterByAccount, invoiceTotals, isCountableIncome, isCountableExpense, detectRecurring } from './lib/utils.js';
+import { filterByAccount, invoiceTotals, isCountableIncome, isCountableExpense, detectRecurring, buildInvoiceNumber, INVOICE_NUMBER_FORMATS } from './lib/utils.js';
 import { printInvoicePDF, generateInvoicePDFBase64 } from './lib/invoicePdf.js';
 import { R, SP, DK, card } from './lib/theme.js';
 import { DynafyLogo } from './components/ui/DynafyLogo.jsx';
@@ -9683,25 +9683,61 @@ function InvoiceForm({ isDark, user, invoice, clients, onClose, onSaved, zzpProf
     setSaving(true);
     try {
       const finalClientId = await resolveClient();
-      const year = new Date().getFullYear();
-      // company_profile_id: 'main' (of ontbrekend) → null in DB, secondaire
-      // profielen krijgen hun echte id. Filter in FacturenView behandelt null
-      // als 'main'. Zonder deze koppeling verscheen elke nieuwe factuur onder
-      // het eerste profiel ongeacht welk profiel actief was (bug Ranny 2026-05-27).
       const companyIdForInsert = (activeCompanyId && activeCompanyId !== 'main') ? activeCompanyId : null;
-      // Factuurnummer per bedrijfsprofiel — elk profiel = eigen legal entity
-      // met doorlopende jaarlijkse nummering. Profiel B moet niet meetellen
-      // in profiel A's reeks (bug Ranny 2026-05-27).
-      let numberQuery = supabase.from('invoices').select('*', { count:'exact', head:true }).eq('user_id', user.id).gte('invoice_date', `${year}-01-01`);
-      numberQuery = companyIdForInsert === null
-        ? numberQuery.is('company_profile_id', null)
-        : numberQuery.eq('company_profile_id', companyIdForInsert);
-      const { count } = await numberQuery;
-      const invoiceNumber = `${year}-${String((count||0)+1).padStart(4,'0')}`;
+
+      // ── Factuurnummer-generatie (Ranny 2026-07-28) ──────────────
+      // Format + prefix + next-teller staan per bedrijfsprofiel:
+      // - main profiel → kolommen op profiles
+      // - extra profielen → JSONB extra_company_profiles[<idx>]
+      // Reset per jaar/maand via buildInvoiceNumber op basis van format
+      // + laatste factuur van dit profiel.
+      let fmt = 'YYYY-NNNN', prefix = '', nextNr = 1, extras = [], extraIdx = -1;
+      if (companyIdForInsert === null) {
+        const { data: profRow } = await supabase.from('profiles')
+          .select('invoice_number_format, invoice_number_prefix, invoice_number_next')
+          .eq('id', user.id).single();
+        fmt    = profRow?.invoice_number_format || 'YYYY-NNNN';
+        prefix = profRow?.invoice_number_prefix || '';
+        nextNr = profRow?.invoice_number_next ?? 1;
+      } else {
+        const { data: profRow } = await supabase.from('profiles')
+          .select('extra_company_profiles').eq('id', user.id).single();
+        extras = profRow?.extra_company_profiles || [];
+        extraIdx = extras.findIndex(p => p._id === companyIdForInsert);
+        if (extraIdx >= 0) {
+          const ep = extras[extraIdx];
+          fmt    = ep.invoice_number_format || 'YYYY-NNNN';
+          prefix = ep.invoice_number_prefix || '';
+          nextNr = ep.invoice_number_next ?? 1;
+        }
+      }
+
+      // Laatste factuur van dit profiel voor reset-check
+      let lastQuery = supabase.from('invoices').select('invoice_date').eq('user_id', user.id).order('invoice_date', { ascending: false }).limit(1);
+      lastQuery = companyIdForInsert === null
+        ? lastQuery.is('company_profile_id', null)
+        : lastQuery.eq('company_profile_id', companyIdForInsert);
+      const { data: lastArr } = await lastQuery;
+      const lastInvoiceDate = lastArr?.[0]?.invoice_date;
+
+      const { number: invoiceNumber, effectiveNext } = buildInvoiceNumber({
+        format: fmt, prefix, next: nextNr, invoiceDate, lastInvoiceDate,
+      });
+
       const { data: inv, error: invErr } = await supabase.from('invoices').insert({ user_id:user.id, client_id:finalClientId, invoice_number:invoiceNumber, invoice_date:invoiceDate, due_date:dueDate||null, status:targetStatus, notes, title:title||null, company_profile_id:companyIdForInsert }).select('*, client:clients(*), lines:invoice_lines(*)').single();
       if (invErr) throw invErr;
       const linesData = collectLinesData();
       await supabase.from('invoice_lines').insert(linesData.map(l => ({ ...l, invoice_id:inv.id })));
+
+      // Increment next-teller op het bedrijfsprofiel (na succesvolle insert)
+      const newNext = (effectiveNext || 1) + 1;
+      if (companyIdForInsert === null) {
+        await supabase.from('profiles').update({ invoice_number_next: newNext }).eq('id', user.id);
+      } else if (extraIdx >= 0) {
+        const updatedExtras = extras.map((p, i) => i === extraIdx ? { ...p, invoice_number_next: newNext } : p);
+        await supabase.from('profiles').update({ extra_company_profiles: updatedExtras }).eq('id', user.id);
+      }
+
       logEvent(user.id, 'invoice_created', { invoice_id: inv.id, invoice_number: invoiceNumber, status: targetStatus });
       // Refetch full invoice met lines+client joins (insert returned heeft nog
       // geen lines want die zijn apart geïnsert). Nodig voor MailPopup-prop.
@@ -13600,7 +13636,7 @@ function MijnBedrijfView({ isDark, user, profile, onSave, onNavigate, userPlan, 
     input: isDark ? "rgba(255,255,255,0.06)" : "#f8fafc",
   };
 
-  const EMPTY_PROFILE = { company_name:'', kvk:'', btw_number:'', iban:'', address:'', city:'', postal_code:'', payment_term_days:14, moneybird_enabled:false };
+  const EMPTY_PROFILE = { company_name:'', kvk:'', btw_number:'', iban:'', address:'', city:'', postal_code:'', payment_term_days:14, moneybird_enabled:false, invoice_number_format:'YYYY-NNNN', invoice_number_prefix:'', invoice_number_next:1 };
 
   // ── Multi-profile state ────────────────────────────────────────
   const storageKey = `dynafy_company_profiles_${user?.id}`;
@@ -14040,6 +14076,52 @@ function MijnBedrijfView({ isDark, user, profile, onSave, onNavigate, userPlan, 
           </div>
           <div style={{ fontSize:11, color:C.muted, marginTop:4 }}>Wordt automatisch ingevuld bij nieuwe facturen.</div>
         </div>
+
+        {/* ── Factuurnummer-instellingen (Ranny 2026-07-28) ── */}
+        {(() => {
+          const fmt    = form.invoice_number_format || 'YYYY-NNNN';
+          const prefix = form.invoice_number_prefix || '';
+          const nextNr = form.invoice_number_next ?? 1;
+          const previewRes = buildInvoiceNumber({ format: fmt, prefix, next: nextNr, invoiceDate: new Date().toISOString().slice(0,10) });
+          return (
+            <div style={{ borderRadius:12, border:`1px solid ${C.border}`, padding:'16px 18px', background:isDark?'rgba(255,255,255,0.02)':'#f8fafc' }}>
+              <div style={{ fontSize:14, fontWeight:700, color:C.text, marginBottom:12 }}>Factuurnummer</div>
+
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:12 }}>
+                <div>
+                  <label style={labelStyle}>Format</label>
+                  <select style={inputStyle}
+                    value={fmt}
+                    onChange={e => set('invoice_number_format', e.target.value)}>
+                    {INVOICE_NUMBER_FORMATS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Prefix (optioneel)</label>
+                  <input style={inputStyle} placeholder="Bijv. INV- of F-"
+                    value={prefix}
+                    onChange={e => set('invoice_number_prefix', e.target.value)} />
+                </div>
+              </div>
+
+              <div>
+                <label style={labelStyle}>Volgende factuurnummer</label>
+                <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                  <input type="number" min={1} style={{ ...inputStyle, width:140 }}
+                    value={nextNr}
+                    onChange={e => set('invoice_number_next', Math.max(1, parseInt(e.target.value)||1))} />
+                  <span style={{ fontSize:13, color:C.muted }}>bijv. bij migratie vanuit ander programma</span>
+                </div>
+                <div style={{ fontSize:11, color:C.muted, marginTop:4 }}>Als je bij 158 stopte in je vorige programma, zet hier 158.</div>
+              </div>
+
+              <div style={{ marginTop:14, padding:'12px 14px', borderRadius:10, background:isDark?'rgba(79,142,247,0.08)':'rgba(79,142,247,0.05)', border:`1px solid ${isDark?'rgba(79,142,247,0.15)':'rgba(79,142,247,0.15)'}` }}>
+                <div style={{ fontSize:11, fontWeight:700, color:'#4f8ef7', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:4 }}>Preview volgende factuur</div>
+                <div style={{ fontSize:18, fontWeight:800, color:C.text, fontFamily:'monospace' }}>{previewRes.number}</div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ── Machtiging ── */}
         <div style={{ borderRadius:12, border:`1px solid ${C.border}`, overflow:'hidden' }}>
@@ -16306,6 +16388,10 @@ export default function App() {
           address:      profileCheck.address       || '',
           city:         profileCheck.city          || '',
           postal_code:  profileCheck.postal_code   || '',
+          payment_term_days:      profileCheck.payment_term_days ?? 14,
+          invoice_number_format:  profileCheck.invoice_number_format || 'YYYY-NNNN',
+          invoice_number_prefix:  profileCheck.invoice_number_prefix || '',
+          invoice_number_next:    profileCheck.invoice_number_next ?? 1,
         });
 
         // Load client links for service accounts (administrateur / boekhouder)
@@ -16352,7 +16438,7 @@ export default function App() {
 
     // Always also fetch from Supabase so other browsers/devices stay in sync
     supabase.from('profiles')
-      .select('company_name,kvk,btw_number,iban,address,city,postal_code,payment_term_days,moneybird_enabled,extra_company_profiles')
+      .select('company_name,kvk,btw_number,iban,address,city,postal_code,payment_term_days,moneybird_enabled,extra_company_profiles,invoice_number_format,invoice_number_prefix,invoice_number_next')
       .eq('id', user.id).single()
       .then(({ data }) => {
         if (!data?.company_name?.trim()) return; // nothing stored in DB
@@ -17651,6 +17737,9 @@ export default function App() {
               postal_code: p.postal_code ?? null,
               payment_term_days: p.payment_term_days ?? 14,
               moneybird_enabled: !!p.moneybird_enabled,
+              invoice_number_format: p.invoice_number_format || 'YYYY-NNNN',
+              invoice_number_prefix: p.invoice_number_prefix || null,
+              invoice_number_next: Number.isFinite(p.invoice_number_next) ? p.invoice_number_next : 1,
             };
             setZzpProfile(p);
             const { error } = await supabase.from('profiles').update(allowed).eq('id', user.id);

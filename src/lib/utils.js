@@ -2,6 +2,52 @@
 // Geëxtraheerd uit App.jsx tijdens Fase-1 refactor (2026-05-27).
 // Geen React state, geen DOM-side-effects — puur dataverwerking.
 
+// ─── INVOICE NUMBER GENERATION ─────────────────────────────────
+// Format tokens: YYYY=jaar, MM=maand, NNNN=sequential (N-count = padding).
+// Reset-detectie: als format YYYY bevat en vorige factuur in ander jaar → reset.
+// Idem voor MM (maand-reset).
+export const INVOICE_NUMBER_FORMATS = [
+  { value: 'YYYY-NNNN',    label: 'YYYY-NNNN (2026-0001)',    resetOn: 'year' },
+  { value: 'YYYY-MM-NNNN', label: 'YYYY-MM-NNNN (2026-07-0001)', resetOn: 'month' },
+  { value: 'NNNN',         label: 'NNNN (0001) — doorlopend',   resetOn: null },
+  { value: 'NNNNNN',       label: 'NNNNNN (000001) — doorlopend', resetOn: null },
+];
+
+// Berekent {number, shouldReset} vanuit format + prefix + next + huidige datum
+// + laatste factuur (voor reset-check). Als reset nodig is → nummer wordt 1
+// (of het originele startnummer als je dat wilt bewaren; nu gaan we voor 1).
+export function buildInvoiceNumber({ format = 'YYYY-NNNN', prefix = '', next = 1, invoiceDate, lastInvoiceDate }) {
+  const fmt = format || 'YYYY-NNNN';
+  const d = new Date(invoiceDate);
+  const year  = String(d.getFullYear());
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+
+  // Bepaal of we moeten resetten (vergelijking met laatste factuur)
+  let shouldReset = false;
+  if (lastInvoiceDate) {
+    const l = new Date(lastInvoiceDate);
+    if (fmt.includes('MM') && (l.getFullYear() !== d.getFullYear() || l.getMonth() !== d.getMonth())) {
+      shouldReset = true;
+    } else if (fmt.includes('YYYY') && l.getFullYear() !== d.getFullYear()) {
+      shouldReset = true;
+    }
+  }
+  const effectiveNext = shouldReset ? 1 : next;
+
+  // Vervang NNNN-token: aantal N's bepaalt padding-breedte
+  const nMatch = fmt.match(/N+/);
+  const padWidth = nMatch ? nMatch[0].length : 4;
+  const nStr = String(effectiveNext).padStart(padWidth, '0');
+
+  let number = fmt
+    .replace('YYYY', year)
+    .replace('MM', month)
+    .replace(/N+/, nStr);
+
+  if (prefix) number = prefix + number;
+  return { number, shouldReset, effectiveNext };
+}
+
 // isCountableIncome / isCountableExpense: skip internal transfers bij
 // inkomsten/uitgaven-aggregaties. Op display-listen (af/bij overzicht,
 // drawer detail) tonen we transfers wel maar met afwijkende styling
