@@ -8969,7 +8969,7 @@ function Onboarding({ onComplete }) {
   const [name, setName] = useState("");
   const [situation, setSituation] = useState(null);
   const [goals, setGoals] = useState([]);
-  const [theme, setTheme] = useState("dark");
+  const [theme, setTheme] = useState("cloud"); // Ranny 2026-07-28: onboarding start met Cloud
   const [bank, setBank] = useState(null);
   const [tosAccepted, setTosAccepted] = useState(false);
   const [referral, setReferral] = useState(null);
@@ -15852,7 +15852,7 @@ export default function App() {
         }
       }
     } catch {}
-    return 'dark';
+    return 'cloud'; // Ranny 2026-07-28: Cloud default (was 'dark')
   });
   const [recurringItems, setRecurringItems] = useState([]);
   const [appInvestments, setAppInvestments] = useState(MOCK_INVESTMENTS);
