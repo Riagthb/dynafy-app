@@ -8969,7 +8969,7 @@ function Onboarding({ onComplete }) {
   const [name, setName] = useState("");
   const [situation, setSituation] = useState(null);
   const [goals, setGoals] = useState([]);
-  const [theme, setTheme] = useState("dark");
+  const [theme, setTheme] = useState("cloud"); // Ranny 2026-07-28: onboarding start met Cloud
   const [bank, setBank] = useState(null);
   const [tosAccepted, setTosAccepted] = useState(false);
   const [referral, setReferral] = useState(null);
@@ -15811,7 +15811,8 @@ export default function App() {
     const uncatCount = txs.filter(tx => !tx.category || tx.category === "other").length;
     if (uncatCount > 0) setUncatAlert(uncatCount);
   };
-  const [view, setView] = useState("dashboard");
+  const [view, setView] = useState("zzp-dashboard"); // Ranny 2026-07-28: ZZP-first default
+
   const [lang, setLang] = useState("en");
   const [currency, setCurrency] = useState(() => {
     try { return localStorage.getItem('dynafy_currency') || 'EUR'; } catch { return 'EUR'; }
@@ -15851,7 +15852,7 @@ export default function App() {
         }
       }
     } catch {}
-    return 'dark';
+    return 'cloud'; // Ranny 2026-07-28: Cloud default (was 'dark')
   });
   const [recurringItems, setRecurringItems] = useState([]);
   const [appInvestments, setAppInvestments] = useState(MOCK_INVESTMENTS);
@@ -16609,7 +16610,22 @@ export default function App() {
   };
 
   // ── Hierarchical nav structure ──────────────────────────────
+  // ZZP Modus staat bewust bovenaan (Ranny 2026-07-28) — het is de primaire
+  // werkomgeving voor ZZP-users, en meest bezochte flow (facturen/kosten/BTW).
   const navStructure = [
+    {
+      id: "zzp-group", icon: Zap, label: "ZZP Modus", type: "group",
+      children: [
+        { id: "zzp-dashboard", icon: BarChart2, label: "ZZP Dashboard" },
+        { id: "mijn-bedrijf",  icon: Building2,    label: "Mijn Bedrijf" },
+        { id: "facturen",      icon: FileText,     label: lang === "nl" ? "Facturen" : "Invoices" },
+        { id: "kosten",        icon: TrendingDown, label: lang === "nl" ? "Kosten" : "Expenses" },
+        { id: "btw-aangifte",  icon: Calendar,     label: lang === "nl" ? "BTW Aangifte" : "VAT Return" },
+        { id: "bonnen",        icon: Upload,        label: lang === "nl" ? "Bonnen" : "Receipts" },
+        { id: "berichten",     icon: Mail,          label: lang === "nl" ? "Berichten" : "Messages" },
+        ...(zzpProfile.moneybird_enabled ? [{ id: "moneybird", icon: RefreshCw, label: "Moneybird" }] : []),
+      ]
+    },
     {
       id: "dashboard", icon: Home, label: t.nav.dashboard, type: "item"
     },
@@ -16633,19 +16649,6 @@ export default function App() {
       id: "insights", icon: Lightbulb, label: t.nav.insights, type: "item"
     },
     {
-      id: "zzp-group", icon: Zap, label: "ZZP Modus", type: "group",
-      children: [
-        { id: "zzp-dashboard", icon: BarChart2, label: "ZZP Dashboard" },
-        { id: "mijn-bedrijf",  icon: Building2,    label: "Mijn Bedrijf" },
-        { id: "facturen",      icon: FileText,     label: lang === "nl" ? "Facturen" : "Invoices" },
-        { id: "kosten",        icon: TrendingDown, label: lang === "nl" ? "Kosten" : "Expenses" },
-        { id: "btw-aangifte",  icon: Calendar,     label: lang === "nl" ? "BTW Aangifte" : "VAT Return" },
-        { id: "bonnen",        icon: Upload,        label: lang === "nl" ? "Bonnen" : "Receipts" },
-        { id: "berichten",     icon: Mail,          label: lang === "nl" ? "Berichten" : "Messages" },
-        ...(zzpProfile.moneybird_enabled ? [{ id: "moneybird", icon: RefreshCw, label: "Moneybird" }] : []),
-      ]
-    },
-    {
       id: "export", icon: Download, label: lang === "nl" ? "Exporteren" : "Export", type: "item"
     },
     {
@@ -16659,15 +16662,31 @@ export default function App() {
   // All view ids for topbar label lookup
   const allNavItems = navStructure.flatMap(n => n.type === "group" ? n.children : [n]);
 
-  // Groups auto-expand when a child is active
+  // Groups auto-expand when a child is active. Manual toggles worden
+  // gepersisteerd naar localStorage zodat de keuze over sessies blijft
+  // hangen. Default: zzp-group is uitgeklapt tenzij de user 'm zelf
+  // inklapt (Ranny 2026-07-28).
   const activeGroupIds = navStructure
     .filter(n => n.type === "group" && n.children.some(c => c.id === view))
     .map(n => n.id);
-  const [expandedGroups, setExpandedGroups] = useState(() => new Set(activeGroupIds));
+  const NAV_EXPANDED_STORAGE_KEY = 'dynafy_nav_expanded_groups_v1';
+  const [expandedGroups, setExpandedGroups] = useState(() => {
+    try {
+      const stored = localStorage.getItem(NAV_EXPANDED_STORAGE_KEY);
+      if (stored) {
+        return new Set([...JSON.parse(stored), ...activeGroupIds]);
+      }
+    } catch { /* localStorage niet beschikbaar → val terug op defaults */ }
+    // Eerste bezoek: zzp-group open + auto-expand voor actieve view
+    return new Set(['zzp-group', ...activeGroupIds]);
+  });
 
   const toggleGroup = (id) => setExpandedGroups(prev => {
     const next = new Set(prev);
     next.has(id) ? next.delete(id) : next.add(id);
+    try {
+      localStorage.setItem(NAV_EXPANDED_STORAGE_KEY, JSON.stringify([...next]));
+    } catch { /* stille fallback — persist mislukt, huidige sessie blijft werken */ }
     return next;
   });
 
