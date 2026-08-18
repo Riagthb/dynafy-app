@@ -15811,7 +15811,8 @@ export default function App() {
     const uncatCount = txs.filter(tx => !tx.category || tx.category === "other").length;
     if (uncatCount > 0) setUncatAlert(uncatCount);
   };
-  const [view, setView] = useState("dashboard");
+  const [view, setView] = useState("zzp-dashboard"); // Ranny 2026-07-28: ZZP-first default
+
   const [lang, setLang] = useState("en");
   const [currency, setCurrency] = useState(() => {
     try { return localStorage.getItem('dynafy_currency') || 'EUR'; } catch { return 'EUR'; }
