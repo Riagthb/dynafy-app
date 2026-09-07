@@ -9853,11 +9853,14 @@ function InvoiceForm({ isDark, user, invoice, clients, onClose, onSaved, zzpProf
             <div style={sectionTitle}>Klant <span style={{ color:'#f43f5e', fontWeight:700 }}>*</span></div>
             {!showNewClient ? (
               <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-                <select value={clientId} onChange={e => setClientId(e.target.value)} style={{ ...inp, flex:'1 1 220px', minWidth:0 }} disabled={isEditMode}>
+                {/* Klant mag altijd gewijzigd worden — ook na definitief maken
+                    (Ranny 2026-09-07: fout klant na verzenden = handmatig fixen).
+                    handleUpdate schrijft de nieuwe client_id gewoon door naar DB. */}
+                <select value={clientId} onChange={e => setClientId(e.target.value)} style={{ ...inp, flex:'1 1 220px', minWidth:0 }}>
                   <option value="">— Selecteer een bestaande klant —</option>
                   {clients.map(c => <option key={c.id} value={c.id}>{c.company_name || [c.first_name,c.last_name].filter(Boolean).join(' ')}</option>)}
                 </select>
-                {!isEditMode && <button onClick={() => { setShowNewClient(true); setClientId(''); }} style={{ padding:'10px 18px', borderRadius:10, border:'none', background:'#22c55e', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap', display:'flex', alignItems:'center', gap:6 }}>+ Nieuwe klant</button>}
+                <button onClick={() => { setShowNewClient(true); setClientId(''); }} style={{ padding:'10px 18px', borderRadius:10, border:'none', background:'#22c55e', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap', display:'flex', alignItems:'center', gap:6 }}>+ Nieuwe klant</button>
               </div>
             ) : (
               <div>
@@ -9974,11 +9977,11 @@ function InvoiceForm({ isDark, user, invoice, clients, onClose, onSaved, zzpProf
             <label style={lbl}>Klant *</label>
             {!showNewClient ? (
               <div style={{ display:'flex', gap:8 }}>
-                <select value={clientId} onChange={e => setClientId(e.target.value)} style={{ ...inp, flex:1 }} disabled={isEditMode}>
+                <select value={clientId} onChange={e => setClientId(e.target.value)} style={{ ...inp, flex:1 }}>
                   <option value="">— Selecteer klant —</option>
                   {clients.map(c => <option key={c.id} value={c.id}>{c.company_name || [c.first_name,c.last_name].filter(Boolean).join(' ')}</option>)}
                 </select>
-                {!isEditMode && <button onClick={() => { setShowNewClient(true); setClientId(''); }} style={{ padding:'9px 16px', borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', color:'#4f8ef7', fontSize:13, fontWeight:600, cursor:'pointer', whiteSpace:'nowrap' }}>+ Nieuwe klant</button>}
+                <button onClick={() => { setShowNewClient(true); setClientId(''); }} style={{ padding:'9px 16px', borderRadius:8, border:`1px solid ${C.border}`, background:'transparent', color:'#4f8ef7', fontSize:13, fontWeight:600, cursor:'pointer', whiteSpace:'nowrap' }}>+ Nieuwe klant</button>
               </div>
             ) : (
               <div style={{ background:isDark?'rgba(255,255,255,0.03)':'#f8fafc', border:`1px solid ${C.border}`, borderRadius:12, padding:16 }}>
