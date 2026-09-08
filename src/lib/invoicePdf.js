@@ -168,12 +168,18 @@ export async function generateInvoicePDFBase64(invoice, zzpProfile) {
     const pdf = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
     const pageW = pdf.internal.pageSize.getWidth();
     const pageH = pdf.internal.pageSize.getHeight();
-    const imgH = (canvas.height * pageW) / canvas.width;
+    // Marge rondom (Ranny 2026-09-08): image werd op x=0 met full pageW geplaatst,
+    // waardoor content strak tegen de PDF-rand aan kwam. 15mm rondom = professioneel
+    // en houdt tekst weg van printer no-print-zone.
+    const marginMm = 15;
+    const drawW = pageW - 2 * marginMm;
+    const drawH = pageH - 2 * marginMm;
+    const imgH = (canvas.height * drawW) / canvas.width;
     let posY = 0;
     while (posY < imgH) {
       if (posY > 0) pdf.addPage();
-      pdf.addImage(imgData, 'JPEG', 0, -posY, pageW, imgH);
-      posY += pageH;
+      pdf.addImage(imgData, 'JPEG', marginMm, marginMm - posY, drawW, imgH);
+      posY += drawH;
     }
     return pdf.output('datauristring').split(',')[1]; // base64 only
   } finally {
