@@ -9258,7 +9258,12 @@ function Onboarding({ onComplete }) {
               {lang === "nl" ? "Registreer bedrijf →" : "Register company →"}
             </button>
             <button onClick={() => completeOnboarding(false)} disabled={!tosAccepted}
-              style={{ width: "100%", padding: "13px", borderRadius: 50, background: "transparent", border: `1px solid ${borderColor}`, color: tosAccepted ? mutedColor : "rgba(148,163,184,0.4)", fontSize: 14, fontWeight: 600, cursor: tosAccepted ? "pointer" : "default" }}>
+              style={{ width: "100%", padding: "14px", borderRadius: 50,
+                background: tosAccepted ? (isDarkTheme ? "rgba(255,255,255,0.08)" : "#f1f5f9") : "transparent",
+                border: `1.5px solid ${tosAccepted ? (isDarkTheme ? "rgba(255,255,255,0.18)" : "#cbd5e1") : borderColor}`,
+                color: tosAccepted ? textColor : "rgba(148,163,184,0.5)",
+                fontSize: 14, fontWeight: 700,
+                cursor: tosAccepted ? "pointer" : "default", transition:"all 0.15s" }}>
               {lang === "nl" ? "Sla over — later invullen via Mijn Bedrijf" : "Skip — fill in later via My Company"}
             </button>
             <button onClick={() => setStep(s => s - 1)}
