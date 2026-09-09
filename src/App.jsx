@@ -16257,14 +16257,30 @@ export default function App() {
       setUseMockData(false);
 
       try {
-        // Load profile + all data in parallel so data_cleared is available immediately
-        const [txRes, invRes, goalRes, recRes, profileRes] = await Promise.all([
-          supabase.from('transactions').select('*').eq('user_id', user.id).order('date', { ascending: false }),
-          supabase.from('investments').select('*').eq('user_id', user.id),
-          supabase.from('goals').select('*').eq('user_id', user.id),
-          supabase.from('recurring').select('*').eq('user_id', user.id),
-          supabase.from('profiles').select('*').eq('id', user.id).single(),
-        ]);
+        // Perf-optimisatie (Ranny 2026-09-09): eerste-load burst was 8+ queries
+        // à ~2.5s per stuk. Nu:
+        //  1. Skip 4 financial queries voor gecachte ZZP-only users (0-row tabellen
+        //     die tocheveel RLS-checks + burst-druk gaven). Nieuwe users of niet-
+        //     ZZP users krijgen de volledige load 1x, dan cache voor next login.
+        //  2. Role zit al in profiles.select('*') → aparte role-query verderop
+        //     verwijderd.
+        const cachedPlan = (() => { try { return localStorage.getItem(`dynafy_${user.id}_plan`); } catch { return null; } })();
+        const isZzpOnlyCached = cachedPlan === 'zzp_premium' || cachedPlan === 'zzp_diamond';
+
+        const queryDefs = { profile: supabase.from('profiles').select('*').eq('id', user.id).single() };
+        if (!isZzpOnlyCached) {
+          queryDefs.tx    = supabase.from('transactions').select('*').eq('user_id', user.id).order('date', { ascending: false });
+          queryDefs.inv   = supabase.from('investments').select('*').eq('user_id', user.id);
+          queryDefs.goal  = supabase.from('goals').select('*').eq('user_id', user.id);
+          queryDefs.rec   = supabase.from('recurring').select('*').eq('user_id', user.id);
+        }
+        const entries = await Promise.all(Object.entries(queryDefs).map(async ([k, p]) => [k, await p]));
+        const byKey = Object.fromEntries(entries);
+        const profileRes = byKey.profile;
+        const txRes      = byKey.tx   || { data: [] };
+        const invRes     = byKey.inv  || { data: [] };
+        const goalRes    = byKey.goal || { data: [] };
+        const recRes     = byKey.rec  || { data: [] };
 
         // Check if user deliberately cleared their data — localStorage OR Supabase flag
         const wasCleared = localStorage.getItem(`dynafy_${user.id}_cleared`) === 'true'
@@ -16373,17 +16389,22 @@ export default function App() {
         const isAdminValue = profileCheck?.is_admin === true || user?.user_metadata?.is_admin === true;
         if (isAdminValue) setIsAdmin(true);
         const planValue = profileCheck?.plan || user?.user_metadata?.plan;
-        if (planValue) setUserPlan(planValue);
+        if (planValue) {
+          setUserPlan(planValue);
+          // Cache plan zodat next login de 4 financial-queries kan skippen
+          // (perf-optimisatie 2026-09-09).
+          try { localStorage.setItem(`dynafy_${user.id}_plan`, planValue); } catch {}
+        }
         if (profileCheck?.theme) setTheme(profileCheck.theme);
         else { const saved = lsGet(user.id, 'theme', null); if (saved) setTheme(saved); }
         if (profileCheck?.lang) setLang(profileCheck.lang);
         else { const saved = lsGet(user.id, 'lang', null); if (saved) setLang(saved); }
         if (profileCheck?.currency) { setCurrency(profileCheck.currency); try { localStorage.setItem('dynafy_currency', profileCheck.currency); } catch {} }
 
-        // Fetch role separately — safe to fail if column doesn't exist yet
-        const { data: roleRow } = await supabase
-          .from('profiles').select('role').eq('id', user.id).single();
-        if (roleRow?.role && roleRow.role !== 'user') setUserRole(roleRow.role);
+        // Role zit al in profileRes (select='*'). Aparte round-trip was
+        // overbodig — verwijderd voor perf (Ranny 2026-09-09).
+        const roleRow = { role: profileCheck?.role };
+        if (roleRow.role && roleRow.role !== 'user') setUserRole(roleRow.role);
         if (profileCheck) setZzpProfile({
           company_name: profileCheck.company_name || '',
           kvk:          profileCheck.kvk          || '',
