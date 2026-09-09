@@ -16264,7 +16264,11 @@ export default function App() {
         //     ZZP users krijgen de volledige load 1x, dan cache voor next login.
         //  2. Role zit al in profiles.select('*') → aparte role-query verderop
         //     verwijderd.
-        const cachedPlan = (() => { try { return localStorage.getItem(`dynafy_${user.id}_plan`); } catch { return null; } })();
+        // Plan-hint komt uit JWT (user_metadata, cross-origin) of localStorage
+        // fallback (per-domein). Beide worden na profile-load bijgewerkt.
+        const cachedPlan =
+          user?.user_metadata?.plan ||
+          (() => { try { return localStorage.getItem(`dynafy_${user.id}_plan`); } catch { return null; } })();
         const isZzpOnlyCached = cachedPlan === 'zzp_premium' || cachedPlan === 'zzp_diamond';
 
         const queryDefs = { profile: supabase.from('profiles').select('*').eq('id', user.id).single() };
@@ -16391,9 +16395,13 @@ export default function App() {
         const planValue = profileCheck?.plan || user?.user_metadata?.plan;
         if (planValue) {
           setUserPlan(planValue);
-          // Cache plan zodat next login de 4 financial-queries kan skippen
-          // (perf-optimisatie 2026-09-09).
+          // Cache plan: JWT (user_metadata, cross-origin) én localStorage
+          // (fallback als updateUser mislukt). Vanaf de volgende login wordt
+          // de skip-check meteen actief, ook op preview-URLs of andere devices.
           try { localStorage.setItem(`dynafy_${user.id}_plan`, planValue); } catch {}
+          if (user?.user_metadata?.plan !== planValue) {
+            supabase.auth.updateUser({ data: { plan: planValue } }).catch(() => {});
+          }
         }
         if (profileCheck?.theme) setTheme(profileCheck.theme);
         else { const saved = lsGet(user.id, 'theme', null); if (saved) setTheme(saved); }
