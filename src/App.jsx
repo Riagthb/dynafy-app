@@ -16205,17 +16205,21 @@ export default function App() {
     }
   }, [user, authLoading, impersonation]);
 
-  // Sla thema op per gebruiker — localStorage direct, Supabase voor cross-device
+  // Sla thema op per gebruiker — localStorage direct, Supabase voor cross-device.
+  // dataReady-guard voorkomt no-op PATCH bij initial load (waar setTheme uit de
+  // profile-fetch de useEffect triggert die exact dezelfde waarde terug schrijft).
   useEffect(() => {
     if (!user?.id) return;
     lsSet(user.id, 'theme', theme);
+    if (!dataReady.current) return;
     supabase.from('profiles').update({ theme }).eq('id', user.id).then(() => {});
   }, [theme, user?.id]);
 
-  // Sla taal op per gebruiker — localStorage direct, Supabase voor cross-device
+  // Sla taal op per gebruiker — zelfde guard-patroon.
   useEffect(() => {
     if (!user?.id) return;
     lsSet(user.id, 'lang', lang);
+    if (!dataReady.current) return;
     supabase.from('profiles').update({ lang }).eq('id', user.id).then(() => {});
   }, [lang, user?.id]);
 
