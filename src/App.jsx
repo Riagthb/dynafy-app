@@ -185,24 +185,10 @@ const T = {
   }
 };
 
-// ─── MOCK DATA ─────────────────────────────────────────────────
-const MOCK_TRANSACTIONS = [
-  { id: 1, date: "2024-03-15", description: "Albert Heijn", amount: -87.43, category: "groceries", account: "ING Betaalrekening" },
-  { id: 2, date: "2024-03-14", description: "Salary March", amount: 3800.00, category: "income", account: "ING Betaalrekening" },
-  { id: 3, date: "2024-03-13", description: "Spotify Premium", amount: -10.99, category: "subscriptions", account: "ABN AMRO" },
-  { id: 4, date: "2024-03-12", description: "Cafe Restaurant Blauw", amount: -45.20, category: "eating_out", account: "ING Betaalrekening" },
-  { id: 5, date: "2024-03-11", description: "NS Treinkaartje", amount: -12.80, category: "transport", account: "ABN AMRO" },
-  { id: 6, date: "2024-03-10", description: "Huur Maart", amount: -1200.00, category: "fixed_expenses", account: "ING Betaalrekening" },
-  { id: 7, date: "2024-03-09", description: "Zara Online", amount: -89.95, category: "shopping", account: "ABN AMRO" },
-  { id: 8, date: "2024-03-08", description: "Netflix", amount: -15.99, category: "subscriptions", account: "ABN AMRO" },
-  { id: 9, date: "2024-03-07", description: "Jumbo Supermarkt", amount: -63.18, category: "groceries", account: "ING Betaalrekening" },
-  { id: 10, date: "2024-03-06", description: "Thuisbezorgd", amount: -32.50, category: "eating_out", account: "ING Betaalrekening" },
-  { id: 11, date: "2024-03-05", description: "Freelance Payment - Klant B", amount: 950.00, category: "income", account: "ING Betaalrekening" },
-  { id: 12, date: "2024-03-04", description: "Energie Rekening", amount: -145.00, category: "fixed_expenses", account: "ABN AMRO" },
-  { id: 13, date: "2024-03-03", description: "IKEA Amsterdam", amount: -234.50, category: "shopping", account: "ABN AMRO" },
-  { id: 14, date: "2024-03-02", description: "GVB Maandkaart", amount: -100.00, category: "transport", account: "ING Betaalrekening" },
-  { id: 15, date: "2024-03-01", description: "Spaartransfer", amount: -300.00, category: "savings", account: "ING Betaalrekening" },
-];
+// MOCK_TRANSACTIONS + MOCK_INVESTMENTS verwijderd (Ranny 2026-09-14): geen
+// voorbeelddata meer voor nieuwe/lege users. MOCK_MONTHLY en MOCK_TREND
+// hieronder zijn dashboard-chart-fixtures — die blijven functioneel nodig
+// voor de Widget-charts totdat we die op echte data laten draaien.
 
 const MOCK_MONTHLY = [
   { month: "Oct", income: 4200, expenses: 2800 },
@@ -222,13 +208,6 @@ const MOCK_TREND = [
   { week: "W6", amount: 280 },
   { week: "W7", amount: 490 },
   { week: "W8", amount: 820 },
-];
-
-const MOCK_INVESTMENTS = [
-  { id: 1, name: "Bitcoin",  type: "crypto",  invested: 2000, currentValue: 3240, ticker: "bitcoin",  units: 0.04 },
-  { id: 2, name: "VWCE ETF", type: "stocks",  invested: 5000, currentValue: 6180, ticker: "vwce",     units: 24 },
-  { id: 3, name: "Tesla",    type: "stocks",  invested: 800,  currentValue: 620,  ticker: "tsla",     units: 5 },
-  { id: 4, name: "Ethereum", type: "crypto",  invested: 1200, currentValue: 1580, ticker: "ethereum", units: 0.8 },
 ];
 
 const COINGECKO_IDS = {
@@ -15690,15 +15669,13 @@ export default function App() {
     ['dynafy_tx','dynafy_inv','dynafy_goals','dynafy_rec','dynafy_accounts','dynafy_mock'].forEach(k => localStorage.removeItem(k));
   };
 
-  // ── State — begint leeg/mock, Supabase vult aan na login ─────
-  const [transactions, setTransactions] = useState(MOCK_TRANSACTIONS);
-  const [useMockData, setUseMockData]   = useState(true);
+  // ── State — begint leeg, Supabase vult aan na login ─────
+  // useMockData verwijderd (Ranny 2026-09-14): geen voorbeelddata meer als
+  // landingservaring. Nieuwe users zien direct lege state.
+  const [transactions, setTransactions] = useState([]);
   const [sidebarOpen, setSidebarOpen]   = useState(true);
   const [unreadMsgCount, setUnreadMsgCount] = useState(0); // ongelezen berichten naar huidige user
-  const [accounts, setAccounts]         = useState([
-    { id: 1, name: "ING Betaalrekening", iban: "NL91 ABNA 0417 1643 00" },
-    { id: 2, name: "ABN AMRO", iban: "NL91 ABNA 0417 1643 00" },
-  ]);
+  const [accounts, setAccounts]         = useState([]);
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [theme, setTheme]               = useState(() => {
     // Lees thema synchronisch uit localStorage vóór eerste render
