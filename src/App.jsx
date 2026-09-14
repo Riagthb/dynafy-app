@@ -6146,7 +6146,7 @@ function RekeningenView({ accounts, setAccounts, onDeleteAccount, isDark, t, onU
   );
 }
 
-function SettingsView({ lang, setLang, t, accounts, setAccounts, onDeleteAccount, theme, setTheme, isDark, onReset, user, userPlan = 'normal', currency = 'EUR', setCurrency, onNavigate, onNameChange, useMockData = false, onWipeMock }) {
+function SettingsView({ lang, setLang, t, accounts, setAccounts, onDeleteAccount, theme, setTheme, isDark, onReset, user, userPlan = 'normal', currency = 'EUR', setCurrency, onNavigate, onNameChange }) {
   const [newCat, setNewCat] = useState("");
   const [confirmReset, setConfirmReset] = useState(false);
   const [resetSel, setResetSel] = useState([]);
