@@ -3262,9 +3262,9 @@ const typeEmoji = { crypto: "🪙", stock: "📊", etf: "🧺", index: "📈", m
 
 // ─── FINNHUB KEY (hardcoded) ──────────────────────────────────
 
-function Investments({ t, isDark, useMockData = true, investments, setInvestments, lang = "nl", allTransactions = [], goals = [], setGoals, userPlan = 'normal', onUpgrade }) {
+function Investments({ t, isDark, investments, setInvestments, lang = "nl", allTransactions = [], goals = [], setGoals, userPlan = 'normal', onUpgrade }) {
   // Use passed-in state if available, otherwise fall back to local
-  const [localInvestments, setLocalInvestments] = useState(useMockData ? MOCK_INVESTMENTS : []);
+  const [localInvestments, setLocalInvestments] = useState([]);
   const invs = investments !== undefined ? investments : localInvestments;
   const setInvs = setInvestments || setLocalInvestments;
   const [showForm, setShowForm] = useState(false);
@@ -6407,25 +6407,7 @@ function SettingsView({ lang, setLang, t, accounts, setAccounts, onDeleteAccount
           </div>
         </div>
 
-        {/* ── Testdata actief (alleen zichtbaar als useMockData) ── */}
-        {useMockData && (
-          <div style={{ ...card(isDark), border: "1px solid rgba(245,158,11,0.35)", background: isDark ? "linear-gradient(135deg, rgba(245,158,11,0.08), rgba(249,115,22,0.05))" : "linear-gradient(135deg, rgba(245,158,11,0.06), rgba(249,115,22,0.04))" }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#f59e0b", marginBottom: 6 }}>
-              ⚠️ {lang === "nl" ? "Testdata actief" : "Sample data active"}
-            </div>
-            <div style={{ fontSize: 12, color: C.muted, marginBottom: 16, lineHeight: 1.55 }}>
-              {lang === "nl"
-                ? "Je bekijkt nog steeds voorbeelddata. Upload je eigen transacties om ze te vervangen, of wis ze handmatig om naar een lege staat te gaan."
-                : "You're still viewing sample data. Upload your own transactions to replace them, or clear them manually to land in an empty state."}
-            </div>
-            <button
-              onClick={() => onWipeMock?.()}
-              style={{ padding: "10px 20px", borderRadius: 50, border: "1px solid rgba(245,158,11,0.5)", background: "rgba(245,158,11,0.12)", color: "#f59e0b", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
-            >
-              {lang === "nl" ? "Wis alle testdata" : "Clear all sample data"}
-            </button>
-          </div>
-        )}
+        {/* Testdata-blok verwijderd (Ranny 2026-09-14): geen mock-data meer */}
 
         {/* ── Verwijder data ── */}
         <div style={{ ...card(isDark), border: "1px solid rgba(244,63,94,0.2)" }}>
@@ -8029,7 +8011,7 @@ function ExportView({ transactions, isDark }) {
 }
 
 // ─── GOALS VIEW ────────────────────────────────────────────────
-function GoalsView({ transactions, isDark, useMockData = true, goals: appGoals, setGoals: setAppGoals, t, lang = "nl", investments = [] }) {
+function GoalsView({ transactions, isDark, goals: appGoals, setGoals: setAppGoals, t, lang = "nl", investments = [] }) {
   const [tab, setTab] = useState("savings");
 
   const C = {
@@ -8055,10 +8037,7 @@ function GoalsView({ transactions, isDark, useMockData = true, goals: appGoals, 
   // ─────────────────────────────────── SPAARDOELEN ───────────────
   const SavingsTab = () => {
     // Use app-level goals if available, otherwise local state
-    const [localGoals, setLocalGoals] = useState(useMockData ? [
-      { id: 1, name: "Noodfonds", target: 10000, current: 3500, deadline: "2026-12-31", color: "#22c55e" },
-      { id: 2, name: "Vakantie",  target: 3000,  current: 1200, deadline: "2026-07-01", color: "#4f8ef7" },
-    ] : []);
+    const [localGoals, setLocalGoals] = useState([]);
     const goals = appGoals !== undefined ? appGoals : localGoals;
     const setGoals = appGoals !== undefined && setAppGoals ? setAppGoals : setLocalGoals;
     const [showAdd, setShowAdd] = useState(false);
@@ -8727,10 +8706,7 @@ function GoalsView({ transactions, isDark, useMockData = true, goals: appGoals, 
 
   // ─────────────────────────────────── SCHULDEN ──────────────────
   const DebtTab = () => {
-    const [debts, setDebts] = useState(useMockData ? [
-      { id: 1, name: "Studielening", balance: 12000, rate: 2.5, minPayment: 150 },
-      { id: 2, name: "Creditcard",   balance: 2500,  rate: 18,  minPayment: 75  },
-    ] : []);
+    const [debts, setDebts] = useState([]);
     const [extraPayment, setExtraPayment] = useState(200);
     const [method, setMethod] = useState("avalanche"); // avalanche | snowball
     const [showAdd, setShowAdd] = useState(false);
@@ -15224,192 +15200,8 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted, onImpersonate
 // ─── MOCK DATA BANNER ─────────────────────────────────────────
 // Shown globally when useMockData === true so users always know
 // they're looking at demo figures. Two CTAs: upload own data, or wipe.
-function MockDataBanner({ lang = 'nl', onUpload, onWipe, isDark = true }) {
-  const text = lang === 'nl'
-    ? {
-        title: 'Je bekijkt testdata',
-        body: 'Deze cijfers zijn niet echt — ze zijn er alleen om de app te verkennen. Zodra je je eigen transacties uploadt, verdwijnen ze automatisch.',
-        upload: 'Upload eigen data',
-        wipe: 'Wis testdata',
-      }
-    : {
-        title: 'You are viewing sample data',
-        body: 'These numbers are not real — they are only here to help you explore the app. Upload your own transactions to replace them automatically.',
-        upload: 'Upload your data',
-        wipe: 'Clear sample data',
-      };
-
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 14,
-        flexWrap: 'wrap',
-        background: isDark
-          ? 'linear-gradient(135deg, rgba(245,158,11,0.18), rgba(249,115,22,0.12))'
-          : 'linear-gradient(135deg, rgba(245,158,11,0.12), rgba(249,115,22,0.08))',
-        border: '1px solid rgba(245,158,11,0.45)',
-        borderRadius: 14,
-        padding: '12px 18px',
-        margin: '0 0 16px',
-        fontSize: 13.5,
-        color: isDark ? '#fef3c7' : '#78350f',
-      }}
-    >
-      <span style={{ fontSize: 20, lineHeight: 1 }}>⚠️</span>
-      <div style={{ flex: '1 1 240px', lineHeight: 1.45 }}>
-        <strong style={{ fontWeight: 700, marginRight: 6 }}>{text.title}.</strong>
-        <span style={{ opacity: 0.9 }}>{text.body}</span>
-      </div>
-      <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-        <button
-          onClick={onUpload}
-          style={{
-            padding: '8px 14px',
-            borderRadius: 10,
-            border: 'none',
-            background: 'linear-gradient(135deg, #f59e0b, #f97316)',
-            color: '#fff',
-            fontSize: 12.5,
-            fontWeight: 700,
-            cursor: 'pointer',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {text.upload}
-        </button>
-        <button
-          onClick={onWipe}
-          style={{
-            padding: '8px 14px',
-            borderRadius: 10,
-            border: '1px solid rgba(245,158,11,0.5)',
-            background: 'transparent',
-            color: isDark ? '#fef3c7' : '#78350f',
-            fontSize: 12.5,
-            fontWeight: 600,
-            cursor: 'pointer',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {text.wipe}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ─── MOCK DATA CONFIRM MODAL ──────────────────────────────────
-// Blocks the onboarding "skip / use sample data" button so users
-// consciously acknowledge they're entering demo mode.
-function MockDataConfirmModal({ lang = 'nl', isDark = true, onConfirm, onCancel }) {
-  const text = lang === 'nl'
-    ? {
-        title: 'Je krijgt testdata te zien',
-        body: 'Dit zijn voorbeeldtransacties zodat je de app kunt verkennen zonder eerst iets te uploaden.',
-        points: [
-          'Verdwijnt zodra je je eigen transacties uploadt',
-          'Is handmatig te verwijderen via Instellingen → Testdata',
-          'Is alleen voor jou zichtbaar — niet voor andere gebruikers',
-        ],
-        confirm: 'Begrepen, ga door →',
-        cancel: 'Terug, ik upload zelf',
-      }
-    : {
-        title: 'You will see sample data',
-        body: 'These are example transactions so you can explore the app without uploading anything yet.',
-        points: [
-          'Disappears as soon as you upload your own transactions',
-          'Manually removable via Settings → Sample data',
-          'Only visible to you — not to other users',
-        ],
-        confirm: 'Got it, continue →',
-        cancel: 'Back, I\u2019ll upload my own',
-      };
-
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(3,7,18,0.72)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 10000,
-        padding: 20,
-        fontFamily: "'Outfit', system-ui, sans-serif",
-      }}
-    >
-      <div
-        style={{
-          background: isDark ? '#0b1220' : '#ffffff',
-          border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e2e6ed',
-          borderRadius: 24,
-          padding: '36px 34px',
-          maxWidth: 460,
-          width: '100%',
-          color: isDark ? '#e2e8f0' : '#0f172a',
-        }}
-      >
-        <div style={{ fontSize: 38, textAlign: 'center', marginBottom: 12 }}>📊</div>
-        <h2 style={{ fontSize: 20, fontWeight: 800, textAlign: 'center', margin: '0 0 10px' }}>{text.title}</h2>
-        <p style={{ fontSize: 14, textAlign: 'center', lineHeight: 1.55, color: isDark ? '#94a3b8' : '#475569', margin: '0 0 22px' }}>{text.body}</p>
-        <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 28px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {text.points.map((p, i) => (
-            <li key={i} style={{ display: 'flex', gap: 10, fontSize: 13.5, lineHeight: 1.5 }}>
-              <span style={{ color: '#22c55e', fontWeight: 700, flexShrink: 0 }}>✓</span>
-              <span style={{ color: isDark ? '#cbd5e1' : '#334155' }}>{p}</span>
-            </li>
-          ))}
-        </ul>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <button
-            onClick={onConfirm}
-            style={{
-              padding: '14px',
-              borderRadius: 50,
-              border: 'none',
-              background: 'linear-gradient(135deg, #f59e0b, #f97316)',
-              color: '#fff',
-              fontSize: 14,
-              fontWeight: 800,
-              cursor: 'pointer',
-            }}
-          >
-            {text.confirm}
-          </button>
-          <button
-            onClick={onCancel}
-            style={{
-              padding: '12px',
-              borderRadius: 50,
-              border: isDark ? '1px solid rgba(255,255,255,0.15)' : '1px solid #e2e6ed',
-              background: 'transparent',
-              color: isDark ? '#94a3b8' : '#475569',
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            {text.cancel}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── KOPPEL ACCEPT SCREEN: klant accepteert/weigert boekhouder-uitnodiging ──
-// Full-screen modal die opkomt zodra er een token in URL (?koppel=<token>) of
-// in localStorage staat én de gebruiker is ingelogd. Strict email-match: als
-// het ingelogde account niet de uitgenodigde mailbox is, forceren we logout
-// + opnieuw inloggen op het juiste account.
+// MockDataBanner + MockDataConfirmModal verwijderd (Ranny 2026-09-14):
+// geen testdata/voorbeelddata meer in de app.
 function KoppelAcceptScreen({ token, user, isDark, onDone }) {
   const C = { bg: isDark?'#07111f':'#f1f5f9', card: isDark?'#0f1e36':'#fff', border: isDark?'rgba(255,255,255,0.08)':'#e2e8f0', text: isDark?'#f1f5f9':'#0f172a', muted: isDark?'#64748b':'#94a3b8' };
 
@@ -15693,7 +15485,7 @@ export default function App() {
     return 'cloud'; // Ranny 2026-07-28: Cloud default (was 'dark')
   });
   const [recurringItems, setRecurringItems] = useState([]);
-  const [appInvestments, setAppInvestments] = useState(MOCK_INVESTMENTS);
+  const [appInvestments, setAppInvestments] = useState([]);
   const [appGoals, setAppGoals]         = useState([
     { id: 1, name: "Noodfonds", target: 10000, current: 3500, deadline: "2026-12-31", color: "#22c55e" },
     { id: 2, name: "Vakantie",  target: 3000,  current: 1200, deadline: "2026-07-01", color: "#4f8ef7" },
@@ -16070,13 +15862,9 @@ export default function App() {
       setRoleLoaded(true);  // show login page immediately
       setClientLinks([]);
       setZzpProfile({ company_name:'', kvk:'', btw_number:'', iban:'', address:'', city:'', postal_code:'' });
-      setUseMockData(true);
-      setTransactions(MOCK_TRANSACTIONS);
-      setAppInvestments(MOCK_INVESTMENTS);
-      setAppGoals([
-        { id: 1, name: "Noodfonds", target: 10000, current: 3500, deadline: "2026-12-31", color: "#22c55e" },
-        { id: 2, name: "Vakantie",  target: 3000,  current: 1200, deadline: "2026-07-01", color: "#4f8ef7" },
-      ]);
+      setTransactions([]);
+      setAppInvestments([]);
+      setAppGoals([]);
       setRecurringItems([]);
       return;
     }
@@ -16093,7 +15881,6 @@ export default function App() {
       setAppInvestments([]);
       setAppGoals([]);
       setRecurringItems([]);
-      setUseMockData(false);
 
       try {
         // Perf-optimisatie (Ranny 2026-09-09): eerste-load burst was 8+ queries
@@ -16129,46 +15916,37 @@ export default function App() {
         const wasCleared = localStorage.getItem(`dynafy_${user.id}_cleared`) === 'true'
           || profileRes.data?.data_cleared === true;
 
+        // Mock-fallbacks verwijderd (Ranny 2026-09-14): geen voorbeelddata
+        // meer voor lege users — echte lege state ipv mock.
         if (txRes.data?.length) {
           setTransactions(txRes.data);
           lsSet(user.id, 'tx', txRes.data);
           prevTxIds.current = new Set(txRes.data.map(t => t.id));
-          // They have real data — clear both flags
+          // They have real data — clear the cleared-flag if it was ever set
           localStorage.removeItem(`dynafy_${user.id}_cleared`);
           if (profileRes.data?.data_cleared) {
             supabase.from('profiles').update({ data_cleared: false }).eq('id', user.id).then(() => {});
           }
-        } else if (!wasCleared) {
-          // Brand-new user with no data → show demo mock
-          setTransactions(MOCK_TRANSACTIONS);
-          setUseMockData(true);
         }
-        // If wasCleared → stay at [] / useMockData=false (true empty state)
+        // (geen else: bij empty tx blijft state [])
 
         if (invRes.error) console.error('[Dynafy] investments load error:', invRes.error);
         if (invRes.data?.length) {
           setAppInvestments(invRes.data);
           lsSet(user.id, 'inv', invRes.data);
           prevInvIds.current = new Set(invRes.data.map(i => i.id));
-        } else if (!wasCleared) {
-          // Supabase returned empty/error — try localStorage fallback
+        } else {
+          // Alleen localStorage-fallback voor cross-device sync (geen mock)
           const lsInv = lsGet(user.id, 'inv', null);
           if (lsInv?.length) {
             setAppInvestments(lsInv);
             prevInvIds.current = new Set(lsInv.map(i => i.id));
-          } else if (!txRes.data?.length) {
-            setAppInvestments(MOCK_INVESTMENTS);
           }
         }
         if (goalRes.data?.length) {
           setAppGoals(goalRes.data);
           lsSet(user.id, 'goals', goalRes.data);
           prevGoalIds.current = new Set(goalRes.data.map(g => g.id));
-        } else if (!goalRes.data?.length && !txRes.data?.length && !wasCleared) {
-          setAppGoals([
-            { id: 1, name: "Noodfonds", target: 10000, current: 3500, deadline: "2026-12-31", color: "#22c55e" },
-            { id: 2, name: "Vakantie",  target: 3000,  current: 1200, deadline: "2026-07-01", color: "#4f8ef7" },
-          ]);
         }
         if (recRes.data?.length) {
           setRecurringItems(recRes.data);
@@ -16182,10 +15960,9 @@ export default function App() {
         const savedAccts = lsGet(user.id, 'accounts', null);
         if (savedAccts !== null) {
           setAccounts(savedAccts);           // explicit localStorage entry → always use it
-        } else if (wasCleared) {
-          setAccounts([]);                   // cleared + never saved anything → empty
+        } else {
+          setAccounts([]);                   // geen mock-accounts meer voor nieuwe users
         }
-        // else: brand-new user, keep initial mock accounts
 
         // Update last_seen in profile (don't await — non-critical)
         supabase.from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', user.id);
@@ -16353,7 +16130,7 @@ export default function App() {
     if (!user) return;
     clearTimeout(syncTimers.current.tx);
     syncTimers.current.tx = setTimeout(async () => {
-      if (!dataReady.current || useMockData) return;
+      if (!dataReady.current) return;
       const currentIds = new Set(transactions.map(t => t.id));
       const deletedIds = [...prevTxIds.current].filter(id => !currentIds.has(id));
       prevTxIds.current = currentIds;
@@ -16364,14 +16141,14 @@ export default function App() {
       }
       if (deletedIds.length) await supabase.from('transactions').delete().in('id', deletedIds);
     }, 1500);
-  }, [transactions, useMockData]);
+  }, [transactions]);
 
   // Sync investments → Supabase (debounced 1.5s)
   useEffect(() => {
     if (!user) return;
     clearTimeout(syncTimers.current.inv);
     syncTimers.current.inv = setTimeout(async () => {
-      if (!dataReady.current || useMockData) return;
+      if (!dataReady.current) return;
       const currentIds = new Set(appInvestments.map(i => i.id));
       const deletedIds = [...prevInvIds.current].filter(id => !currentIds.has(id));
       prevInvIds.current = currentIds;
@@ -16382,14 +16159,14 @@ export default function App() {
       }
       if (deletedIds.length) await supabase.from('investments').delete().in('id', deletedIds);
     }, 1500);
-  }, [appInvestments, useMockData]);
+  }, [appInvestments]);
 
   // Sync goals → Supabase (debounced 1.5s)
   useEffect(() => {
     if (!user) return;
     clearTimeout(syncTimers.current.goals);
     syncTimers.current.goals = setTimeout(async () => {
-      if (!dataReady.current || useMockData) return;
+      if (!dataReady.current) return;
       const currentIds = new Set(appGoals.map(g => g.id));
       const deletedIds = [...prevGoalIds.current].filter(id => !currentIds.has(id));
       prevGoalIds.current = currentIds;
@@ -16400,7 +16177,7 @@ export default function App() {
       }
       if (deletedIds.length) await supabase.from('goals').delete().in('id', deletedIds);
     }, 1500);
-  }, [appGoals, useMockData]);
+  }, [appGoals]);
 
   // Persist accounts to localStorage (user-specific)
   // Persist accounts to localStorage — only after initial load to avoid overwriting with mock data
@@ -16413,7 +16190,7 @@ export default function App() {
     if (!user) return;
     clearTimeout(syncTimers.current.rec);
     syncTimers.current.rec = setTimeout(async () => {
-      if (!dataReady.current || useMockData) return;
+      if (!dataReady.current) return;
       if (recurringItems.length) {
         const { error } = await supabase.from('recurring').upsert(
           recurringItems.map(r => ({ ...r, user_id: user.id })),
@@ -16423,7 +16200,7 @@ export default function App() {
         else lsSet(user.id, 'rec', recurringItems);
       }
     }, 1500);
-  }, [recurringItems, useMockData]);
+  }, [recurringItems]);
 
   const isDark = theme === "dark";
   const isCloud = theme === "cloud";
@@ -17507,27 +17284,11 @@ export default function App() {
 
         {/* Content */}
         <div style={{ padding: "0 20px 32px", position: "relative" }}>
-          {/* ── Mock data banner (shown while using demo data) ── */}
-          {useMockData && (
-            <MockDataBanner
-              lang={lang}
-              isDark={isDark}
-              onUpload={() => setShowGlobalUpload(true)}
-              onWipe={() => setConfirmWipeMock(true)}
-            />
-          )}
+          {/* Mock-data banner + confirm-wipe modal verwijderd (2026-09-14) */}
           {/* ── Global CSV Upload Modal ── */}
           {showGlobalUpload && <CSVModal onClose={() => setShowGlobalUpload(false)} onImport={(txs, importedAccounts) => {
-            if (useMockData) {
-              setTransactions(txs);
-              setAccounts(importedAccounts || []);
-              setUseMockData(false);
-              setAppInvestments([]);
-              setAppGoals([]);
-              setRecurringItems([]);
-            } else {
-              setTransactions(prev => [...txs, ...prev]);
-            }
+            setTransactions(prev => [...txs, ...prev]);
+            if (importedAccounts?.length) setAccounts(importedAccounts);
             setShowGlobalUpload(false);
             const uncat = txs.filter(tx => !tx.category || tx.category === "other").length;
             if (uncat > 0) setUncatAlert(uncat);
@@ -17558,67 +17319,16 @@ export default function App() {
             </div>
           )}
 
-          {/* ── Wipe Testdata confirmation ── */}
-          {confirmWipeMock && (
-            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 20 }}>
-              <div style={{ background: isDark ? "#111827" : "#ffffff", border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #e2e6ed", borderRadius: 24, padding: "36px 40px", maxWidth: 440, width: "100%", textAlign: "center" }}>
-                <div style={{ fontSize: 40, marginBottom: 12 }}>🧹</div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: isDark ? "#f1f5f9" : "#0f172a", marginBottom: 10 }}>
-                  {lang === "nl" ? "Testdata wissen?" : "Clear sample data?"}
-                </div>
-                <div style={{ fontSize: 14, color: isDark ? "#94a3b8" : "#475569", lineHeight: 1.6, marginBottom: 28 }}>
-                  {lang === "nl"
-                    ? "Je gaat naar een lege staat. Je kunt daarna je eigen transacties uploaden. Dit kan niet ongedaan worden gemaakt."
-                    : "You'll land in an empty state. You can then upload your own transactions. This cannot be undone."}
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  <button
-                    onClick={() => {
-                      setTransactions([]);
-                      setAccounts([]);
-                      setAppInvestments([]);
-                      setAppGoals([]);
-                      setRecurringItems([]);
-                      setUseMockData(false);
-                      if (user?.id) {
-                        try { localStorage.setItem(`dynafy_${user.id}_cleared`, 'true'); } catch {}
-                        supabase.from('profiles').update({ data_cleared: true }).eq('id', user.id).then(() => {});
-                      }
-                      setConfirmWipeMock(false);
-                    }}
-                    style={{ width: "100%", padding: "14px 0", borderRadius: 50, border: "none", background: "linear-gradient(135deg, #f59e0b, #f97316)", color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer" }}
-                  >
-                    {lang === "nl" ? "Ja, wis testdata" : "Yes, clear sample data"}
-                  </button>
-                  <button onClick={() => setConfirmWipeMock(false)}
-                    style={{ ...pillBtnGhost(isDark), width: "100%", padding: "12px 0", fontSize: 13 }}>
-                    {lang === "nl" ? "Annuleren" : "Cancel"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
           <div key={view} className="page-view">
           {view === "dashboard" && <WidgetDashboard transactions={transactions} t={t} isDark={isDark} accent={accent} accounts={accounts} investments={appInvestments} goals={appGoals} lang={lang} />}
           {view === "overzicht" && <Overzicht transactions={!hasAccess('premium') ? transactions.filter(tx => tx.date >= new Date(new Date().setMonth(new Date().getMonth()-3)).toISOString().slice(0,10)) : transactions} t={t} accounts={accounts} selectedAccount={selectedAccount} setSelectedAccount={setSelectedAccount} isDark={isDark} accent={accent} accentBg={accentBg} setTransactions={setTransactions} onUploadClick={() => setShowGlobalUpload(true)} lang={lang} dataLoaded={dataLoaded} userPlan={userPlan} onUpgrade={() => setView('pricing')} />}
           {view === "transactions" && <Transactions transactions={transactions} setTransactions={setTransactions} t={t} accounts={accounts} setAccounts={setAccounts} isDark={isDark} lang={lang} selectedAccount={selectedAccount} setSelectedAccount={setSelectedAccount} onImportDone={(txs, importedAccounts) => {
-                if (useMockData) {
-                  setTransactions(txs);
-                  setAccounts(importedAccounts || accounts.filter(a => !["ING Betaalrekening","ABN AMRO"].includes(a.name)));
-                  setUseMockData(false);
-                  setAppInvestments([]);
-                  setAppGoals([]);
-                  setRecurringItems([]);
-                } else {
-                  setTransactions(prev => [...txs, ...prev]);
-                }
-                // User uploaded real data — clear the "cleared" flags so mock never returns
+                setTransactions(prev => [...txs, ...prev]);
+                if (importedAccounts?.length) setAccounts(importedAccounts);
                 if (user?.id) {
                   localStorage.removeItem(`dynafy_${user.id}_cleared`);
                   supabase.from('profiles').update({ data_cleared: false }).eq('id', user.id).then(() => {});
                 }
-                // Show popup with count, let user decide
                 const uncat = txs.filter(tx => !tx.category || tx.category === "other").length;
                 if (uncat > 0) setUncatAlert(uncat);
               }} />}
