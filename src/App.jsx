@@ -15433,7 +15433,7 @@ export default function App() {
   const [uncatAlert, setUncatAlert] = useState(null);
   const [showGlobalUpload, setShowGlobalUpload] = useState(false);
   const [showAvatarMenu, setShowAvatarMenu] = useState(false);
-  const [confirmWipeMock, setConfirmWipeMock] = useState(false);
+  // confirmWipeMock state verwijderd — geen mock data meer
 
   // ── Plan hiërarchie ─────────────────────────────────────────
   const PLAN_LEVELS = { normal: 0, premium: 1, zzp_premium: 2, zzp_diamond: 3 };
