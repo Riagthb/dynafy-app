@@ -185,24 +185,10 @@ const T = {
   }
 };
 
-// ─── MOCK DATA ─────────────────────────────────────────────────
-const MOCK_TRANSACTIONS = [
-  { id: 1, date: "2024-03-15", description: "Albert Heijn", amount: -87.43, category: "groceries", account: "ING Betaalrekening" },
-  { id: 2, date: "2024-03-14", description: "Salary March", amount: 3800.00, category: "income", account: "ING Betaalrekening" },
-  { id: 3, date: "2024-03-13", description: "Spotify Premium", amount: -10.99, category: "subscriptions", account: "ABN AMRO" },
-  { id: 4, date: "2024-03-12", description: "Cafe Restaurant Blauw", amount: -45.20, category: "eating_out", account: "ING Betaalrekening" },
-  { id: 5, date: "2024-03-11", description: "NS Treinkaartje", amount: -12.80, category: "transport", account: "ABN AMRO" },
-  { id: 6, date: "2024-03-10", description: "Huur Maart", amount: -1200.00, category: "fixed_expenses", account: "ING Betaalrekening" },
-  { id: 7, date: "2024-03-09", description: "Zara Online", amount: -89.95, category: "shopping", account: "ABN AMRO" },
-  { id: 8, date: "2024-03-08", description: "Netflix", amount: -15.99, category: "subscriptions", account: "ABN AMRO" },
-  { id: 9, date: "2024-03-07", description: "Jumbo Supermarkt", amount: -63.18, category: "groceries", account: "ING Betaalrekening" },
-  { id: 10, date: "2024-03-06", description: "Thuisbezorgd", amount: -32.50, category: "eating_out", account: "ING Betaalrekening" },
-  { id: 11, date: "2024-03-05", description: "Freelance Payment - Klant B", amount: 950.00, category: "income", account: "ING Betaalrekening" },
-  { id: 12, date: "2024-03-04", description: "Energie Rekening", amount: -145.00, category: "fixed_expenses", account: "ABN AMRO" },
-  { id: 13, date: "2024-03-03", description: "IKEA Amsterdam", amount: -234.50, category: "shopping", account: "ABN AMRO" },
-  { id: 14, date: "2024-03-02", description: "GVB Maandkaart", amount: -100.00, category: "transport", account: "ING Betaalrekening" },
-  { id: 15, date: "2024-03-01", description: "Spaartransfer", amount: -300.00, category: "savings", account: "ING Betaalrekening" },
-];
+// MOCK_TRANSACTIONS + MOCK_INVESTMENTS verwijderd (Ranny 2026-09-14): geen
+// voorbeelddata meer voor nieuwe/lege users. MOCK_MONTHLY en MOCK_TREND
+// hieronder zijn dashboard-chart-fixtures — die blijven functioneel nodig
+// voor de Widget-charts totdat we die op echte data laten draaien.
 
 const MOCK_MONTHLY = [
   { month: "Oct", income: 4200, expenses: 2800 },
@@ -222,13 +208,6 @@ const MOCK_TREND = [
   { week: "W6", amount: 280 },
   { week: "W7", amount: 490 },
   { week: "W8", amount: 820 },
-];
-
-const MOCK_INVESTMENTS = [
-  { id: 1, name: "Bitcoin",  type: "crypto",  invested: 2000, currentValue: 3240, ticker: "bitcoin",  units: 0.04 },
-  { id: 2, name: "VWCE ETF", type: "stocks",  invested: 5000, currentValue: 6180, ticker: "vwce",     units: 24 },
-  { id: 3, name: "Tesla",    type: "stocks",  invested: 800,  currentValue: 620,  ticker: "tsla",     units: 5 },
-  { id: 4, name: "Ethereum", type: "crypto",  invested: 1200, currentValue: 1580, ticker: "ethereum", units: 0.8 },
 ];
 
 const COINGECKO_IDS = {
@@ -3283,9 +3262,9 @@ const typeEmoji = { crypto: "🪙", stock: "📊", etf: "🧺", index: "📈", m
 
 // ─── FINNHUB KEY (hardcoded) ──────────────────────────────────
 
-function Investments({ t, isDark, useMockData = true, investments, setInvestments, lang = "nl", allTransactions = [], goals = [], setGoals, userPlan = 'normal', onUpgrade }) {
+function Investments({ t, isDark, investments, setInvestments, lang = "nl", allTransactions = [], goals = [], setGoals, userPlan = 'normal', onUpgrade }) {
   // Use passed-in state if available, otherwise fall back to local
-  const [localInvestments, setLocalInvestments] = useState(useMockData ? MOCK_INVESTMENTS : []);
+  const [localInvestments, setLocalInvestments] = useState([]);
   const invs = investments !== undefined ? investments : localInvestments;
   const setInvs = setInvestments || setLocalInvestments;
   const [showForm, setShowForm] = useState(false);
@@ -6167,7 +6146,7 @@ function RekeningenView({ accounts, setAccounts, onDeleteAccount, isDark, t, onU
   );
 }
 
-function SettingsView({ lang, setLang, t, accounts, setAccounts, onDeleteAccount, theme, setTheme, isDark, onReset, user, userPlan = 'normal', currency = 'EUR', setCurrency, onNavigate, onNameChange, useMockData = false, onWipeMock }) {
+function SettingsView({ lang, setLang, t, accounts, setAccounts, onDeleteAccount, theme, setTheme, isDark, onReset, user, userPlan = 'normal', currency = 'EUR', setCurrency, onNavigate, onNameChange }) {
   const [newCat, setNewCat] = useState("");
   const [confirmReset, setConfirmReset] = useState(false);
   const [resetSel, setResetSel] = useState([]);
@@ -6428,25 +6407,7 @@ function SettingsView({ lang, setLang, t, accounts, setAccounts, onDeleteAccount
           </div>
         </div>
 
-        {/* ── Testdata actief (alleen zichtbaar als useMockData) ── */}
-        {useMockData && (
-          <div style={{ ...card(isDark), border: "1px solid rgba(245,158,11,0.35)", background: isDark ? "linear-gradient(135deg, rgba(245,158,11,0.08), rgba(249,115,22,0.05))" : "linear-gradient(135deg, rgba(245,158,11,0.06), rgba(249,115,22,0.04))" }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#f59e0b", marginBottom: 6 }}>
-              ⚠️ {lang === "nl" ? "Testdata actief" : "Sample data active"}
-            </div>
-            <div style={{ fontSize: 12, color: C.muted, marginBottom: 16, lineHeight: 1.55 }}>
-              {lang === "nl"
-                ? "Je bekijkt nog steeds voorbeelddata. Upload je eigen transacties om ze te vervangen, of wis ze handmatig om naar een lege staat te gaan."
-                : "You're still viewing sample data. Upload your own transactions to replace them, or clear them manually to land in an empty state."}
-            </div>
-            <button
-              onClick={() => onWipeMock?.()}
-              style={{ padding: "10px 20px", borderRadius: 50, border: "1px solid rgba(245,158,11,0.5)", background: "rgba(245,158,11,0.12)", color: "#f59e0b", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
-            >
-              {lang === "nl" ? "Wis alle testdata" : "Clear all sample data"}
-            </button>
-          </div>
-        )}
+        {/* Testdata-blok verwijderd (Ranny 2026-09-14): geen mock-data meer */}
 
         {/* ── Verwijder data ── */}
         <div style={{ ...card(isDark), border: "1px solid rgba(244,63,94,0.2)" }}>
@@ -8050,7 +8011,7 @@ function ExportView({ transactions, isDark }) {
 }
 
 // ─── GOALS VIEW ────────────────────────────────────────────────
-function GoalsView({ transactions, isDark, useMockData = true, goals: appGoals, setGoals: setAppGoals, t, lang = "nl", investments = [] }) {
+function GoalsView({ transactions, isDark, goals: appGoals, setGoals: setAppGoals, t, lang = "nl", investments = [] }) {
   const [tab, setTab] = useState("savings");
 
   const C = {
@@ -8076,10 +8037,7 @@ function GoalsView({ transactions, isDark, useMockData = true, goals: appGoals, 
   // ─────────────────────────────────── SPAARDOELEN ───────────────
   const SavingsTab = () => {
     // Use app-level goals if available, otherwise local state
-    const [localGoals, setLocalGoals] = useState(useMockData ? [
-      { id: 1, name: "Noodfonds", target: 10000, current: 3500, deadline: "2026-12-31", color: "#22c55e" },
-      { id: 2, name: "Vakantie",  target: 3000,  current: 1200, deadline: "2026-07-01", color: "#4f8ef7" },
-    ] : []);
+    const [localGoals, setLocalGoals] = useState([]);
     const goals = appGoals !== undefined ? appGoals : localGoals;
     const setGoals = appGoals !== undefined && setAppGoals ? setAppGoals : setLocalGoals;
     const [showAdd, setShowAdd] = useState(false);
@@ -8748,10 +8706,7 @@ function GoalsView({ transactions, isDark, useMockData = true, goals: appGoals, 
 
   // ─────────────────────────────────── SCHULDEN ──────────────────
   const DebtTab = () => {
-    const [debts, setDebts] = useState(useMockData ? [
-      { id: 1, name: "Studielening", balance: 12000, rate: 2.5, minPayment: 150 },
-      { id: 2, name: "Creditcard",   balance: 2500,  rate: 18,  minPayment: 75  },
-    ] : []);
+    const [debts, setDebts] = useState([]);
     const [extraPayment, setExtraPayment] = useState(200);
     const [method, setMethod] = useState("avalanche"); // avalanche | snowball
     const [showAdd, setShowAdd] = useState(false);
@@ -8964,29 +8919,32 @@ function GoalsView({ transactions, isDark, useMockData = true, goals: appGoals, 
 
 // ─── ONBOARDING ────────────────────────────────────────────────
 function Onboarding({ onComplete }) {
+  // ZZP-first onboarding (Ranny 2026-09-08): 3 stappen ipv 5.
+  // Stap 2 vraagt om bedrijfsgegevens (met skip-optie) ipv referral/situatie/CSV-upload.
+  // Oude stappen gearchiveerd in src/lib/_archive/onboarding-old-steps.md — terugzetten
+  // is beschreven daar.
   const [step, setStep] = useState(0);
   const [lang, setLang] = useState("nl");
   const [name, setName] = useState("");
-  const [situation, setSituation] = useState(null);
-  const [goals, setGoals] = useState([]);
   const [theme, setTheme] = useState("cloud"); // Ranny 2026-07-28: onboarding start met Cloud
-  const [bank, setBank] = useState(null);
   const [tosAccepted, setTosAccepted] = useState(false);
-  const [referral, setReferral] = useState(null);
-  const [dragging, setDragging] = useState(false);
-  const [parsed, setParsed] = useState(null);
-  const [fileName, setFileName] = useState("");
-  const [showMockConfirm, setShowMockConfirm] = useState(false);
-  const inputRef = useRef();
+  // Bedrijfsgegevens (stap 2). Leeg = later invullen via Mijn Bedrijf.
+  const [companyName, setCompanyName] = useState("");
+  const [companyKvk, setCompanyKvk] = useState("");
+  const [companyBtw, setCompanyBtw] = useState("");
+  const [companyIban, setCompanyIban] = useState("");
+  const [companyAddress, setCompanyAddress] = useState("");
+  const [companyPostal, setCompanyPostal] = useState("");
+  const [companyCity, setCompanyCity] = useState("");
 
   const T_OB = {
     nl: {
       next: "Volgende →", skip: "Sla over", back: "← Terug",
-      steps: ["Welkom", "Naam", "Herkomst", "Jouw profiel", "Upload"],
+      steps: ["Welkom", "Naam", "Jouw bedrijf"],
     },
     en: {
       next: "Next →", skip: "Skip", back: "← Back",
-      steps: ["Welcome", "Name", "Discovery", "Your profile", "Upload"],
+      steps: ["Welcome", "Name", "Your company"],
     },
   };
   const t = T_OB[lang];
@@ -8996,40 +8954,6 @@ function Onboarding({ onComplete }) {
     { id: "cloud", label: "Cloud",  bg: "#f0f4ff", sidebar: "#ffffff",  accent: "#4361ee", desc: "Indigo" },
   ];
 
-  const SITUATIONS = [
-    { id: "zzp",      label: lang === "nl" ? "ZZP'er / Freelancer" : "Freelancer" },
-    { id: "employee", label: lang === "nl" ? "In loondienst"        : "Employed"  },
-    { id: "student",  label: lang === "nl" ? "Student"              : "Student"   },
-    { id: "other",    label: lang === "nl" ? "Anders"               : "Other"     },
-  ];
-
-  const GOALS_LIST = [
-    { id: "expenses", label: lang === "nl" ? "Uitgaven bijhouden"      : "Track expenses"      },
-    { id: "invest",   label: lang === "nl" ? "Investeren"              : "Investing"           },
-    { id: "admin",    label: lang === "nl" ? "Bedrijfsadministratie"   : "Business admin"      },
-    { id: "debt",     label: lang === "nl" ? "Schulden afbouwen"       : "Pay off debt"        },
-    { id: "save",     label: lang === "nl" ? "Sparen"                  : "Save money"          },
-    { id: "budget",   label: lang === "nl" ? "Budgetteren"             : "Budget"              },
-  ];
-
-  const BANKS = [
-    { id: "ing",   label: "ING"     },
-    { id: "abn",   label: "ABN AMRO"},
-    { id: "rabo",  label: "Rabobank"},
-    { id: "bunq",  label: "Bunq"    },
-    { id: "n26",   label: "N26"     },
-    { id: "other", label: lang === "nl" ? "Anders" : "Other" },
-  ];
-
-  const BANK_INSTRUCTIONS = {
-    ing:   lang === "nl" ? "Mijn ING → Budgetcoach → Exporteer → CSV" : "My ING → Budget coach → Export → CSV",
-    abn:   lang === "nl" ? "Internetbankieren → Transactieoverzicht → Exporteer als CSV" : "Online banking → Transactions → Export as CSV",
-    rabo:  lang === "nl" ? "Rabo App → Mijn overzichten → Download CSV" : "Rabo App → My overviews → Download CSV",
-    bunq:  lang === "nl" ? "Bunq app → Rekening → Exporteer" : "Bunq app → Account → Export",
-    n26:   lang === "nl" ? "N26 app → Statistieken → Exporteer CSV" : "N26 app → Statistics → Export CSV",
-    other: lang === "nl" ? "Exporteer transacties als CSV uit je bank-app" : "Export transactions as CSV from your bank app",
-  };
-
   const isDarkTheme = theme === "dark";
   const bg = isDarkTheme ? "#080d18" : theme === "cloud" ? "#f0f4ff" : "#f5f4f0";
   const cardBg = isDarkTheme ? "#111827" : "#ffffff";
@@ -9038,30 +8962,23 @@ function Onboarding({ onComplete }) {
   const borderColor = isDarkTheme ? "rgba(255,255,255,0.1)" : "#e2e6ed";
   const accentColor = THEMES.find(th => th.id === theme)?.accent || "#4f8ef7";
 
-  const handleFile = (file) => {
-    if (!file) return;
-    setFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const txs = parseCSVTransactions(e.target.result, bank ? BANKS.find(b => b.id === bank)?.label || "Import" : "Import");
-      setParsed(txs);
-    };
-    reader.readAsText(file, "utf-8");
+  // Bedrijf opslaan als tenminste bedrijfsnaam is ingevuld. Andere velden
+  // kunnen later worden aangevuld via Mijn Bedrijf.
+  const completeOnboarding = (withCompany) => {
+    const onboardingData = { lang, theme, name, completed_at: new Date().toISOString() };
+    const company = (withCompany && companyName.trim()) ? {
+      company_name: companyName.trim(),
+      kvk:          companyKvk.trim()     || null,
+      btw_number:   companyBtw.trim()     || null,
+      iban:         companyIban.trim()    || null,
+      address:      companyAddress.trim() || null,
+      postal_code:  companyPostal.trim().toUpperCase() || null,
+      city:         companyCity.trim()    || null,
+    } : null;
+    onComplete({ lang, theme, name, company, onboardingData });
   };
 
-  const completeOnboarding = (withUpload) => {
-    const onboardingData = { lang, theme, name, situation, goals, referral, completed_at: new Date().toISOString() };
-    if (withUpload && parsed?.length > 0) {
-      const accName = bank ? BANKS.find(b => b.id === bank)?.label || "Geïmporteerd" : "Geïmporteerd";
-      const acc = { id: Date.now(), name: accName, iban: "—" };
-      const txs = parsed.map(tx => ({ ...tx, account: accName }));
-      onComplete({ lang, theme, name, transactions: txs, accounts: [acc], onboardingData });
-    } else {
-      onComplete({ lang, theme, name, onboardingData });
-    }
-  };
-
-  const TOTAL_STEPS = 5;
+  const TOTAL_STEPS = 3;
 
   const stepContainerStyle = {
     width: "100%", maxWidth: 560,
@@ -9189,162 +9106,54 @@ function Onboarding({ onComplete }) {
         </div>
       );
 
-      // ── Step 2: Referral ─────────────────────────────────────
-      case 2: return (
-        <div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: textColor, marginBottom: 6 }}>
-            {lang === "nl" ? "Hoe ben je bij ons terecht gekomen?" : "How did you find us?"}
-          </div>
-          <div style={{ fontSize: 14, color: mutedColor, marginBottom: 24 }}>
-            {lang === "nl" ? "Dit helpt ons te begrijpen hoe mensen ons vinden." : "This helps us understand how people discover us."}
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {REFERRAL_OPTIONS.map(opt => (
-              <button key={opt.id} onClick={() => setReferral(opt.id)}
-                style={{ padding: "14px 18px", borderRadius: 12, border: referral === opt.id ? `2px solid ${accentColor}` : `1px solid ${borderColor}`, background: referral === opt.id ? `${accentColor}12` : "transparent", cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", justifyContent: "space-between", transition: "all 0.15s" }}>
-                <span style={{ fontSize: 14, fontWeight: referral === opt.id ? 700 : 500, color: referral === opt.id ? accentColor : textColor }}>{opt.label}</span>
-                {referral === opt.id && <Check size={14} color={accentColor} />}
-              </button>
-            ))}
-          </div>
-        </div>
-      );
-
-      // ── Step 3: Situation + Goals + ToS ──────────────────────
-      case 3: return (
-        <div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: textColor, marginBottom: 6 }}>
-            {lang === "nl" ? "Wat is jouw situatie?" : "What's your situation?"}
-          </div>
-          <div style={{ fontSize: 14, color: mutedColor, marginBottom: 20 }}>
-            {lang === "nl" ? "Dit helpt ons de app beter op jou af te stemmen." : "This helps us tailor the app to you."}
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 24 }}>
-            {SITUATIONS.map(s => (
-              <button key={s.id} onClick={() => setSituation(s.id)}
-                style={{ padding: "16px 14px", borderRadius: 12, border: situation === s.id ? `2px solid ${accentColor}` : `1px solid ${borderColor}`, background: situation === s.id ? `${accentColor}12` : "transparent", cursor: "pointer", textAlign: "center", transition: "all 0.15s" }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: situation === s.id ? accentColor : textColor }}>{s.label}</div>
-              </button>
-            ))}
-          </div>
-
-          <div style={{ fontSize: 11, fontWeight: 700, color: mutedColor, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>
-            {lang === "nl" ? "Waar ga je Dynafy voor gebruiken?" : "What will you use Dynafy for?"}
-          </div>
-          <div style={{ fontSize: 12, color: mutedColor, marginBottom: 12 }}>
-            {lang === "nl" ? "Meerdere keuzes mogelijk" : "Multiple choices allowed"}
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            {GOALS_LIST.map(g => {
-              const selected = goals.includes(g.id);
-              return (
-                <button key={g.id} onClick={() => setGoals(prev => selected ? prev.filter(x => x !== g.id) : [...prev, g.id])}
-                  style={{ padding: "12px 14px", borderRadius: 10, border: selected ? `2px solid ${accentColor}` : `1px solid ${borderColor}`, background: selected ? `${accentColor}12` : "transparent", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s" }}>
-                  <span style={{ fontSize: 13, fontWeight: selected ? 700 : 500, color: selected ? accentColor : textColor, textAlign: "left" }}>{g.label}</span>
-                  {selected && <Check size={13} color={accentColor} style={{ marginLeft: "auto", flexShrink: 0 }}/>}
-                </button>
-              );
-            })}
-          </div>
-          <TosRow />
-        </div>
-      );
-
-      // ── Step 4: Upload ───────────────────────────────────────
-      case 4: return (
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-            <div style={{ fontSize: 24, fontWeight: 800, color: textColor }}>
-              {lang === "nl" ? "Upload je transacties" : "Upload your transactions"}
+      // ── Step 2: Bedrijf registreren OF overslaan ─────────────
+      case 2: {
+        const inp = { width:"100%", padding:"11px 14px", borderRadius:10, border:`1px solid ${borderColor}`, background: isDarkTheme ? "rgba(255,255,255,0.05)" : "#f8fafc", color:textColor, fontSize:14, outline:"none", boxSizing:"border-box", fontFamily:"inherit" };
+        const lbl = { fontSize:11, fontWeight:700, color:mutedColor, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.05em" };
+        return (
+          <div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: textColor, marginBottom: 6 }}>
+              {lang === "nl" ? "Registreer je bedrijf" : "Register your company"}
             </div>
-            <div style={{ position: "relative", display: "inline-flex" }} className="csv-info-wrap">
-              <button
-                onMouseEnter={e => e.currentTarget.nextSibling.style.display = "block"}
-                onMouseLeave={e => e.currentTarget.nextSibling.style.display = "none"}
-                onClick={e => { const t = e.currentTarget.nextSibling; t.style.display = t.style.display === "block" ? "none" : "block"; }}
-                style={{ width: 22, height: 22, borderRadius: "50%", border: `1.5px solid ${mutedColor}`, background: "transparent", color: mutedColor, fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 4 }}>
-                i
-              </button>
-              <div style={{ display: "none", position: "absolute", top: 28, left: "50%", transform: "translateX(-50%)", background: isDarkTheme ? "#1e293b" : "#fff", border: `1px solid ${borderColor}`, borderRadius: 12, padding: "12px 16px", width: 240, fontSize: 13, color: textColor, lineHeight: 1.6, zIndex: 100, boxShadow: "0 8px 24px rgba(0,0,0,0.15)" }}>
-                {lang === "nl"
-                  ? "Download via jouw bankportaal jouw transacties in een CSV-bestand en upload dit hier."
-                  : "Download your transactions as a CSV file from your bank portal and upload it here."}
+            <div style={{ fontSize: 14, color: mutedColor, marginBottom: 22, lineHeight: 1.6 }}>
+              {lang === "nl"
+                ? "Vul nu je bedrijfsgegevens in zodat je direct facturen kunt maken. Liever later? Klik onderaan op 'Sla over'."
+                : "Fill in your company details now so you can create invoices straight away. Prefer later? Click 'Skip' at the bottom."}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label style={lbl}>{lang === "nl" ? "Bedrijfsnaam" : "Company name"} *</label>
+                <input style={inp} value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder={lang === "nl" ? "Bijv. Jansen Consultancy" : "e.g. Jansen Consultancy"} />
+              </div>
+              <div>
+                <label style={lbl}>KvK</label>
+                <input style={inp} value={companyKvk} onChange={e => setCompanyKvk(e.target.value)} placeholder="12345678" />
+              </div>
+              <div>
+                <label style={lbl}>BTW</label>
+                <input style={inp} value={companyBtw} onChange={e => setCompanyBtw(e.target.value)} placeholder="NL123456789B01" />
+              </div>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label style={lbl}>IBAN</label>
+                <input style={inp} value={companyIban} onChange={e => setCompanyIban(e.target.value.toUpperCase())} placeholder="NL00BANK0000000000" />
+              </div>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label style={lbl}>{lang === "nl" ? "Adres" : "Address"}</label>
+                <input style={inp} value={companyAddress} onChange={e => setCompanyAddress(e.target.value)} placeholder={lang === "nl" ? "Straatnaam 12" : "Street 12"} />
+              </div>
+              <div>
+                <label style={lbl}>{lang === "nl" ? "Postcode" : "Postal code"}</label>
+                <input style={inp} value={companyPostal} onChange={e => setCompanyPostal(e.target.value.toUpperCase())} placeholder="1234 AB" />
+              </div>
+              <div>
+                <label style={lbl}>{lang === "nl" ? "Plaats" : "City"}</label>
+                <input style={inp} value={companyCity} onChange={e => setCompanyCity(e.target.value)} placeholder="Amsterdam" />
               </div>
             </div>
+            <TosRow />
           </div>
-          <div style={{ fontSize: 14, color: mutedColor, marginBottom: 24, lineHeight: 1.6 }}>
-            {lang === "nl" ? "Kies je bank en upload een CSV-export." : "Choose your bank and upload a CSV export."}
-          </div>
-
-          {/* Bank picker */}
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: mutedColor, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
-              {lang === "nl" ? "Jouw bank" : "Your bank"}
-            </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {BANKS.map(b => (
-                <button key={b.id} onClick={() => setBank(b.id)}
-                  style={{ padding: "8px 14px", borderRadius: 20, border: bank === b.id ? `1.5px solid ${accentColor}` : `1px solid ${borderColor}`, background: bank === b.id ? `${accentColor}12` : "transparent", cursor: "pointer", fontSize: 13, fontWeight: bank === b.id ? 700 : 500, color: bank === b.id ? accentColor : textColor }}>
-                  {b.label}
-                </button>
-              ))}
-            </div>
-            {bank && <div style={{ marginTop: 10, padding: "10px 14px", borderRadius: 10, background: isDarkTheme ? "rgba(79,142,247,0.08)" : "#eff6ff", border: `1px solid ${accentColor}30`, fontSize: 12, color: mutedColor }}>
-              {BANK_INSTRUCTIONS[bank]}
-            </div>}
-          </div>
-
-          {/* Upload area */}
-          {!parsed ? (
-            <div
-              onDragOver={e => { e.preventDefault(); setDragging(true); }}
-              onDragLeave={() => setDragging(false)}
-              onDrop={e => { e.preventDefault(); setDragging(false); handleFile(e.dataTransfer.files[0]); }}
-              onClick={() => inputRef.current?.click()}
-              style={{ border: `2px dashed ${dragging ? accentColor : borderColor}`, borderRadius: 16, padding: "32px 24px", textAlign: "center", cursor: "pointer", background: dragging ? `${accentColor}08` : "transparent", transition: "all 0.2s" }}>
-              <input ref={inputRef} type="file" accept=".csv,.txt" style={{ display: "none" }} onChange={e => handleFile(e.target.files[0])}/>
-              <Upload size={28} color={dragging ? accentColor : mutedColor} style={{ marginBottom: 10 }}/>
-              <div style={{ fontSize: 14, fontWeight: 600, color: textColor, marginBottom: 4 }}>
-                {lang === "nl" ? "Drop CSV hier of klik om te bladeren" : "Drop CSV here or click to browse"}
-              </div>
-              <div style={{ fontSize: 12, color: mutedColor }}>
-                {lang === "nl" ? "ING, ABN AMRO, Rabobank, Bunq, N26 · Automatisch herkend" : "ING, ABN AMRO, Rabobank, Bunq, N26 · Auto-detected"}
-              </div>
-            </div>
-          ) : (
-            <div style={{ padding: "16px", borderRadius: 14, background: isDarkTheme ? "rgba(34,197,94,0.08)" : "#f0fdf4", border: "1px solid rgba(34,197,94,0.3)", marginBottom: 4 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                <Check size={16} color="#22c55e"/>
-                <span style={{ fontSize: 14, fontWeight: 700, color: "#22c55e" }}>{fileName} — {parsed.length} {lang === "nl" ? "transacties" : "transactions"}</span>
-                <button onClick={() => { setParsed(null); setFileName(""); }} style={{ marginLeft: "auto", background: "none", border: "none", color: mutedColor, cursor: "pointer", fontSize: 12 }}>x {lang === "nl" ? "Verwijder" : "Remove"}</button>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 120, overflowY: "auto" }}>
-                {parsed.slice(0, 4).map((tx, i) => (
-                  <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: mutedColor, padding: "4px 0", borderBottom: `1px solid ${borderColor}` }}>
-                    <span>{(tx.counterparty || tx.description)?.slice(0, 30)}</span>
-                    <span style={{ color: tx.amount < 0 ? "#f43f5e" : "#22c55e", fontFamily: "monospace" }}>{fmt(tx.amount)}</span>
-                  </div>
-                ))}
-                {parsed.length > 4 && <div style={{ fontSize: 11, color: mutedColor, textAlign: "center", paddingTop: 4 }}>+{parsed.length - 4} {lang === "nl" ? "meer" : "more"}</div>}
-              </div>
-            </div>
-          )}
-
-          {/* Action buttons */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 20 }}>
-            {parsed?.length > 0 && (
-              <button onClick={() => completeOnboarding(true)}
-                style={{ width: "100%", padding: "15px", borderRadius: 50, background: `linear-gradient(135deg, ${accentColor}, ${accentColor}cc)`, border: "none", color: "#fff", fontSize: 15, fontWeight: 800, cursor: "pointer" }}>
-                {lang === "nl" ? `Start met ${parsed.length} transacties` : `Start with ${parsed.length} transactions`}
-              </button>
-            )}
-            <button onClick={() => setShowMockConfirm(true)}
-              style={{ width: "100%", padding: "13px", borderRadius: 50, background: "transparent", border: `1px solid ${borderColor}`, color: mutedColor, fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
-              {lang === "nl" ? "Sla over — gebruik voorbeelddata" : "Skip — use sample data"}
-            </button>
-          </div>
-        </div>
-      );
+        );
+      }
 
       default: return null;
     }
@@ -9353,9 +9162,7 @@ function Onboarding({ onComplete }) {
   const canAdvance = [
     true,                                        // step 0: lang + theme, always ok
     name.trim().length > 0,                      // step 1: name required
-    referral !== null,                           // step 2: referral required
-    situation !== null && tosAccepted,           // step 3: situation + ToS required
-    false,                                       // step 4: upload uses own buttons
+    false,                                       // step 2: bedrijf gebruikt eigen buttons (Registreer / Sla over)
   ][step];
 
   return (
@@ -9383,8 +9190,9 @@ function Onboarding({ onComplete }) {
       <div style={stepContainerStyle}>
         {renderStep()}
 
-        {/* Nav buttons (not shown on upload step) */}
-        {step < 4 && (
+        {/* Nav buttons — stap 0/1 gebruiken standaard Volgende; stap 2 (bedrijf)
+            heeft eigen Registreer + Sla over knoppen. */}
+        {step < 2 && (
           <div style={{ display: "flex", gap: 10, marginTop: 32 }}>
             {step > 0 && (
               <button onClick={() => setStep(s => s - 1)}
@@ -9398,23 +9206,28 @@ function Onboarding({ onComplete }) {
             </button>
           </div>
         )}
-        {step === 4 && step > 0 && (
-          <button onClick={() => setStep(s => s - 1)}
-            style={{ width: "100%", padding: "10px", marginTop: 10, borderRadius: 50, border: `1px solid ${borderColor}`, background: "transparent", color: mutedColor, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-            {t.back}
-          </button>
+        {step === 2 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 24 }}>
+            <button onClick={() => completeOnboarding(true)} disabled={!companyName.trim() || !tosAccepted}
+              style={{ width: "100%", padding: "15px", borderRadius: 50, background: (companyName.trim() && tosAccepted) ? `linear-gradient(135deg, ${accentColor}, ${accentColor}cc)` : (isDarkTheme ? "rgba(255,255,255,0.06)" : "#e2e6ed"), border: "none", color: (companyName.trim() && tosAccepted) ? "#fff" : mutedColor, fontSize: 15, fontWeight: 800, cursor: (companyName.trim() && tosAccepted) ? "pointer" : "default" }}>
+              {lang === "nl" ? "Registreer bedrijf →" : "Register company →"}
+            </button>
+            <button onClick={() => completeOnboarding(false)} disabled={!tosAccepted}
+              style={{ width: "100%", padding: "14px", borderRadius: 50,
+                background: tosAccepted ? (isDarkTheme ? "rgba(255,255,255,0.08)" : "#f1f5f9") : "transparent",
+                border: `1.5px solid ${tosAccepted ? (isDarkTheme ? "rgba(255,255,255,0.18)" : "#cbd5e1") : borderColor}`,
+                color: tosAccepted ? textColor : "rgba(148,163,184,0.5)",
+                fontSize: 14, fontWeight: 700,
+                cursor: tosAccepted ? "pointer" : "default", transition:"all 0.15s" }}>
+              {lang === "nl" ? "Sla over — later invullen via Mijn Bedrijf" : "Skip — fill in later via My Company"}
+            </button>
+            <button onClick={() => setStep(s => s - 1)}
+              style={{ width: "100%", padding: "10px", borderRadius: 50, background: "transparent", border: "none", color: mutedColor, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+              {t.back}
+            </button>
+          </div>
         )}
       </div>
-
-      {/* ── Mock-data confirmation (before skipping to sample data) ── */}
-      {showMockConfirm && (
-        <MockDataConfirmModal
-          lang={lang}
-          isDark={isDarkTheme}
-          onConfirm={() => { setShowMockConfirm(false); completeOnboarding(false); }}
-          onCancel={() => setShowMockConfirm(false)}
-        />
-      )}
     </div>
   );
 }
@@ -15387,192 +15200,8 @@ function AdminView({ isDark, user, onOwnPlanChange, onDataDeleted, onImpersonate
 // ─── MOCK DATA BANNER ─────────────────────────────────────────
 // Shown globally when useMockData === true so users always know
 // they're looking at demo figures. Two CTAs: upload own data, or wipe.
-function MockDataBanner({ lang = 'nl', onUpload, onWipe, isDark = true }) {
-  const text = lang === 'nl'
-    ? {
-        title: 'Je bekijkt testdata',
-        body: 'Deze cijfers zijn niet echt — ze zijn er alleen om de app te verkennen. Zodra je je eigen transacties uploadt, verdwijnen ze automatisch.',
-        upload: 'Upload eigen data',
-        wipe: 'Wis testdata',
-      }
-    : {
-        title: 'You are viewing sample data',
-        body: 'These numbers are not real — they are only here to help you explore the app. Upload your own transactions to replace them automatically.',
-        upload: 'Upload your data',
-        wipe: 'Clear sample data',
-      };
-
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 14,
-        flexWrap: 'wrap',
-        background: isDark
-          ? 'linear-gradient(135deg, rgba(245,158,11,0.18), rgba(249,115,22,0.12))'
-          : 'linear-gradient(135deg, rgba(245,158,11,0.12), rgba(249,115,22,0.08))',
-        border: '1px solid rgba(245,158,11,0.45)',
-        borderRadius: 14,
-        padding: '12px 18px',
-        margin: '0 0 16px',
-        fontSize: 13.5,
-        color: isDark ? '#fef3c7' : '#78350f',
-      }}
-    >
-      <span style={{ fontSize: 20, lineHeight: 1 }}>⚠️</span>
-      <div style={{ flex: '1 1 240px', lineHeight: 1.45 }}>
-        <strong style={{ fontWeight: 700, marginRight: 6 }}>{text.title}.</strong>
-        <span style={{ opacity: 0.9 }}>{text.body}</span>
-      </div>
-      <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-        <button
-          onClick={onUpload}
-          style={{
-            padding: '8px 14px',
-            borderRadius: 10,
-            border: 'none',
-            background: 'linear-gradient(135deg, #f59e0b, #f97316)',
-            color: '#fff',
-            fontSize: 12.5,
-            fontWeight: 700,
-            cursor: 'pointer',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {text.upload}
-        </button>
-        <button
-          onClick={onWipe}
-          style={{
-            padding: '8px 14px',
-            borderRadius: 10,
-            border: '1px solid rgba(245,158,11,0.5)',
-            background: 'transparent',
-            color: isDark ? '#fef3c7' : '#78350f',
-            fontSize: 12.5,
-            fontWeight: 600,
-            cursor: 'pointer',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {text.wipe}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ─── MOCK DATA CONFIRM MODAL ──────────────────────────────────
-// Blocks the onboarding "skip / use sample data" button so users
-// consciously acknowledge they're entering demo mode.
-function MockDataConfirmModal({ lang = 'nl', isDark = true, onConfirm, onCancel }) {
-  const text = lang === 'nl'
-    ? {
-        title: 'Je krijgt testdata te zien',
-        body: 'Dit zijn voorbeeldtransacties zodat je de app kunt verkennen zonder eerst iets te uploaden.',
-        points: [
-          'Verdwijnt zodra je je eigen transacties uploadt',
-          'Is handmatig te verwijderen via Instellingen → Testdata',
-          'Is alleen voor jou zichtbaar — niet voor andere gebruikers',
-        ],
-        confirm: 'Begrepen, ga door →',
-        cancel: 'Terug, ik upload zelf',
-      }
-    : {
-        title: 'You will see sample data',
-        body: 'These are example transactions so you can explore the app without uploading anything yet.',
-        points: [
-          'Disappears as soon as you upload your own transactions',
-          'Manually removable via Settings → Sample data',
-          'Only visible to you — not to other users',
-        ],
-        confirm: 'Got it, continue →',
-        cancel: 'Back, I\u2019ll upload my own',
-      };
-
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(3,7,18,0.72)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 10000,
-        padding: 20,
-        fontFamily: "'Outfit', system-ui, sans-serif",
-      }}
-    >
-      <div
-        style={{
-          background: isDark ? '#0b1220' : '#ffffff',
-          border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e2e6ed',
-          borderRadius: 24,
-          padding: '36px 34px',
-          maxWidth: 460,
-          width: '100%',
-          color: isDark ? '#e2e8f0' : '#0f172a',
-        }}
-      >
-        <div style={{ fontSize: 38, textAlign: 'center', marginBottom: 12 }}>📊</div>
-        <h2 style={{ fontSize: 20, fontWeight: 800, textAlign: 'center', margin: '0 0 10px' }}>{text.title}</h2>
-        <p style={{ fontSize: 14, textAlign: 'center', lineHeight: 1.55, color: isDark ? '#94a3b8' : '#475569', margin: '0 0 22px' }}>{text.body}</p>
-        <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 28px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {text.points.map((p, i) => (
-            <li key={i} style={{ display: 'flex', gap: 10, fontSize: 13.5, lineHeight: 1.5 }}>
-              <span style={{ color: '#22c55e', fontWeight: 700, flexShrink: 0 }}>✓</span>
-              <span style={{ color: isDark ? '#cbd5e1' : '#334155' }}>{p}</span>
-            </li>
-          ))}
-        </ul>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <button
-            onClick={onConfirm}
-            style={{
-              padding: '14px',
-              borderRadius: 50,
-              border: 'none',
-              background: 'linear-gradient(135deg, #f59e0b, #f97316)',
-              color: '#fff',
-              fontSize: 14,
-              fontWeight: 800,
-              cursor: 'pointer',
-            }}
-          >
-            {text.confirm}
-          </button>
-          <button
-            onClick={onCancel}
-            style={{
-              padding: '12px',
-              borderRadius: 50,
-              border: isDark ? '1px solid rgba(255,255,255,0.15)' : '1px solid #e2e6ed',
-              background: 'transparent',
-              color: isDark ? '#94a3b8' : '#475569',
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            {text.cancel}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── KOPPEL ACCEPT SCREEN: klant accepteert/weigert boekhouder-uitnodiging ──
-// Full-screen modal die opkomt zodra er een token in URL (?koppel=<token>) of
-// in localStorage staat én de gebruiker is ingelogd. Strict email-match: als
-// het ingelogde account niet de uitgenodigde mailbox is, forceren we logout
-// + opnieuw inloggen op het juiste account.
+// MockDataBanner + MockDataConfirmModal verwijderd (Ranny 2026-09-14):
+// geen testdata/voorbeelddata meer in de app.
 function KoppelAcceptScreen({ token, user, isDark, onDone }) {
   const C = { bg: isDark?'#07111f':'#f1f5f9', card: isDark?'#0f1e36':'#fff', border: isDark?'rgba(255,255,255,0.08)':'#e2e8f0', text: isDark?'#f1f5f9':'#0f172a', muted: isDark?'#64748b':'#94a3b8' };
 
@@ -15804,7 +15433,7 @@ export default function App() {
   const [uncatAlert, setUncatAlert] = useState(null);
   const [showGlobalUpload, setShowGlobalUpload] = useState(false);
   const [showAvatarMenu, setShowAvatarMenu] = useState(false);
-  const [confirmWipeMock, setConfirmWipeMock] = useState(false);
+  // confirmWipeMock state verwijderd — geen mock data meer
 
   // ── Plan hiërarchie ─────────────────────────────────────────
   const PLAN_LEVELS = { normal: 0, premium: 1, zzp_premium: 2, zzp_diamond: 3 };
@@ -15832,15 +15461,13 @@ export default function App() {
     ['dynafy_tx','dynafy_inv','dynafy_goals','dynafy_rec','dynafy_accounts','dynafy_mock'].forEach(k => localStorage.removeItem(k));
   };
 
-  // ── State — begint leeg/mock, Supabase vult aan na login ─────
-  const [transactions, setTransactions] = useState(MOCK_TRANSACTIONS);
-  const [useMockData, setUseMockData]   = useState(true);
+  // ── State — begint leeg, Supabase vult aan na login ─────
+  // useMockData verwijderd (Ranny 2026-09-14): geen voorbeelddata meer als
+  // landingservaring. Nieuwe users zien direct lege state.
+  const [transactions, setTransactions] = useState([]);
   const [sidebarOpen, setSidebarOpen]   = useState(true);
   const [unreadMsgCount, setUnreadMsgCount] = useState(0); // ongelezen berichten naar huidige user
-  const [accounts, setAccounts]         = useState([
-    { id: 1, name: "ING Betaalrekening", iban: "NL91 ABNA 0417 1643 00" },
-    { id: 2, name: "ABN AMRO", iban: "NL91 ABNA 0417 1643 00" },
-  ]);
+  const [accounts, setAccounts]         = useState([]);
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [theme, setTheme]               = useState(() => {
     // Lees thema synchronisch uit localStorage vóór eerste render
@@ -15858,7 +15485,7 @@ export default function App() {
     return 'cloud'; // Ranny 2026-07-28: Cloud default (was 'dark')
   });
   const [recurringItems, setRecurringItems] = useState([]);
-  const [appInvestments, setAppInvestments] = useState(MOCK_INVESTMENTS);
+  const [appInvestments, setAppInvestments] = useState([]);
   const [appGoals, setAppGoals]         = useState([
     { id: 1, name: "Noodfonds", target: 10000, current: 3500, deadline: "2026-12-31", color: "#22c55e" },
     { id: 2, name: "Vakantie",  target: 3000,  current: 1200, deadline: "2026-07-01", color: "#4f8ef7" },
@@ -16235,13 +15862,9 @@ export default function App() {
       setRoleLoaded(true);  // show login page immediately
       setClientLinks([]);
       setZzpProfile({ company_name:'', kvk:'', btw_number:'', iban:'', address:'', city:'', postal_code:'' });
-      setUseMockData(true);
-      setTransactions(MOCK_TRANSACTIONS);
-      setAppInvestments(MOCK_INVESTMENTS);
-      setAppGoals([
-        { id: 1, name: "Noodfonds", target: 10000, current: 3500, deadline: "2026-12-31", color: "#22c55e" },
-        { id: 2, name: "Vakantie",  target: 3000,  current: 1200, deadline: "2026-07-01", color: "#4f8ef7" },
-      ]);
+      setTransactions([]);
+      setAppInvestments([]);
+      setAppGoals([]);
       setRecurringItems([]);
       return;
     }
@@ -16258,7 +15881,6 @@ export default function App() {
       setAppInvestments([]);
       setAppGoals([]);
       setRecurringItems([]);
-      setUseMockData(false);
 
       try {
         // Perf-optimisatie (Ranny 2026-09-09): eerste-load burst was 8+ queries
@@ -16294,46 +15916,37 @@ export default function App() {
         const wasCleared = localStorage.getItem(`dynafy_${user.id}_cleared`) === 'true'
           || profileRes.data?.data_cleared === true;
 
+        // Mock-fallbacks verwijderd (Ranny 2026-09-14): geen voorbeelddata
+        // meer voor lege users — echte lege state ipv mock.
         if (txRes.data?.length) {
           setTransactions(txRes.data);
           lsSet(user.id, 'tx', txRes.data);
           prevTxIds.current = new Set(txRes.data.map(t => t.id));
-          // They have real data — clear both flags
+          // They have real data — clear the cleared-flag if it was ever set
           localStorage.removeItem(`dynafy_${user.id}_cleared`);
           if (profileRes.data?.data_cleared) {
             supabase.from('profiles').update({ data_cleared: false }).eq('id', user.id).then(() => {});
           }
-        } else if (!wasCleared) {
-          // Brand-new user with no data → show demo mock
-          setTransactions(MOCK_TRANSACTIONS);
-          setUseMockData(true);
         }
-        // If wasCleared → stay at [] / useMockData=false (true empty state)
+        // (geen else: bij empty tx blijft state [])
 
         if (invRes.error) console.error('[Dynafy] investments load error:', invRes.error);
         if (invRes.data?.length) {
           setAppInvestments(invRes.data);
           lsSet(user.id, 'inv', invRes.data);
           prevInvIds.current = new Set(invRes.data.map(i => i.id));
-        } else if (!wasCleared) {
-          // Supabase returned empty/error — try localStorage fallback
+        } else {
+          // Alleen localStorage-fallback voor cross-device sync (geen mock)
           const lsInv = lsGet(user.id, 'inv', null);
           if (lsInv?.length) {
             setAppInvestments(lsInv);
             prevInvIds.current = new Set(lsInv.map(i => i.id));
-          } else if (!txRes.data?.length) {
-            setAppInvestments(MOCK_INVESTMENTS);
           }
         }
         if (goalRes.data?.length) {
           setAppGoals(goalRes.data);
           lsSet(user.id, 'goals', goalRes.data);
           prevGoalIds.current = new Set(goalRes.data.map(g => g.id));
-        } else if (!goalRes.data?.length && !txRes.data?.length && !wasCleared) {
-          setAppGoals([
-            { id: 1, name: "Noodfonds", target: 10000, current: 3500, deadline: "2026-12-31", color: "#22c55e" },
-            { id: 2, name: "Vakantie",  target: 3000,  current: 1200, deadline: "2026-07-01", color: "#4f8ef7" },
-          ]);
         }
         if (recRes.data?.length) {
           setRecurringItems(recRes.data);
@@ -16347,10 +15960,9 @@ export default function App() {
         const savedAccts = lsGet(user.id, 'accounts', null);
         if (savedAccts !== null) {
           setAccounts(savedAccts);           // explicit localStorage entry → always use it
-        } else if (wasCleared) {
-          setAccounts([]);                   // cleared + never saved anything → empty
+        } else {
+          setAccounts([]);                   // geen mock-accounts meer voor nieuwe users
         }
-        // else: brand-new user, keep initial mock accounts
 
         // Update last_seen in profile (don't await — non-critical)
         supabase.from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', user.id);
@@ -16518,7 +16130,7 @@ export default function App() {
     if (!user) return;
     clearTimeout(syncTimers.current.tx);
     syncTimers.current.tx = setTimeout(async () => {
-      if (!dataReady.current || useMockData) return;
+      if (!dataReady.current) return;
       const currentIds = new Set(transactions.map(t => t.id));
       const deletedIds = [...prevTxIds.current].filter(id => !currentIds.has(id));
       prevTxIds.current = currentIds;
@@ -16529,14 +16141,14 @@ export default function App() {
       }
       if (deletedIds.length) await supabase.from('transactions').delete().in('id', deletedIds);
     }, 1500);
-  }, [transactions, useMockData]);
+  }, [transactions]);
 
   // Sync investments → Supabase (debounced 1.5s)
   useEffect(() => {
     if (!user) return;
     clearTimeout(syncTimers.current.inv);
     syncTimers.current.inv = setTimeout(async () => {
-      if (!dataReady.current || useMockData) return;
+      if (!dataReady.current) return;
       const currentIds = new Set(appInvestments.map(i => i.id));
       const deletedIds = [...prevInvIds.current].filter(id => !currentIds.has(id));
       prevInvIds.current = currentIds;
@@ -16547,14 +16159,14 @@ export default function App() {
       }
       if (deletedIds.length) await supabase.from('investments').delete().in('id', deletedIds);
     }, 1500);
-  }, [appInvestments, useMockData]);
+  }, [appInvestments]);
 
   // Sync goals → Supabase (debounced 1.5s)
   useEffect(() => {
     if (!user) return;
     clearTimeout(syncTimers.current.goals);
     syncTimers.current.goals = setTimeout(async () => {
-      if (!dataReady.current || useMockData) return;
+      if (!dataReady.current) return;
       const currentIds = new Set(appGoals.map(g => g.id));
       const deletedIds = [...prevGoalIds.current].filter(id => !currentIds.has(id));
       prevGoalIds.current = currentIds;
@@ -16565,7 +16177,7 @@ export default function App() {
       }
       if (deletedIds.length) await supabase.from('goals').delete().in('id', deletedIds);
     }, 1500);
-  }, [appGoals, useMockData]);
+  }, [appGoals]);
 
   // Persist accounts to localStorage (user-specific)
   // Persist accounts to localStorage — only after initial load to avoid overwriting with mock data
@@ -16578,7 +16190,7 @@ export default function App() {
     if (!user) return;
     clearTimeout(syncTimers.current.rec);
     syncTimers.current.rec = setTimeout(async () => {
-      if (!dataReady.current || useMockData) return;
+      if (!dataReady.current) return;
       if (recurringItems.length) {
         const { error } = await supabase.from('recurring').upsert(
           recurringItems.map(r => ({ ...r, user_id: user.id })),
@@ -16588,7 +16200,7 @@ export default function App() {
         else lsSet(user.id, 'rec', recurringItems);
       }
     }, 1500);
-  }, [recurringItems, useMockData]);
+  }, [recurringItems]);
 
   const isDark = theme === "dark";
   const isCloud = theme === "cloud";
@@ -16927,6 +16539,8 @@ export default function App() {
           setLang(opts.lang);
           setTheme(opts.theme);
           setUserName(opts.name);
+          // opts.transactions bestaat niet meer sinds ZZP-first onboarding (2026-09-08)
+          // — bewust ongewijzigd voor als de CSV-upload-stap ooit teruggezet wordt.
           if (opts.transactions) {
             setTransactions(opts.transactions);
             setUseMockData(false);
@@ -16935,11 +16549,22 @@ export default function App() {
             setAppGoals([]);
             runAiCategorization(opts.transactions);
           }
-          // Save name + onboarding data to profile and mark onboarded
+          // Save name + onboarding data + optional company to profile and mark onboarded
           if (user) {
             localStorage.setItem(`dynafy_${user.id}_onboarded`, 'true');
             // Sla ook op in user_metadata (cross-browser, zit in JWT)
             supabase.auth.updateUser({ data: { onboarded: true } }).catch(() => {});
+
+            // Bedrijfsgegevens (alleen als user 'Registreer bedrijf' koos)
+            const companyFields = opts.company ? {
+              company_name: opts.company.company_name,
+              kvk:          opts.company.kvk,
+              btw_number:   opts.company.btw_number,
+              iban:         opts.company.iban,
+              address:      opts.company.address,
+              postal_code:  opts.company.postal_code,
+              city:         opts.company.city,
+            } : {};
 
             // Controleer of profiel al bestaat — gebruik dan UPDATE (nooit upsert/insert)
             // zodat is_admin en plan NOOIT worden overschreven
@@ -16953,6 +16578,7 @@ export default function App() {
                 lang: opts.lang || 'nl',
                 last_seen: new Date().toISOString(),
                 onboarding_data: opts.onboardingData || null,
+                ...companyFields,
               }).eq('id', user.id);
             } else {
               // Nieuw account → volledig aanmaken (zonder is_admin/plan — die worden nooit client-side gezet)
@@ -16963,6 +16589,7 @@ export default function App() {
                 lang: opts.lang || 'nl',
                 last_seen: new Date().toISOString(),
                 onboarding_data: opts.onboardingData || null,
+                ...companyFields,
               });
             }
 
@@ -17657,27 +17284,11 @@ export default function App() {
 
         {/* Content */}
         <div style={{ padding: "0 20px 32px", position: "relative" }}>
-          {/* ── Mock data banner (shown while using demo data) ── */}
-          {useMockData && (
-            <MockDataBanner
-              lang={lang}
-              isDark={isDark}
-              onUpload={() => setShowGlobalUpload(true)}
-              onWipe={() => setConfirmWipeMock(true)}
-            />
-          )}
+          {/* Mock-data banner + confirm-wipe modal verwijderd (2026-09-14) */}
           {/* ── Global CSV Upload Modal ── */}
           {showGlobalUpload && <CSVModal onClose={() => setShowGlobalUpload(false)} onImport={(txs, importedAccounts) => {
-            if (useMockData) {
-              setTransactions(txs);
-              setAccounts(importedAccounts || []);
-              setUseMockData(false);
-              setAppInvestments([]);
-              setAppGoals([]);
-              setRecurringItems([]);
-            } else {
-              setTransactions(prev => [...txs, ...prev]);
-            }
+            setTransactions(prev => [...txs, ...prev]);
+            if (importedAccounts?.length) setAccounts(importedAccounts);
             setShowGlobalUpload(false);
             const uncat = txs.filter(tx => !tx.category || tx.category === "other").length;
             if (uncat > 0) setUncatAlert(uncat);
@@ -17708,73 +17319,22 @@ export default function App() {
             </div>
           )}
 
-          {/* ── Wipe Testdata confirmation ── */}
-          {confirmWipeMock && (
-            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 20 }}>
-              <div style={{ background: isDark ? "#111827" : "#ffffff", border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #e2e6ed", borderRadius: 24, padding: "36px 40px", maxWidth: 440, width: "100%", textAlign: "center" }}>
-                <div style={{ fontSize: 40, marginBottom: 12 }}>🧹</div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: isDark ? "#f1f5f9" : "#0f172a", marginBottom: 10 }}>
-                  {lang === "nl" ? "Testdata wissen?" : "Clear sample data?"}
-                </div>
-                <div style={{ fontSize: 14, color: isDark ? "#94a3b8" : "#475569", lineHeight: 1.6, marginBottom: 28 }}>
-                  {lang === "nl"
-                    ? "Je gaat naar een lege staat. Je kunt daarna je eigen transacties uploaden. Dit kan niet ongedaan worden gemaakt."
-                    : "You'll land in an empty state. You can then upload your own transactions. This cannot be undone."}
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  <button
-                    onClick={() => {
-                      setTransactions([]);
-                      setAccounts([]);
-                      setAppInvestments([]);
-                      setAppGoals([]);
-                      setRecurringItems([]);
-                      setUseMockData(false);
-                      if (user?.id) {
-                        try { localStorage.setItem(`dynafy_${user.id}_cleared`, 'true'); } catch {}
-                        supabase.from('profiles').update({ data_cleared: true }).eq('id', user.id).then(() => {});
-                      }
-                      setConfirmWipeMock(false);
-                    }}
-                    style={{ width: "100%", padding: "14px 0", borderRadius: 50, border: "none", background: "linear-gradient(135deg, #f59e0b, #f97316)", color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer" }}
-                  >
-                    {lang === "nl" ? "Ja, wis testdata" : "Yes, clear sample data"}
-                  </button>
-                  <button onClick={() => setConfirmWipeMock(false)}
-                    style={{ ...pillBtnGhost(isDark), width: "100%", padding: "12px 0", fontSize: 13 }}>
-                    {lang === "nl" ? "Annuleren" : "Cancel"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
           <div key={view} className="page-view">
           {view === "dashboard" && <WidgetDashboard transactions={transactions} t={t} isDark={isDark} accent={accent} accounts={accounts} investments={appInvestments} goals={appGoals} lang={lang} />}
           {view === "overzicht" && <Overzicht transactions={!hasAccess('premium') ? transactions.filter(tx => tx.date >= new Date(new Date().setMonth(new Date().getMonth()-3)).toISOString().slice(0,10)) : transactions} t={t} accounts={accounts} selectedAccount={selectedAccount} setSelectedAccount={setSelectedAccount} isDark={isDark} accent={accent} accentBg={accentBg} setTransactions={setTransactions} onUploadClick={() => setShowGlobalUpload(true)} lang={lang} dataLoaded={dataLoaded} userPlan={userPlan} onUpgrade={() => setView('pricing')} />}
           {view === "transactions" && <Transactions transactions={transactions} setTransactions={setTransactions} t={t} accounts={accounts} setAccounts={setAccounts} isDark={isDark} lang={lang} selectedAccount={selectedAccount} setSelectedAccount={setSelectedAccount} onImportDone={(txs, importedAccounts) => {
-                if (useMockData) {
-                  setTransactions(txs);
-                  setAccounts(importedAccounts || accounts.filter(a => !["ING Betaalrekening","ABN AMRO"].includes(a.name)));
-                  setUseMockData(false);
-                  setAppInvestments([]);
-                  setAppGoals([]);
-                  setRecurringItems([]);
-                } else {
-                  setTransactions(prev => [...txs, ...prev]);
-                }
-                // User uploaded real data — clear the "cleared" flags so mock never returns
+                setTransactions(prev => [...txs, ...prev]);
+                if (importedAccounts?.length) setAccounts(importedAccounts);
                 if (user?.id) {
                   localStorage.removeItem(`dynafy_${user.id}_cleared`);
                   supabase.from('profiles').update({ data_cleared: false }).eq('id', user.id).then(() => {});
                 }
-                // Show popup with count, let user decide
                 const uncat = txs.filter(tx => !tx.category || tx.category === "other").length;
                 if (uncat > 0) setUncatAlert(uncat);
               }} />}
           {view === "recurring" && <VasteLasten transactions={transactions} recurringItems={recurringItems} setRecurringItems={setRecurringItems} isDark={isDark} t={t} lang={lang} accounts={accounts} selectedAccount={selectedAccount} setSelectedAccount={setSelectedAccount} />}
-          {view === "investments" && <Investments key={resetKey} t={t} isDark={isDark} useMockData={useMockData} investments={appInvestments} setInvestments={setAppInvestments} lang={lang} allTransactions={transactions} goals={appGoals} setGoals={setAppGoals} userPlan={userPlan} onUpgrade={() => setView('pricing')} />}
-          {view === "goals" && <GoalsView key={resetKey} transactions={transactions} isDark={isDark} useMockData={useMockData} goals={appGoals} setGoals={setAppGoals} t={t} lang={lang} investments={appInvestments} />}
+          {view === "investments" && <Investments key={resetKey} t={t} isDark={isDark} investments={appInvestments} setInvestments={setAppInvestments} lang={lang} allTransactions={transactions} goals={appGoals} setGoals={setAppGoals} userPlan={userPlan} onUpgrade={() => setView('pricing')} />}
+          {view === "goals" && <GoalsView key={resetKey} transactions={transactions} isDark={isDark} goals={appGoals} setGoals={setAppGoals} t={t} lang={lang} investments={appInvestments} />}
           {view === "insights" && <Insights transactions={transactions} t={t} isDark={isDark} recurringItems={recurringItems} lang={lang} accounts={accounts} selectedAccount={selectedAccount} setSelectedAccount={setSelectedAccount} />}
           {view === "calibrate" && <Calibrate transactions={transactions} setTransactions={setTransactions} t={t} isDark={isDark} lang={lang} accounts={accounts} selectedAccount={selectedAccount} setSelectedAccount={setSelectedAccount} />}
           {view === "rekeningen" && <RekeningenView accounts={accounts} setAccounts={setAccounts} onDeleteAccount={handleDeleteAccount} isDark={isDark} t={t} onUploadClick={() => setShowGlobalUpload(true)} lang={lang} userPlan={userPlan} onUpgrade={() => setView('pricing')} hasCompanyProfile={!!(appCompanyProfiles.some(p => p.company_name?.trim()) || zzpProfile.company_name?.trim())} transactions={transactions} setTransactions={setTransactions} bankConnectEnabled={isBankConnectEnabled(user)} onBankConnect={() => setShowBankModal(true)} />}
@@ -17821,7 +17381,7 @@ export default function App() {
               setUseMockData(false);
             }
           }} />}
-          {view === "settings" && <SettingsView lang={lang} setLang={setLang} t={t} accounts={accounts} setAccounts={setAccounts} onDeleteAccount={handleDeleteAccount} theme={theme} setTheme={setTheme} isDark={isDark} user={user} userPlan={userPlan} currency={currency} onNameChange={(name) => setUserName(name)} setCurrency={(c) => { setCurrency(c); try { localStorage.setItem('dynafy_currency', c); } catch {} if (user?.id) supabase.from('profiles').update({ currency: c }).eq('id', user.id).then(() => {}); }} onNavigate={setView} useMockData={useMockData} onWipeMock={() => setConfirmWipeMock(true)} onReset={async (sel) => {
+          {view === "settings" && <SettingsView lang={lang} setLang={setLang} t={t} accounts={accounts} setAccounts={setAccounts} onDeleteAccount={handleDeleteAccount} theme={theme} setTheme={setTheme} isDark={isDark} user={user} userPlan={userPlan} currency={currency} onNameChange={(name) => setUserName(name)} setCurrency={(c) => { setCurrency(c); try { localStorage.setItem('dynafy_currency', c); } catch {} if (user?.id) supabase.from('profiles').update({ currency: c }).eq('id', user.id).then(() => {}); }} onNavigate={setView} onReset={async (sel) => {
             const all = sel.includes("all");
             // Delete from Supabase IMMEDIATELY (no debounce) so refresh won't bring back old data
             const deletes = [];
