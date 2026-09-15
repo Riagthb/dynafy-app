@@ -9970,6 +9970,94 @@ function ClientEditModal({ isDark, client, onClose, onSaved }) {
   );
 }
 
+// ─── FACTUURNUMMER-INSTELLINGEN VIEW ───────────────────────────
+// Ranny 2026-09-15: verplaatst uit MijnBedrijfView naar eigen sub-view
+// onder ZZP Modus. Zelfstandige save-flow (schrijft direct naar
+// profiles-tabel). Toont live preview via buildInvoiceNumber helper.
+function FactuurInstellingenView({ isDark, user, zzpProfile }) {
+  const [fmt,    setFmt]    = useState(zzpProfile?.invoice_number_format || 'YYYY-NNNN');
+  const [prefix, setPrefix] = useState(zzpProfile?.invoice_number_prefix || '');
+  const [nextNr, setNextNr] = useState(zzpProfile?.invoice_number_next ?? 1);
+  const [saving, setSaving] = useState(false);
+  const [saved,  setSaved]  = useState(false);
+  const [err,    setErr]    = useState('');
+
+  useEffect(() => {
+    setFmt(zzpProfile?.invoice_number_format || 'YYYY-NNNN');
+    setPrefix(zzpProfile?.invoice_number_prefix || '');
+    setNextNr(zzpProfile?.invoice_number_next ?? 1);
+  }, [zzpProfile?.invoice_number_format, zzpProfile?.invoice_number_prefix, zzpProfile?.invoice_number_next]);
+
+  const C = { card: isDark?'#0f1e36':'#fff', border: isDark?'rgba(255,255,255,0.08)':'#e2e8f0', text: isDark?'#f1f5f9':'#0f172a', muted: isDark?'#64748b':'#94a3b8', input: isDark?'rgba(255,255,255,0.06)':'#f8fafc' };
+  const inputStyle = { width:'100%', padding:'10px 12px', borderRadius:8, border:`1px solid ${C.border}`, background:C.input, color:C.text, fontSize:14, outline:'none', boxSizing:'border-box', fontFamily:'inherit' };
+  const labelStyle = { fontSize:11, fontWeight:700, color:C.muted, display:'block', marginBottom:5, textTransform:'uppercase', letterSpacing:'0.05em' };
+
+  const previewRes = buildInvoiceNumber({ format: fmt, prefix, next: nextNr, invoiceDate: new Date().toISOString().slice(0,10) });
+
+  const handleSave = async () => {
+    if (!user?.id) return;
+    setErr(''); setSaving(true);
+    const { error } = await supabase.from('profiles').update({
+      invoice_number_format: fmt,
+      invoice_number_prefix: prefix || null,
+      invoice_number_next:   Math.max(1, parseInt(nextNr) || 1),
+    }).eq('id', user.id);
+    if (error) { setErr(error.message || 'Opslaan mislukt'); setSaving(false); return; }
+    setSaved(true); setSaving(false);
+    setTimeout(() => setSaved(false), 2200);
+  };
+
+  return (
+    <div style={{ padding:'28px 32px', maxWidth:720, margin:'0 auto' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:24 }}>
+        <div style={{ width:42, height:42, borderRadius:12, background:'linear-gradient(135deg,#4f8ef7,#6366f1)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <FileText size={20} color="#fff"/>
+        </div>
+        <div>
+          <div style={{ fontSize:20, fontWeight:800, color:C.text }}>Factuurnummer</div>
+          <div style={{ fontSize:13, color:C.muted }}>Format, prefix en startnummer — geldt voor dit bedrijfsprofiel</div>
+        </div>
+      </div>
+
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:16, padding:24, display:'flex', flexDirection:'column', gap:18 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
+          <div>
+            <label style={labelStyle}>Format</label>
+            <select style={inputStyle} value={fmt} onChange={e => setFmt(e.target.value)}>
+              {INVOICE_NUMBER_FORMATS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={labelStyle}>Prefix (optioneel)</label>
+            <input style={inputStyle} placeholder="Bijv. INV- of F-" value={prefix} onChange={e => setPrefix(e.target.value)} />
+          </div>
+        </div>
+
+        <div>
+          <label style={labelStyle}>Volgende factuurnummer</label>
+          <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+            <input type="number" min={1} style={{ ...inputStyle, width:140 }} value={nextNr} onChange={e => setNextNr(Math.max(1, parseInt(e.target.value)||1))} />
+            <span style={{ fontSize:13, color:C.muted }}>bijv. bij migratie vanuit ander programma</span>
+          </div>
+          <div style={{ fontSize:11, color:C.muted, marginTop:4 }}>Als je bij 158 stopte in je vorige programma, zet hier 158.</div>
+        </div>
+
+        <div style={{ padding:'14px 16px', borderRadius:10, background:isDark?'rgba(79,142,247,0.08)':'rgba(79,142,247,0.05)', border:`1px solid ${isDark?'rgba(79,142,247,0.15)':'rgba(79,142,247,0.15)'}` }}>
+          <div style={{ fontSize:11, fontWeight:700, color:'#4f8ef7', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:4 }}>Preview volgende factuur</div>
+          <div style={{ fontSize:20, fontWeight:800, color:C.text, fontFamily:'monospace' }}>{previewRes.number}</div>
+        </div>
+
+        {err && <div style={{ padding:'10px 14px', borderRadius:10, background:'rgba(244,63,94,0.1)', border:'1px solid rgba(244,63,94,0.3)', color:'#f43f5e', fontSize:13 }}>{err}</div>}
+
+        <button onClick={handleSave} disabled={saving}
+          style={{ padding:'13px 0', borderRadius:12, border:'none', cursor: saving?'wait':'pointer', background: saved?'linear-gradient(135deg,#22c55e,#16a34a)':'linear-gradient(135deg,#f59e0b,#f97316)', color:'#fff', fontSize:15, fontWeight:700, transition:'background 0.3s' }}>
+          {saved ? '✓ Opgeslagen' : saving ? 'Opslaan...' : 'Opslaan'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── FACTUREN VIEW (Native Dynafy) ─────────────────────────────
 function FacturenView({ isDark, user, zzpProfile, onNavigate, activeCompanyId, userPlan = 'normal', onUpgrade }) {
   const isMobile = useIsMobile();
@@ -13893,51 +13981,7 @@ function MijnBedrijfView({ isDark, user, profile, onSave, onNavigate, userPlan, 
           <div style={{ fontSize:11, color:C.muted, marginTop:4 }}>Wordt automatisch ingevuld bij nieuwe facturen.</div>
         </div>
 
-        {/* ── Factuurnummer-instellingen (Ranny 2026-07-28) ── */}
-        {(() => {
-          const fmt    = form.invoice_number_format || 'YYYY-NNNN';
-          const prefix = form.invoice_number_prefix || '';
-          const nextNr = form.invoice_number_next ?? 1;
-          const previewRes = buildInvoiceNumber({ format: fmt, prefix, next: nextNr, invoiceDate: new Date().toISOString().slice(0,10) });
-          return (
-            <div style={{ borderRadius:12, border:`1px solid ${C.border}`, padding:'16px 18px', background:isDark?'rgba(255,255,255,0.02)':'#f8fafc' }}>
-              <div style={{ fontSize:14, fontWeight:700, color:C.text, marginBottom:12 }}>Factuurnummer</div>
-
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:12 }}>
-                <div>
-                  <label style={labelStyle}>Format</label>
-                  <select style={inputStyle}
-                    value={fmt}
-                    onChange={e => set('invoice_number_format', e.target.value)}>
-                    {INVOICE_NUMBER_FORMATS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={labelStyle}>Prefix (optioneel)</label>
-                  <input style={inputStyle} placeholder="Bijv. INV- of F-"
-                    value={prefix}
-                    onChange={e => set('invoice_number_prefix', e.target.value)} />
-                </div>
-              </div>
-
-              <div>
-                <label style={labelStyle}>Volgende factuurnummer</label>
-                <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-                  <input type="number" min={1} style={{ ...inputStyle, width:140 }}
-                    value={nextNr}
-                    onChange={e => set('invoice_number_next', Math.max(1, parseInt(e.target.value)||1))} />
-                  <span style={{ fontSize:13, color:C.muted }}>bijv. bij migratie vanuit ander programma</span>
-                </div>
-                <div style={{ fontSize:11, color:C.muted, marginTop:4 }}>Als je bij 158 stopte in je vorige programma, zet hier 158.</div>
-              </div>
-
-              <div style={{ marginTop:14, padding:'12px 14px', borderRadius:10, background:isDark?'rgba(79,142,247,0.08)':'rgba(79,142,247,0.05)', border:`1px solid ${isDark?'rgba(79,142,247,0.15)':'rgba(79,142,247,0.15)'}` }}>
-                <div style={{ fontSize:11, fontWeight:700, color:'#4f8ef7', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:4 }}>Preview volgende factuur</div>
-                <div style={{ fontSize:18, fontWeight:800, color:C.text, fontFamily:'monospace' }}>{previewRes.number}</div>
-              </div>
-            </div>
-          );
-        })()}
+        {/* Factuurnummer-instellingen verplaatst naar eigen view ZZP Modus → Factuurnummer (2026-09-15) */}
 
         {/* ── Machtiging ── */}
         <div style={{ borderRadius:12, border:`1px solid ${C.border}`, overflow:'hidden' }}>
@@ -14100,22 +14144,7 @@ function MijnBedrijfView({ isDark, user, profile, onSave, onNavigate, userPlan, 
           )}
         </div>
 
-        {/* Moneybird koppeling — minst belangrijk, onderaan */}
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 18px', borderRadius:12, border:`1px solid ${C.border}`, background:isDark?'rgba(255,255,255,0.02)':'#f8fafc' }}>
-          <div>
-            <div style={{ fontSize:14, fontWeight:700, color:C.text, display:'flex', alignItems:'center', gap:8 }}>
-              <RefreshCw size={15} color="#4f8ef7" /> Moneybird koppeling
-            </div>
-            <div style={{ fontSize:12, color:C.muted, marginTop:2 }}>Synchroniseer facturen via Moneybird</div>
-          </div>
-          <button onClick={() => {
-            const newVal = !(form.moneybird_enabled);
-            set('moneybird_enabled', newVal);
-            if (newVal) setMbPopup(true);
-          }} style={{ width:46, height:26, borderRadius:13, border:'none', cursor:'pointer', background:form.moneybird_enabled?'#22c55e':'rgba(100,116,139,0.3)', position:'relative', transition:'background 0.2s', flexShrink:0 }}>
-            <div style={{ width:20, height:20, borderRadius:'50%', background:'#fff', position:'absolute', top:3, left:form.moneybird_enabled?23:3, transition:'left 0.2s', boxShadow:'0 1px 4px rgba(0,0,0,0.2)' }}/>
-          </button>
-        </div>
+        {/* Moneybird koppeling → gearchiveerd in src/lib/_archive/moneybird-integration.md (2026-09-15) */}
 
         {/* Opslaan + verwijder */}
         <div style={{ display:'flex', gap:10 }}>
@@ -16266,8 +16295,9 @@ export default function App() {
       children: [
         { id: "zzp-dashboard", icon: BarChart2, label: "ZZP Dashboard" },
         { id: "mijn-bedrijf",  icon: Building2,    label: "Mijn Bedrijf" },
-        { id: "facturen",      icon: FileText,     label: lang === "nl" ? "Facturen" : "Invoices" },
-        { id: "kosten",        icon: TrendingDown, label: lang === "nl" ? "Kosten" : "Expenses" },
+        { id: "facturen",             icon: FileText,     label: lang === "nl" ? "Facturen" : "Invoices" },
+        { id: "factuur-instellingen", icon: Sliders,      label: lang === "nl" ? "Factuurnummer" : "Invoice numbering" },
+        { id: "kosten",               icon: TrendingDown, label: lang === "nl" ? "Kosten" : "Expenses" },
         { id: "btw-aangifte",  icon: Calendar,     label: lang === "nl" ? "BTW Aangifte" : "VAT Return" },
         { id: "bonnen",        icon: Upload,        label: lang === "nl" ? "Bonnen" : "Receipts" },
         { id: "berichten",     icon: Mail,          label: lang === "nl" ? "Berichten" : "Messages" },
@@ -17363,8 +17393,9 @@ export default function App() {
               throw error;
             }
           }} onNavigate={setView} userPlan={userPlan} accounts={accounts} onCompanyChange={(profiles, id) => { setAppCompanyProfiles(profiles); setActiveCompanyId(id); }} />}
-          {view === "facturen"     && <FacturenView isDark={isDark} user={user} zzpProfile={appCompanyProfiles.find(p => p._id === activeCompanyId) || zzpProfile} onNavigate={setView} activeCompanyId={activeCompanyId} userPlan={userPlan} onUpgrade={() => setView('pricing')} />}
-          {view === "kosten"       && <KostenView isDark={isDark} user={user} activeCompanyId={activeCompanyId} hasActiveCompany={!!(appCompanyProfiles.some(p => p.company_name?.trim()) || zzpProfile?.company_name?.trim())} onNavigate={setView} />}
+          {view === "facturen"            && <FacturenView isDark={isDark} user={user} zzpProfile={appCompanyProfiles.find(p => p._id === activeCompanyId) || zzpProfile} onNavigate={setView} activeCompanyId={activeCompanyId} userPlan={userPlan} onUpgrade={() => setView('pricing')} />}
+          {view === "factuur-instellingen" && <FactuurInstellingenView isDark={isDark} user={user} zzpProfile={appCompanyProfiles.find(p => p._id === activeCompanyId) || zzpProfile} />}
+          {view === "kosten"              && <KostenView isDark={isDark} user={user} activeCompanyId={activeCompanyId} hasActiveCompany={!!(appCompanyProfiles.some(p => p.company_name?.trim()) || zzpProfile?.company_name?.trim())} onNavigate={setView} />}
           {view === "bonnen"       && <BonnenView isDark={isDark} user={user} activeCompanyId={activeCompanyId} userPlan={userPlan} onUpgrade={() => setView('pricing')} />}
           {view === "berichten"    && <BerichtenView isDark={isDark} user={user} />}
           {view === "btw-aangifte" && <BTWAangifteView isDark={isDark} user={user} activeCompanyId={activeCompanyId} userPlan={userPlan} />}
