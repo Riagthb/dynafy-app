@@ -10059,7 +10059,16 @@ function FactuurInstellingenView({ isDark, user, zzpProfile }) {
 }
 
 // ─── FACTUREN VIEW (Native Dynafy) ─────────────────────────────
-function FacturenView({ isDark, user, zzpProfile, onNavigate, activeCompanyId, userPlan = 'normal', onUpgrade }) {
+function FacturenView({ isDark, user, zzpProfile, allProfiles, onNavigate, activeCompanyId, userPlan = 'normal', onUpgrade }) {
+  // Bug-fix Ranny 2026-09-16: PDF/mail moeten het bedrijfsprofiel gebruiken
+  // dat aan de factuur hangt (company_profile_id), niet het momenteel-
+  // geselecteerde profiel. Anders zie je bij switchen tussen bedrijven de
+  // verkeerde IBAN/NAW op oude facturen.
+  const profileForInvoice = (inv) => {
+    const cid = inv?.company_profile_id || 'main';
+    const found = (allProfiles || []).find(p => (p._id || 'main') === cid);
+    return found || zzpProfile;
+  };
   const isMobile = useIsMobile();
   const [invoices, setInvoices] = useState([]);
   const [clients, setClients] = useState([]);
@@ -10208,7 +10217,7 @@ function FacturenView({ isDark, user, zzpProfile, onNavigate, activeCompanyId, u
     const ids = [...selected];
     ids.forEach((id, idx) => {
       const inv = invoices.find(i => i.id === id);
-      if (inv) setTimeout(() => printInvoicePDF(inv, zzpProfile), idx * 600);
+      if (inv) setTimeout(() => printInvoicePDF(inv, profileForInvoice(inv)), idx * 600);
     });
   };
 
@@ -10369,7 +10378,7 @@ function FacturenView({ isDark, user, zzpProfile, onNavigate, activeCompanyId, u
                     </div>
                     <div style={{ display:'flex', gap:6, flexShrink:0 }}>
                       <button onClick={() => setMailInvoice(inv)} title="Verzenden" style={{ width:36, height:36, borderRadius:9, border:`1px solid ${C.border}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#22c55e' }}><Mail size={14}/></button>
-                      <button onClick={() => printInvoicePDF(inv, zzpProfile)} title="PDF" style={{ width:36, height:36, borderRadius:9, border:`1px solid ${C.border}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:C.muted }}><Download size={14}/></button>
+                      <button onClick={() => printInvoicePDF(inv, profileForInvoice(inv))} title="PDF" style={{ width:36, height:36, borderRadius:9, border:`1px solid ${C.border}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:C.muted }}><Download size={14}/></button>
                       {STATUS_NEXT[inv.status] && <button onClick={() => updateStatus(inv, STATUS_NEXT[inv.status])} title={`→ ${STATUS_LABEL[STATUS_NEXT[inv.status]]}`} style={{ width:36, height:36, borderRadius:9, border:`1px solid ${C.border}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#22c55e' }}><Check size={14}/></button>}
                       <button onClick={() => deleteInvoice(inv)} title="Verwijderen" style={{ width:36, height:36, borderRadius:9, border:'1px solid rgba(244,63,94,0.3)', background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#f43f5e' }}><Trash2 size={14}/></button>
                     </div>
@@ -10407,7 +10416,7 @@ function FacturenView({ isDark, user, zzpProfile, onNavigate, activeCompanyId, u
                 {/* Actions */}
                 <div style={{ display:'flex', gap:4 }}>
                   <button onClick={() => setMailInvoice(inv)} title="Verzenden" style={{ width:28, height:28, borderRadius:7, border:`1px solid ${C.border}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#22c55e' }}><Mail size={12}/></button>
-                  <button onClick={() => printInvoicePDF(inv, zzpProfile)} title="PDF" style={{ width:28, height:28, borderRadius:7, border:`1px solid ${C.border}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:C.muted }}><Download size={12}/></button>
+                  <button onClick={() => printInvoicePDF(inv, profileForInvoice(inv))} title="PDF" style={{ width:28, height:28, borderRadius:7, border:`1px solid ${C.border}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:C.muted }}><Download size={12}/></button>
                   {STATUS_NEXT[inv.status] && <button onClick={() => updateStatus(inv, STATUS_NEXT[inv.status])} title={`→ ${STATUS_LABEL[STATUS_NEXT[inv.status]]}`} style={{ width:28, height:28, borderRadius:7, border:`1px solid ${C.border}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#22c55e' }}><Check size={12}/></button>}
                   <button onClick={() => deleteInvoice(inv)} title="Verwijderen" style={{ width:28, height:28, borderRadius:7, border:'1px solid rgba(244,63,94,0.3)', background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#f43f5e' }}><Trash2 size={12}/></button>
                 </div>
@@ -13787,6 +13796,10 @@ function MijnBedrijfView({ isDark, user, profile, onSave, onNavigate, userPlan, 
           .eq('id', user.id);
         if (error) throw error;
       }
+      // Bug-fix Ranny 2026-09-16: sync App-level profiles-array na save,
+      // anders leest FacturenView/PDF-generator een stale profile (oude IBAN
+      // etc.) tot een volgende page-refresh.
+      onCompanyChange?.(updated, updated[activeIdx]?._id || 'main');
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (err) {
