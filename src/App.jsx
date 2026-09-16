@@ -17406,7 +17406,7 @@ export default function App() {
               throw error;
             }
           }} onNavigate={setView} userPlan={userPlan} accounts={accounts} onCompanyChange={(profiles, id) => { setAppCompanyProfiles(profiles); setActiveCompanyId(id); }} />}
-          {view === "facturen"            && <FacturenView isDark={isDark} user={user} zzpProfile={appCompanyProfiles.find(p => p._id === activeCompanyId) || zzpProfile} onNavigate={setView} activeCompanyId={activeCompanyId} userPlan={userPlan} onUpgrade={() => setView('pricing')} />}
+          {view === "facturen"            && <FacturenView isDark={isDark} user={user} zzpProfile={appCompanyProfiles.find(p => p._id === activeCompanyId) || zzpProfile} allProfiles={appCompanyProfiles} onNavigate={setView} activeCompanyId={activeCompanyId} userPlan={userPlan} onUpgrade={() => setView('pricing')} />}
           {view === "factuur-instellingen" && <FactuurInstellingenView isDark={isDark} user={user} zzpProfile={appCompanyProfiles.find(p => p._id === activeCompanyId) || zzpProfile} />}
           {view === "kosten"              && <KostenView isDark={isDark} user={user} activeCompanyId={activeCompanyId} hasActiveCompany={!!(appCompanyProfiles.some(p => p.company_name?.trim()) || zzpProfile?.company_name?.trim())} onNavigate={setView} />}
           {view === "bonnen"       && <BonnenView isDark={isDark} user={user} activeCompanyId={activeCompanyId} userPlan={userPlan} onUpgrade={() => setView('pricing')} />}
